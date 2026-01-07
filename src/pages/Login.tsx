@@ -28,37 +28,54 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password: loginPassword,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
 
-    if (error) {
-      toast.error('Erro ao fazer login: ' + error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      // Check if user is approved
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_approved')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profile && !profile.is_approved) {
-        await supabase.auth.signOut();
-        toast.error('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('E-mail ou senha incorretos. Verifique suas credenciais ou crie uma conta.');
+        } else {
+          toast.error('Erro ao fazer login: ' + error.message);
+        }
         setLoading(false);
         return;
       }
 
-      toast.success('Login realizado com sucesso!');
-      navigate('/');
-    }
+      if (data.user) {
+        // Check if user is approved
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_approved')
+          .eq('id', data.user.id)
+          .single();
 
-    setLoading(false);
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          toast.error('Erro ao verificar perfil. Tente novamente.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        if (profile && !profile.is_approved) {
+          toast.error('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        toast.success('Login realizado com sucesso!');
+        navigate('/');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.error('Erro inesperado ao fazer login. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -81,54 +98,68 @@ const Login = () => {
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: signupEmail,
-      password: signupPassword,
-      options: {
-        data: {
-          full_name: fullName,
-          role_in_company: roleInCompany,
-        },
-      },
-    });
-
-    if (error) {
-      toast.error('Erro ao criar conta: ' + error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      // Create profile
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
+    try {
+      const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
-        full_name: fullName,
-        role_in_company: roleInCompany,
-        is_approved: signupEmail === 'f.durao@cyberenergia.com',
-        is_admin: signupEmail === 'f.durao@cyberenergia.com',
+        password: signupPassword,
+        options: {
+          data: {
+            full_name: fullName,
+            role_in_company: roleInCompany,
+          },
+        },
       });
 
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
+      if (error) {
+        if (error.message.includes('already registered')) {
+          toast.error('Este e-mail já está cadastrado. Tente fazer login.');
+        } else {
+          toast.error('Erro ao criar conta: ' + error.message);
+        }
+        setLoading(false);
+        return;
       }
 
-      await supabase.auth.signOut();
-      
-      if (signupEmail === 'f.durao@cyberenergia.com') {
-        toast.success('Conta de administrador criada! Faça login para continuar.');
-      } else {
-        toast.success('Solicitação enviada! Aguarde a aprovação do administrador.');
+      if (data.user) {
+        const isAdminEmail = signupEmail === 'f.durao@cyberenergia.com';
+        
+        // Create profile
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          email: signupEmail,
+          full_name: fullName,
+          role_in_company: roleInCompany,
+          is_approved: isAdminEmail,
+          is_admin: isAdminEmail,
+        });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          // Profile might already exist due to trigger, that's ok
+        }
+
+        // Sign out after signup
+        await supabase.auth.signOut();
+        
+        if (isAdminEmail) {
+          toast.success('Conta de administrador criada! Faça login para continuar.');
+        } else {
+          toast.success('Solicitação enviada! Aguarde a aprovação do administrador.');
+        }
+        
+        // Clear form
+        setSignupEmail('');
+        setSignupPassword('');
+        setSignupConfirmPassword('');
+        setFullName('');
+        setRoleInCompany('');
       }
-      
-      setSignupEmail('');
-      setSignupPassword('');
-      setSignupConfirmPassword('');
-      setFullName('');
-      setRoleInCompany('');
+    } catch (err) {
+      console.error('Signup error:', err);
+      toast.error('Erro inesperado ao criar conta. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -161,6 +192,7 @@ const Login = () => {
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -172,6 +204,7 @@ const Login = () => {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
@@ -184,6 +217,9 @@ const Login = () => {
                     'Entrar'
                   )}
                 </Button>
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  Não tem conta? Clique em "Solicitar Acesso" acima.
+                </p>
               </form>
             </TabsContent>
             
@@ -198,6 +234,7 @@ const Login = () => {
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -209,6 +246,7 @@ const Login = () => {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -220,6 +258,7 @@ const Login = () => {
                     value={roleInCompany}
                     onChange={(e) => setRoleInCompany(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -231,6 +270,7 @@ const Login = () => {
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -242,6 +282,7 @@ const Login = () => {
                     value={signupConfirmPassword}
                     onChange={(e) => setSignupConfirmPassword(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
