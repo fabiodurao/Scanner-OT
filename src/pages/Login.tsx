@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Zap, Loader2, Mail, CheckCircle } from 'lucide-react';
+import { Zap, Loader2, Mail, CheckCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -60,22 +60,28 @@ const Login = () => {
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
-          // Profile might not exist yet - create it
+          
+          // Profile doesn't exist - try to create it
           if (profileError.code === 'PGRST116') {
+            const isAdmin = data.user.email === 'f.durao@cyberenergia.com';
             const { error: createError } = await supabase.from('profiles').insert({
               id: data.user.id,
               email: data.user.email || loginEmail,
               full_name: data.user.user_metadata?.full_name || 'Usuário',
               role_in_company: data.user.user_metadata?.role_in_company || 'Não informado',
-              is_approved: data.user.email === 'f.durao@cyberenergia.com',
-              is_admin: data.user.email === 'f.durao@cyberenergia.com',
+              is_approved: isAdmin,
+              is_admin: isAdmin,
             });
             
             if (createError) {
               console.error('Error creating profile:', createError);
+              toast.error('Erro ao criar perfil. Tente novamente.');
+              await supabase.auth.signOut();
+              setLoading(false);
+              return;
             }
             
-            if (data.user.email === 'f.durao@cyberenergia.com') {
+            if (isAdmin) {
               toast.success('Login realizado com sucesso!');
               navigate('/');
             } else {
@@ -104,8 +110,7 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      toast.error('Erro inesperado ao fazer login. Tente novamente.');
-    } finally {
+      toast.error('Erro ao fazer login. Verifique suas credenciais.');
       setLoading(false);
     }
   };
@@ -162,8 +167,6 @@ const Login = () => {
       }
 
       // User created successfully - show confirmation screen
-      // Don't call signOut here as it causes issues
-      // Just show the confirmation screen
       setConfirmationEmail(signupEmail);
       setShowEmailConfirmation(true);
       setLoading(false);
@@ -206,8 +209,15 @@ const Login = () => {
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                Clique no link enviado para seu e-mail para ativar sua conta. 
-                Após confirmar, volte aqui e faça login.
+                <strong>Passo 1:</strong> Clique no link enviado para seu e-mail para confirmar sua conta.
+              </AlertDescription>
+            </Alert>
+
+            <Alert className="border-amber-200 bg-amber-50">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Passo 2:</strong> Após confirmar o e-mail, um administrador precisará aprovar seu acesso. 
+                Entre em contato com o administrador do sistema para agilizar a liberação.
               </AlertDescription>
             </Alert>
 
@@ -354,9 +364,13 @@ const Login = () => {
                     disabled={loading}
                   />
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  * Você receberá um e-mail de confirmação. Após confirmar, sua solicitação será analisada pelo administrador.
-                </div>
+                <Alert className="border-blue-200 bg-blue-50">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800 text-xs">
+                    Após o cadastro, você receberá um e-mail de confirmação. 
+                    Depois de confirmar, um administrador precisará aprovar seu acesso ao sistema.
+                  </AlertDescription>
+                </Alert>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
