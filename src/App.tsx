@@ -20,49 +20,22 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-900">
-    <div className="text-center">
-      <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
-      <p className="text-slate-400">Carregando...</p>
-    </div>
-  </div>
-);
-
 const AppRoutes = () => {
   const { user, profile, loading } = useAuth();
 
-  // Show loading screen while checking auth
-  if (loading) {
-    return <LoadingScreen />;
-  }
-
+  // Only show loading on protected routes, not on login
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Login - always accessible, redirect if already logged in */}
       <Route 
         path="/login" 
-        element={
-          user && profile?.is_approved ? (
-            <Navigate to="/" replace />
-          ) : (
-            <Login />
-          )
-        } 
+        element={<LoginRoute />} 
       />
       
       {/* Pending approval route */}
       <Route 
         path="/pending-approval" 
-        element={
-          !user ? (
-            <Navigate to="/login" replace />
-          ) : profile && !profile.is_approved ? (
-            <PendingApproval />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        } 
+        element={<PendingApprovalRoute />} 
       />
       
       {/* Protected routes */}
@@ -135,6 +108,52 @@ const AppRoutes = () => {
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
+};
+
+// Separate component for login route logic
+const LoginRoute = () => {
+  const { user, profile, loading } = useAuth();
+
+  // If still loading, show login page (not loading screen)
+  // This prevents infinite loading on login page
+  if (loading) {
+    return <Login />;
+  }
+
+  // If logged in and approved, redirect to home
+  if (user && profile?.is_approved) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If logged in but not approved, redirect to pending
+  if (user && profile && !profile.is_approved) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  return <Login />;
+};
+
+// Separate component for pending approval route logic
+const PendingApprovalRoute = () => {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <Loader2 className="h-12 w-12 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (profile?.is_approved) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <PendingApproval />;
 };
 
 const App = () => (
