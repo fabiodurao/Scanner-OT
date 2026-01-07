@@ -154,33 +154,30 @@ const Login = () => {
       }
 
       // Check if email confirmation is required
-      // When confirmation is required, user exists but identities array is empty
+      // When user already exists, identities array is empty
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-        // User already exists
         toast.error('Este e-mail já está cadastrado. Tente fazer login.');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        // Sign out immediately to prevent auto-login before email confirmation
-        await supabase.auth.signOut();
-        
-        // Show email confirmation message
-        setConfirmationEmail(signupEmail);
-        setShowEmailConfirmation(true);
-        
-        // Clear form
-        setSignupEmail('');
-        setSignupPassword('');
-        setSignupConfirmPassword('');
-        setFullName('');
-        setRoleInCompany('');
-      }
+      // User created successfully - show confirmation screen
+      // Don't call signOut here as it causes issues
+      // Just show the confirmation screen
+      setConfirmationEmail(signupEmail);
+      setShowEmailConfirmation(true);
+      setLoading(false);
+      
+      // Clear form
+      setSignupEmail('');
+      setSignupPassword('');
+      setSignupConfirmPassword('');
+      setFullName('');
+      setRoleInCompany('');
+      
     } catch (err) {
       console.error('Signup error:', err);
       toast.error('Erro inesperado ao criar conta. Tente novamente.');
-    } finally {
       setLoading(false);
     }
   };
