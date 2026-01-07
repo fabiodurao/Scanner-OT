@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Zap, Loader2, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
   
   // Login state
   const [loginEmail, setLoginEmail] = useState('');
@@ -38,6 +41,8 @@ const Login = () => {
         console.error('Login error:', error);
         if (error.message.includes('Invalid login credentials')) {
           toast.error('E-mail ou senha incorretos. Verifique suas credenciais ou crie uma conta.');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('E-mail não confirmado. Verifique sua caixa de entrada.');
         } else {
           toast.error('Erro ao fazer login: ' + error.message);
         }
@@ -55,6 +60,32 @@ const Login = () => {
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
+          // Profile might not exist yet - create it
+          if (profileError.code === 'PGRST116') {
+            const { error: createError } = await supabase.from('profiles').insert({
+              id: data.user.id,
+              email: data.user.email || loginEmail,
+              full_name: data.user.user_metadata?.full_name || 'Usuário',
+              role_in_company: data.user.user_metadata?.role_in_company || 'Não informado',
+              is_approved: data.user.email === 'f.durao@cyberenergia.com',
+              is_admin: data.user.email === 'f.durao@cyberenergia.com',
+            });
+            
+            if (createError) {
+              console.error('Error creating profile:', createError);
+            }
+            
+            if (data.user.email === 'f.durao@cyberenergia.com') {
+              toast.success('Login realizado com sucesso!');
+              navigate('/');
+            } else {
+              toast.info('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
+              navigate('/pending-approval');
+            }
+            setLoading(false);
+            return;
+          }
+          
           toast.error('Erro ao verificar perfil. Tente novamente.');
           await supabase.auth.signOut();
           setLoading(false);
@@ -100,8 +131,6 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('Starting signup for:', signupEmail);
-      
       const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
@@ -112,8 +141,6 @@ const Login = () => {
           },
         },
       });
-
-      console.log('Signup response:', { data, error });
 
       if (error) {
         console.error('Signup error:', error);
@@ -126,37 +153,22 @@ const Login = () => {
         return;
       }
 
+      // Check if email confirmation is required
+      // When confirmation is required, user exists but identities array is empty
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        // User already exists
+        toast.error('Este e-mail já está cadastrado. Tente fazer login.');
+        setLoading(false);
+        return;
+      }
+
       if (data.user) {
-        console.log('User created:', data.user.id);
-        const isAdminEmail = signupEmail === 'f.durao@cyberenergia.com';
-        
-        // Create profile
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: data.user.id,
-          email: signupEmail,
-          full_name: fullName,
-          role_in_company: roleInCompany,
-          is_approved: isAdminEmail,
-          is_admin: isAdminEmail,
-        });
-
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-          // Profile might already exist due to trigger, that's ok
-          // Check if it's a duplicate key error
-          if (!profileError.message.includes('duplicate')) {
-            toast.error('Erro ao criar perfil: ' + profileError.message);
-          }
-        }
-
-        // Sign out after signup so user can login fresh
+        // Sign out immediately to prevent auto-login before email confirmation
         await supabase.auth.signOut();
         
-        if (isAdminEmail) {
-          toast.success('Conta de administrador criada! Faça login para continuar.');
-        } else {
-          toast.success('Solicitação enviada! Aguarde a aprovação do administrador.');
-        }
+        // Show email confirmation message
+        setConfirmationEmail(signupEmail);
+        setShowEmailConfirmation(true);
         
         // Clear form
         setSignupEmail('');
@@ -164,9 +176,6 @@ const Login = () => {
         setSignupConfirmPassword('');
         setFullName('');
         setRoleInCompany('');
-      } else {
-        // User is null but no error - might need email confirmation
-        toast.success('Verifique seu e-mail para confirmar o cadastro.');
       }
     } catch (err) {
       console.error('Signup error:', err);
@@ -175,6 +184,53 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Show email confirmation screen
+  if (showEmailConfirmation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-emerald-100 rounded-full">
+                <Mail className="h-8 w-8 text-emerald-600" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Confirme seu e-mail</CardTitle>
+            <CardDescription>
+              Enviamos um link de confirmação para:
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-slate-100 rounded-lg p-4 text-center">
+              <p className="font-medium text-slate-900">{confirmationEmail}</p>
+            </div>
+            
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Clique no link enviado para seu e-mail para ativar sua conta. 
+                Após confirmar, volte aqui e faça login.
+              </AlertDescription>
+            </Alert>
+
+            <div className="text-sm text-muted-foreground text-center">
+              <p>Não recebeu o e-mail?</p>
+              <p>Verifique sua pasta de spam ou lixo eletrônico.</p>
+            </div>
+
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => setShowEmailConfirmation(false)}
+            >
+              Voltar para o login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
@@ -302,7 +358,7 @@ const Login = () => {
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  * Sua solicitação será analisada pelo administrador antes da aprovação.
+                  * Você receberá um e-mail de confirmação. Após confirmar, sua solicitação será analisada pelo administrador.
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
