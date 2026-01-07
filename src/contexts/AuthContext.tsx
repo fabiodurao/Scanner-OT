@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    console.log('Fetching profile for user:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -39,12 +40,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Error fetching profile:', error.message, error.code);
         return null;
       }
+      
+      console.log('Profile fetched successfully:', data);
       return data as Profile;
     } catch (err) {
-      console.error('Error in fetchProfile:', err);
+      console.error('Exception in fetchProfile:', err);
       return null;
     }
   };
@@ -60,36 +63,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let mounted = true;
 
     const initializeAuth = async () => {
+      console.log('Initializing auth...');
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) setLoading(false);
+          return;
+        }
+
         if (!mounted) return;
+
+        console.log('Initial session:', initialSession ? 'exists' : 'null');
 
         if (initialSession?.user) {
           setSession(initialSession);
           setUser(initialSession.user);
+          
           const profileData = await fetchProfile(initialSession.user.id);
           if (mounted) {
             setProfile(profileData);
+            setLoading(false);
+          }
+        } else {
+          if (mounted) {
+            setLoading(false);
           }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
-        // Always set loading to false, even if there's an error
         if (mounted) {
           setLoading(false);
         }
       }
     };
-
-    // Set a timeout to ensure loading is set to false even if something hangs
-    const timeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth initialization timeout - forcing loading to false');
-        setLoading(false);
-      }
-    }, 5000);
 
     initializeAuth();
 
@@ -99,36 +107,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         console.log('Auth state changed:', event);
         
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
         if (event === 'SIGNED_IN' && newSession?.user) {
-          const profileData = await fetchProfile(newSession.user.id);
-          if (mounted) {
-            setProfile(profileData);
-          }
+          setSession(newSession);
+          setUser(newSession.user);
+          
+          // Small delay to ensure the session is fully established
+          setTimeout(async () => {
+            if (!mounted) return;
+            const profileData = await fetchProfile(newSession.user.id);
+            if (mounted) {
+              setProfile(profileData);
+              setLoading(false);
+            }
+          }, 100);
         } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
           setProfile(null);
-        }
-        
-        if (mounted) {
           setLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && newSession?.user) {
+          setSession(newSession);
+          setUser(newSession.user);
+        } else if (event === 'INITIAL_SESSION') {
+          // Already handled in initializeAuth
+          console.log('Initial session event received');
         }
       }
     );
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
+    setLoading(false);
   };
 
   return (

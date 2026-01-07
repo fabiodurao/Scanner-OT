@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
@@ -40,7 +42,7 @@ const Login = () => {
       if (error) {
         console.error('Login error:', error);
         if (error.message.includes('Invalid login credentials')) {
-          toast.error('E-mail ou senha incorretos. Verifique suas credenciais ou crie uma conta.');
+          toast.error('E-mail ou senha incorretos.');
         } else if (error.message.includes('Email not confirmed')) {
           toast.error('E-mail não confirmado. Verifique sua caixa de entrada.');
         } else {
@@ -51,19 +53,24 @@ const Login = () => {
       }
 
       if (data.user) {
-        // Check if user is approved
+        console.log('Login successful, checking profile...');
+        
+        // Fetch profile directly
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('is_approved')
+          .select('is_approved, is_admin')
           .eq('id', data.user.id)
           .single();
+
+        console.log('Profile result:', profile, profileError);
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
           
-          // Profile doesn't exist - try to create it
+          // Profile doesn't exist - create it
           if (profileError.code === 'PGRST116') {
             const isAdmin = data.user.email === 'f.durao@cyberenergia.com';
+            
             const { error: createError } = await supabase.from('profiles').insert({
               id: data.user.id,
               email: data.user.email || loginEmail,
@@ -81,12 +88,15 @@ const Login = () => {
               return;
             }
             
+            // Refresh the auth context
+            await refreshProfile();
+            
             if (isAdmin) {
               toast.success('Login realizado com sucesso!');
-              navigate('/');
+              navigate('/', { replace: true });
             } else {
-              toast.info('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
-              navigate('/pending-approval');
+              toast.info('Aguardando aprovação do administrador.');
+              navigate('/pending-approval', { replace: true });
             }
             setLoading(false);
             return;
@@ -98,19 +108,23 @@ const Login = () => {
           return;
         }
 
-        if (profile && !profile.is_approved) {
-          toast.info('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
-          navigate('/pending-approval');
+        // Refresh the auth context
+        await refreshProfile();
+
+        if (!profile.is_approved) {
+          toast.info('Sua conta ainda não foi aprovada.');
+          navigate('/pending-approval', { replace: true });
           setLoading(false);
           return;
         }
 
         toast.success('Login realizado com sucesso!');
-        navigate('/');
+        navigate('/', { replace: true });
+        setLoading(false);
       }
     } catch (err) {
       console.error('Login error:', err);
-      toast.error('Erro ao fazer login. Verifique suas credenciais.');
+      toast.error('Erro ao fazer login.');
       setLoading(false);
     }
   };
@@ -158,20 +172,16 @@ const Login = () => {
         return;
       }
 
-      // Check if email confirmation is required
-      // When user already exists, identities array is empty
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
         toast.error('Este e-mail já está cadastrado. Tente fazer login.');
         setLoading(false);
         return;
       }
 
-      // User created successfully - show confirmation screen
       setConfirmationEmail(signupEmail);
       setShowEmailConfirmation(true);
       setLoading(false);
       
-      // Clear form
       setSignupEmail('');
       setSignupPassword('');
       setSignupConfirmPassword('');
@@ -180,12 +190,11 @@ const Login = () => {
       
     } catch (err) {
       console.error('Signup error:', err);
-      toast.error('Erro inesperado ao criar conta. Tente novamente.');
+      toast.error('Erro inesperado ao criar conta.');
       setLoading(false);
     }
   };
 
-  // Show email confirmation screen
   if (showEmailConfirmation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
