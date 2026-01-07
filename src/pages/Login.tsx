@@ -35,6 +35,7 @@ const Login = () => {
       });
 
       if (error) {
+        console.error('Login error:', error);
         if (error.message.includes('Invalid login credentials')) {
           toast.error('E-mail ou senha incorretos. Verifique suas credenciais ou crie uma conta.');
         } else {
@@ -61,8 +62,8 @@ const Login = () => {
         }
 
         if (profile && !profile.is_approved) {
-          toast.error('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
-          await supabase.auth.signOut();
+          toast.info('Sua conta ainda não foi aprovada. Aguarde a aprovação do administrador.');
+          navigate('/pending-approval');
           setLoading(false);
           return;
         }
@@ -86,8 +87,8 @@ const Login = () => {
       return;
     }
 
-    if (signupPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    if (signupPassword.length < 8) {
+      toast.error('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 
@@ -99,6 +100,8 @@ const Login = () => {
     setLoading(true);
 
     try {
+      console.log('Starting signup for:', signupEmail);
+      
       const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
@@ -110,7 +113,10 @@ const Login = () => {
         },
       });
 
+      console.log('Signup response:', { data, error });
+
       if (error) {
+        console.error('Signup error:', error);
         if (error.message.includes('already registered')) {
           toast.error('Este e-mail já está cadastrado. Tente fazer login.');
         } else {
@@ -121,6 +127,7 @@ const Login = () => {
       }
 
       if (data.user) {
+        console.log('User created:', data.user.id);
         const isAdminEmail = signupEmail === 'f.durao@cyberenergia.com';
         
         // Create profile
@@ -136,9 +143,13 @@ const Login = () => {
         if (profileError) {
           console.error('Error creating profile:', profileError);
           // Profile might already exist due to trigger, that's ok
+          // Check if it's a duplicate key error
+          if (!profileError.message.includes('duplicate')) {
+            toast.error('Erro ao criar perfil: ' + profileError.message);
+          }
         }
 
-        // Sign out after signup
+        // Sign out after signup so user can login fresh
         await supabase.auth.signOut();
         
         if (isAdminEmail) {
@@ -153,6 +164,9 @@ const Login = () => {
         setSignupConfirmPassword('');
         setFullName('');
         setRoleInCompany('');
+      } else {
+        // User is null but no error - might need email confirmation
+        toast.success('Verifique seu e-mail para confirmar o cadastro.');
       }
     } catch (err) {
       console.error('Signup error:', err);
@@ -266,10 +280,11 @@ const Login = () => {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     required
+                    minLength={8}
                     disabled={loading}
                   />
                 </div>
@@ -282,6 +297,7 @@ const Login = () => {
                     value={signupConfirmPassword}
                     onChange={(e) => setSignupConfirmPassword(e.target.value)}
                     required
+                    minLength={8}
                     disabled={loading}
                   />
                 </div>
