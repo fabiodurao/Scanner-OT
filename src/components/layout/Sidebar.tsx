@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Server,
@@ -7,18 +8,28 @@ import {
   Upload,
   Settings,
   Zap,
+  Users,
+  LogOut,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Sites', href: '/sites', icon: Server },
-  { name: 'Variáveis', href: '/variables', icon: Table },
-  { name: 'Upload PCAP', href: '/upload', icon: Upload },
-  { name: 'Configurações', href: '/settings', icon: Settings },
-];
-
-export const Sidebar = () => {
+const Sidebar = () => {
   const location = useLocation();
+  const { profile, signOut } = useAuth();
+
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Sites', href: '/sites', icon: Server },
+    { name: 'Variáveis', href: '/variables', icon: Table },
+    { name: 'Upload PCAP', href: '/upload', icon: Upload },
+    { name: 'Configurações', href: '/settings', icon: Settings },
+  ];
+
+  // Add user management for admins
+  if (profile?.is_admin) {
+    navigation.push({ name: 'Usuários', href: '/users', icon: Users });
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-slate-900">
@@ -48,10 +59,32 @@ export const Sidebar = () => {
         })}
       </nav>
       <div className="border-t border-slate-800 p-4">
-        <div className="text-xs text-slate-500">
+        {profile && (
+          <div className="mb-3">
+            <div className="text-sm font-medium text-white truncate">
+              {profile.full_name}
+            </div>
+            <div className="text-xs text-slate-400 truncate">
+              {profile.email}
+            </div>
+          </div>
+        )}
+        <Separator className="bg-slate-700 mb-3" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={signOut}
+          className="w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sair
+        </Button>
+        <div className="text-xs text-slate-500 mt-3">
           Middleware OT v0.2
         </div>
       </div>
     </div>
   );
 };
+
+export { Sidebar };
