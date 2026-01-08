@@ -4,10 +4,9 @@ import { CustomerSelector } from '@/components/upload/CustomerSelector';
 import { FileDropzone } from '@/components/upload/FileDropzone';
 import { UploadProgress } from '@/components/upload/UploadProgress';
 import { SessionsList } from '@/components/upload/SessionsList';
-import { useS3Upload } from '@/hooks/useS3Upload';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer } from '@/types/upload';
+import { Customer, FileUploadProgress } from '@/types/upload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,36 +16,113 @@ import { Separator } from '@/components/ui/separator';
 import { Upload as UploadIcon, Loader2, CheckCircle, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
+const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
+
 const Upload = () => {
   const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [sessionDescription, setSessionDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [step, setStep] = useState<'select' | 'upload' | 'progress' | 'complete'>('select');
+  const [step, setStep] = useState<'select' | 'progress' | 'complete'>('select');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [uploads, setUploads] = useState<FileUploadProgress[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleUploadComplete = useCallback(async () => {
-    if (sessionId) {
-      // Mark session as completed
-      await supabase
-        .from('upload_sessions')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString()
+  const updateUpload = useCallback((fileName: string, update: Partial<FileUploadProgress>) => {
+    setUploads(prev => prev.map(u => u.file.name === fileName ? { ...u, ...update } : u));
+  }, []);
+
+  const uploadFile = useCallback(async (file: File, customerId: string, sessionId: string): Promise<void> => {
+    const fileName = file.name;
+    
+    try {
+      updateUpload(fileName, { status: 'uploading', progress: 0 });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Não autenticado');
+
+      console.log('Uploading file:', fileName, 'to session:', sessionId, 'customer:', customerId);
+
+      const presignedResponse = await fetch(
+        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/s3-presigned-url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || 'application/octet-stream',
+            customerId,
+            sessionId,
+          }),
+        }
+      );
+
+      if (!presignedResponse.ok) {
+        const errorData = await presignedResponse.json();
+        throw new Error(errorData.error || 'Erro ao gerar URL de upload');
+      }
+
+      const { presignedUrl, s3Key, bucket } = await presignedResponse.json();
+
+      console.log('Got presigned URL for:', fileName);
+
+      const { data: pcapFile, error: dbError } = await supabase
+        .from('pcap_files')
+        .insert({
+          session_id: sessionId,
+          filename: s3Key.split('/').pop(),
+          original_filename: file.name,
+          size_bytes: file.size,
+          s3_key: s3Key,
+          s3_bucket: bucket,
+          content_type: file.type || 'application/octet-stream',
+          upload_status: 'uploading',
         })
-        .eq('id', sessionId);
-    }
-    setStep('complete');
-    setRefreshTrigger(prev => prev + 1);
-  }, [sessionId]);
+        .select()
+        .single();
 
-  const { uploads, isUploading, uploadFiles, clearUploads } = useS3Upload({
-    customerId: selectedCustomer?.id || '',
-    sessionId: sessionId || '',
-    onAllComplete: handleUploadComplete,
-  });
+      if (dbError) throw new Error('Erro ao registrar arquivo: ' + dbError.message);
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            updateUpload(fileName, { progress: Math.round((event.loaded / event.total) * 100) });
+          }
+        });
+
+        xhr.addEventListener('load', async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            await supabase
+              .from('pcap_files')
+              .update({ upload_status: 'completed', completed_at: new Date().toISOString() })
+              .eq('id', pcapFile.id);
+            updateUpload(fileName, { status: 'completed', progress: 100, pcapFileId: pcapFile.id });
+            console.log('Upload completed:', fileName);
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.open('PUT', presignedUrl);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.send(file);
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      updateUpload(fileName, { status: 'error', error: errorMessage });
+      console.error('Upload error for', fileName, ':', errorMessage);
+      throw error;
+    }
+  }, [updateUpload]);
 
   const handleStartUpload = async () => {
     if (!selectedCustomer || files.length === 0) {
@@ -54,7 +130,15 @@ const Upload = () => {
       return;
     }
 
-    // Create upload session
+    const initialUploads: FileUploadProgress[] = files.map(file => ({
+      file,
+      progress: 0,
+      status: 'pending',
+    }));
+    setUploads(initialUploads);
+    setStep('progress');
+    setIsUploading(true);
+
     const { data: session, error } = await supabase
       .from('upload_sessions')
       .insert({
@@ -69,28 +153,61 @@ const Upload = () => {
 
     if (error) {
       toast.error('Erro ao criar sessão de upload: ' + error.message);
+      setStep('select');
+      setIsUploading(false);
       return;
     }
 
-    setSessionId(session.id);
-    setStep('progress');
+    console.log('Created session:', session.id);
 
-    // Start uploading
-    await uploadFiles(files);
+    const customerId = selectedCustomer.id;
+    const sessionId = session.id;
+
+    for (const file of files) {
+      try {
+        await uploadFile(file, customerId, sessionId);
+      } catch (e) {
+        console.error(`Error uploading ${file.name}:`, e);
+      }
+    }
+
+    const { data: sessionFiles } = await supabase
+      .from('pcap_files')
+      .select('size_bytes')
+      .eq('session_id', sessionId)
+      .eq('upload_status', 'completed');
+
+    if (sessionFiles) {
+      await supabase
+        .from('upload_sessions')
+        .update({
+          total_files: sessionFiles.length,
+          total_size_bytes: sessionFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0),
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId);
+    }
+
+    setIsUploading(false);
+    setStep('complete');
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleReset = () => {
     setFiles([]);
-    setSessionId(null);
     setSessionName('');
     setSessionDescription('');
     setStep('select');
-    clearUploads();
+    setUploads([]);
   };
 
   const handleNewUpload = () => {
     handleReset();
   };
+
+  const completedCount = uploads.filter(u => u.status === 'completed').length;
+  const errorCount = uploads.filter(u => u.status === 'error').length;
 
   return (
     <MainLayout>
@@ -103,7 +220,6 @@ const Upload = () => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* Upload Section */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -185,6 +301,14 @@ const Upload = () => {
                         Enviando arquivos... Não feche esta página.
                       </div>
                     )}
+
+                    {!isUploading && errorCount > 0 && (
+                      <div className="flex gap-2 justify-center">
+                        <Button variant="outline" onClick={handleNewUpload}>
+                          Novo Upload
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -193,7 +317,8 @@ const Upload = () => {
                     <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold mb-2">Upload Concluído!</h3>
                     <p className="text-muted-foreground mb-6">
-                      Todos os arquivos foram enviados com sucesso.
+                      {completedCount} arquivo{completedCount !== 1 ? 's' : ''} enviado{completedCount !== 1 ? 's' : ''} com sucesso.
+                      {errorCount > 0 && ` ${errorCount} erro${errorCount !== 1 ? 's' : ''}.`}
                     </p>
                     <div className="flex gap-2 justify-center">
                       <Button onClick={handleNewUpload}>
@@ -207,7 +332,6 @@ const Upload = () => {
             </Card>
           </div>
 
-          {/* Sessions List Section */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
