@@ -21,138 +21,36 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { user, profile, loading } = useAuth();
-
-  // Only show loading on protected routes, not on login
   return (
     <Routes>
-      {/* Login - always accessible, redirect if already logged in */}
-      <Route 
-        path="/login" 
-        element={<LoginRoute />} 
-      />
-      
-      {/* Pending approval route */}
-      <Route 
-        path="/pending-approval" 
-        element={<PendingApprovalRoute />} 
-      />
-      
-      {/* Protected routes */}
-      <Route 
-        path="/" 
-        element={
-          <ProtectedRoute>
-            <Index />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sites" 
-        element={
-          <ProtectedRoute>
-            <Sites />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sites/:siteId" 
-        element={
-          <ProtectedRoute>
-            <SiteDetail />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/sites/:siteId/equipment/:equipmentId" 
-        element={
-          <ProtectedRoute>
-            <EquipmentDetail />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/variables" 
-        element={
-          <ProtectedRoute>
-            <Variables />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/upload" 
-        element={
-          <ProtectedRoute>
-            <Upload />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/settings" 
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/users" 
-        element={
-          <ProtectedRoute requireAdmin>
-            <UserManagement />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Catch all */}
+      <Route path="/login" element={<LoginRoute />} />
+      <Route path="/pending-approval" element={<PendingApprovalRoute />} />
+      <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+      <Route path="/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
+      <Route path="/sites/:siteId/equipment/:equipmentId" element={<ProtectedRoute><EquipmentDetail /></ProtectedRoute>} />
+      <Route path="/variables" element={<ProtectedRoute><Variables /></ProtectedRoute>} />
+      <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute requireAdmin><UserManagement /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
 
-// Separate component for login route logic
 const LoginRoute = () => {
   const { user, profile, loading } = useAuth();
-
-  // If still loading, show login page (not loading screen)
-  // This prevents infinite loading on login page
-  if (loading) {
-    return <Login />;
-  }
-
-  // If logged in and approved, redirect to home
-  if (user && profile?.is_approved) {
-    return <Navigate to="/" replace />;
-  }
-
-  // If logged in but not approved, redirect to pending
-  if (user && profile && !profile.is_approved) {
-    return <Navigate to="/pending-approval" replace />;
-  }
-
+  if (loading) return <Login />;
+  if (user && profile?.is_approved) return <Navigate to="/" replace />;
+  if (user && profile && !profile.is_approved) return <Navigate to="/pending-approval" replace />;
   return <Login />;
 };
 
-// Separate component for pending approval route logic
 const PendingApprovalRoute = () => {
   const { user, profile, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <Loader2 className="h-12 w-12 animate-spin text-emerald-500" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (profile?.is_approved) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><Loader2 className="h-12 w-12 animate-spin text-emerald-500" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (profile?.is_approved) return <Navigate to="/" replace />;
   return <PendingApproval />;
 };
 

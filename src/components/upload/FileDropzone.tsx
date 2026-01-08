@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { Upload, FileArchive, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ const formatFileSize = (bytes: number) => {
 
 export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzoneProps) => {
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -43,13 +44,35 @@ export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzonePro
     e.target.value = '';
   }, [files, onFilesChange]);
 
+  const handleButtonClick = useCallback(() => {
+    if (!disabled && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, [disabled]);
+
+  const handleDropzoneClick = useCallback(() => {
+    if (!disabled && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, [disabled]);
+
   const removeFile = useCallback((index: number) => {
     onFilesChange(files.filter((_, i) => i !== index));
   }, [files, onFilesChange]);
 
   return (
     <div className="space-y-4">
+      <input 
+        ref={fileInputRef}
+        type="file" 
+        multiple 
+        accept=".pcap,.pcapng,.pcap.zst,.pcap.gz" 
+        onChange={handleFileSelect} 
+        className="hidden" 
+        disabled={disabled} 
+      />
       <div
+        onClick={handleDropzoneClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -59,14 +82,21 @@ export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzonePro
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-[#2563EB]/50'
         )}
       >
-        <input type="file" id="file-input" multiple accept=".pcap,.pcapng,.pcap.zst,.pcap.gz" onChange={handleFileSelect} className="hidden" disabled={disabled} />
-        <label htmlFor="file-input" className={disabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
-          <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-          <div className="text-lg font-medium mb-2">Arraste arquivos PCAP aqui</div>
-          <div className="text-sm text-muted-foreground mb-4">ou clique para selecionar</div>
-          <Button type="button" disabled={disabled} variant="outline">Selecionar Arquivos</Button>
-          <div className="text-xs text-muted-foreground mt-4">Suporte a .pcap, .pcapng, .pcap.zst, .pcap.gz</div>
-        </label>
+        <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
+        <div className="text-lg font-medium mb-2">Arraste arquivos PCAP aqui</div>
+        <div className="text-sm text-muted-foreground mb-4">ou clique para selecionar</div>
+        <Button 
+          type="button" 
+          disabled={disabled} 
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleButtonClick();
+          }}
+        >
+          Selecionar Arquivos
+        </Button>
+        <div className="text-xs text-muted-foreground mt-4">Suporte a .pcap, .pcapng, .pcap.zst, .pcap.gz</div>
       </div>
       {files.length > 0 && (
         <div className="space-y-2">
@@ -82,7 +112,7 @@ export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzonePro
                   <span className="text-sm truncate">{file.name}</span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">({formatFileSize(file.size)})</span>
                 </div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => removeFile(i)} disabled={disabled}><X className="h-4 w-4" /></Button>
+                <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeFile(i); }} disabled={disabled}><X className="h-4 w-4" /></Button>
               </div>
             ))}
           </div>

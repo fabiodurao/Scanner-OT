@@ -38,7 +38,6 @@ interface Profile {
 
 const UserManagement = () => {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -52,7 +51,6 @@ const UserManagement = () => {
     } else {
       setUsers(data || []);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
