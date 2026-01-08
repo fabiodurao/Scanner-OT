@@ -16,7 +16,7 @@ const Index = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Visão geral do Middleware OT CyberEnergia
+            Visão geral do Scanner OT CyberEnergia
           </p>
         </div>
 
