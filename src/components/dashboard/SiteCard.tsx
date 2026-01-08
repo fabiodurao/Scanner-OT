@@ -17,20 +17,20 @@ const siteTypeLabels: Record<Site['type'], string> = {
 };
 
 const siteTypeColors: Record<Site['type'], string> = {
-  eolica: 'bg-blue-100 text-blue-800',
-  fotovoltaica: 'bg-yellow-100 text-yellow-800',
-  hibrida: 'bg-purple-100 text-purple-800',
-  subestacao: 'bg-gray-100 text-gray-800',
+  eolica: 'bg-blue-100 text-blue-700 border-blue-200',
+  fotovoltaica: 'bg-amber-100 text-amber-700 border-amber-200',
+  hibrida: 'bg-purple-100 text-purple-700 border-purple-200',
+  subestacao: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
 export const SiteCard = ({ site, stats }: SiteCardProps) => {
   return (
     <Link to={`/sites/${site.id}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+      <Card className="hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer border-slate-200 hover:border-[#2563EB]/30">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
-            <CardTitle className="text-lg">{site.name}</CardTitle>
-            <Badge className={siteTypeColors[site.type]}>
+            <CardTitle className="text-lg text-[#1a2744]">{site.name}</CardTitle>
+            <Badge className={siteTypeColors[site.type]} variant="outline">
               {siteTypeLabels[site.type]}
             </Badge>
           </div>
@@ -42,30 +42,38 @@ export const SiteCard = ({ site, stats }: SiteCardProps) => {
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-slate-500" />
+              <div className="p-2 rounded-lg bg-slate-100">
+                <Server className="h-4 w-4 text-slate-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{stats.total_equipment}</div>
+                <div className="text-2xl font-bold text-[#1a2744]">{stats.total_equipment}</div>
                 <div className="text-xs text-muted-foreground">Equipamentos</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Variable className="h-4 w-4 text-slate-500" />
+              <div className="p-2 rounded-lg bg-slate-100">
+                <Variable className="h-4 w-4 text-slate-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{stats.total_variables}</div>
+                <div className="text-2xl font-bold text-[#1a2744]">{stats.total_variables}</div>
                 <div className="text-xs text-muted-foreground">Variáveis</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-emerald-500" />
+              <div className="p-2 rounded-lg bg-emerald-100">
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{stats.confirmed_variables}</div>
+                <div className="text-2xl font-bold text-emerald-600">{stats.confirmed_variables}</div>
                 <div className="text-xs text-muted-foreground">Confirmadas</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-blue-500" />
+              <div className="p-2 rounded-lg bg-blue-100">
+                <Upload className="h-4 w-4 text-[#2563EB]" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{stats.published_variables}</div>
+                <div className="text-2xl font-bold text-[#2563EB]">{stats.published_variables}</div>
                 <div className="text-xs text-muted-foreground">Publicadas</div>
               </div>
             </div>

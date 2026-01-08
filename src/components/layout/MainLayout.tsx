@@ -6,7 +6,7 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-[hsl(var(--background))]">
       <Sidebar />
       <main className="flex-1 overflow-auto">
         {children}

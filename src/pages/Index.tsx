@@ -14,7 +14,7 @@ const Index = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
             Visão geral do Middleware OT CyberEnergia
           </p>
@@ -28,7 +28,7 @@ const Index = () => {
         />
 
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Sites / Plantas</h2>
+          <h2 className="text-xl font-semibold mb-4 text-[#1a2744]">Sites / Plantas</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {mockSites.map((site) => (
               <SiteCard

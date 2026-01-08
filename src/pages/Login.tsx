@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Zap, Loader2, Mail, CheckCircle, Info } from 'lucide-react';
+import { Loader2, Mail, CheckCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -197,12 +198,12 @@ const Login = () => {
 
   if (showEmailConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
+        <Card className="w-full max-w-md border-0 shadow-2xl">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-emerald-100 rounded-full">
-                <Mail className="h-8 w-8 text-emerald-600" />
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Mail className="h-8 w-8 text-[#2563EB]" />
               </div>
             </div>
             <CardTitle className="text-2xl">Confirme seu e-mail</CardTitle>
@@ -211,12 +212,12 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-slate-100 rounded-lg p-4 text-center">
-              <p className="font-medium text-slate-900">{confirmationEmail}</p>
+            <div className="bg-blue-50 rounded-lg p-4 text-center border border-blue-100">
+              <p className="font-medium text-[#1a2744]">{confirmationEmail}</p>
             </div>
             
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
+            <Alert className="border-blue-200 bg-blue-50">
+              <CheckCircle className="h-4 w-4 text-[#2563EB]" />
               <AlertDescription>
                 <strong>Passo 1:</strong> Clique no link enviado para seu e-mail para confirmar sua conta.
               </AlertDescription>
@@ -249,26 +250,25 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-emerald-100 rounded-full">
-              <Zap className="h-8 w-8 text-emerald-600" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
+      <Card className="w-full max-w-md border-0 shadow-2xl">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-6">
+            <Logo variant="full" />
           </div>
-          <CardTitle className="text-2xl">CyberEnergia</CardTitle>
-          <CardDescription>Middleware OT - Sistema de Gestão</CardDescription>
+          <CardDescription className="text-base">
+            Sistema de Gestão de Middleware OT
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>
               <TabsTrigger value="signup">Solicitar Acesso</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4 mt-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">E-mail</Label>
                   <Input
@@ -279,6 +279,7 @@ const Login = () => {
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -291,9 +292,14 @@ const Login = () => {
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button 
+                  type="submit" 
+                  className="w-full h-11 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-medium"
+                  disabled={loading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -303,14 +309,14 @@ const Login = () => {
                     'Entrar'
                   )}
                 </Button>
-                <p className="text-xs text-center text-muted-foreground mt-2">
+                <p className="text-xs text-center text-muted-foreground mt-4">
                   Não tem conta? Clique em "Solicitar Acesso" acima.
                 </p>
               </form>
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4 mt-4">
+              <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">E-mail corporativo *</Label>
                   <Input
@@ -321,6 +327,7 @@ const Login = () => {
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -333,6 +340,7 @@ const Login = () => {
                     onChange={(e) => setFullName(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -345,6 +353,7 @@ const Login = () => {
                     onChange={(e) => setRoleInCompany(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -358,6 +367,7 @@ const Login = () => {
                     required
                     minLength={8}
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -371,16 +381,21 @@ const Login = () => {
                     required
                     minLength={8}
                     disabled={loading}
+                    className="h-11"
                   />
                 </div>
                 <Alert className="border-blue-200 bg-blue-50">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-xs">
+                  <Info className="h-4 w-4 text-[#2563EB]" />
+                  <AlertDescription className="text-[#1a2744] text-xs">
                     Após o cadastro, você receberá um e-mail de confirmação. 
                     Depois de confirmar, um administrador precisará aprovar seu acesso ao sistema.
                   </AlertDescription>
                 </Alert>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button 
+                  type="submit" 
+                  className="w-full h-11 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-medium"
+                  disabled={loading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
