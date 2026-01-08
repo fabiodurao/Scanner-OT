@@ -82,7 +82,7 @@ const Sidebar = () => {
           Sair
         </Button>
         <div className="text-xs text-gray-500 mt-3">
-          Middleware OT v0.2
+          Scanner OT v0.2
         </div>
       </div>
     </div>

@@ -260,7 +260,7 @@ const Login = () => {
             />
           </div>
           <CardDescription className="text-base">
-            Sistema de Gestão de Middleware OT
+            Scanner OT
           </CardDescription>
         </CardHeader>
         <CardContent>
