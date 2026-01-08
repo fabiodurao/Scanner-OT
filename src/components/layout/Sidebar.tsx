@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Logo } from '@/components/brand/Logo';
 import {
   LayoutDashboard,
   Server,
@@ -33,8 +32,12 @@ const Sidebar = () => {
 
   return (
     <div className="flex h-full w-64 flex-col bg-[hsl(var(--sidebar-background))]">
-      <div className="flex h-16 items-center px-4 border-b border-[hsl(var(--sidebar-border))]">
-        <Logo variant="full" dark />
+      <div className="flex h-16 items-center justify-center px-4 border-b border-[hsl(var(--sidebar-border))]">
+        <img 
+          src="/logo-white.png" 
+          alt="Cyber Energia" 
+          className="h-8 w-auto object-contain"
+        />
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {

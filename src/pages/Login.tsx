@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -254,7 +253,11 @@ const Login = () => {
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-6">
-            <Logo variant="full" />
+            <img 
+              src="/logo-standard.png" 
+              alt="Cyber Energia" 
+              className="h-12 w-auto object-contain"
+            />
           </div>
           <CardDescription className="text-base">
             Sistema de Gestão de Middleware OT

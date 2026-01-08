@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut } from 'lucide-react';
@@ -39,7 +38,11 @@ const PendingApproval = () => {
             Sair
           </Button>
           <div className="pt-4 border-t">
-            <Logo variant="full" className="justify-center opacity-50" />
+            <img 
+              src="/logo-standard.png" 
+              alt="Cyber Energia" 
+              className="h-8 w-auto object-contain mx-auto opacity-50"
+            />
           </div>
         </CardContent>
       </Card>
