@@ -39,7 +39,8 @@ export interface PcapFile {
 export interface FileUploadProgress {
   file: File;
   progress: number;
-  status: 'pending' | 'uploading' | 'completed' | 'error';
+  status: 'pending' | 'uploading' | 'completed' | 'error' | 'cancelled';
   error?: string;
   pcapFileId?: string;
+  xhr?: XMLHttpRequest; // Para poder cancelar o upload
 }
