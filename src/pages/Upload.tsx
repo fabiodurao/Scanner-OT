@@ -1,26 +1,27 @@
 import { useState, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CustomerSelector } from '@/components/upload/CustomerSelector';
+import { SessionSelector } from '@/components/upload/SessionSelector';
 import { FileDropzone } from '@/components/upload/FileDropzone';
 import { UploadProgress } from '@/components/upload/UploadProgress';
 import { SessionsList } from '@/components/upload/SessionsList';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer, FileUploadProgress } from '@/types/upload';
+import { Customer, UploadSession, FileUploadProgress } from '@/types/upload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Upload as UploadIcon, Loader2, CheckCircle, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
 const Upload = () => {
   const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
+  const [selectedSession, setSelectedSession] = useState<UploadSession | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [sessionDescription, setSessionDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -38,15 +39,8 @@ const Upload = () => {
   const uploadFile = useCallback(async (file: File, customerId: string, sessionId: string): Promise<boolean> => {
     const fileName = file.name;
     
-    // Verificar se foi cancelado
     if (cancelledRef.current) {
       updateUpload(fileName, { status: 'cancelled' });
-      return false;
-    }
-
-    // Verificar se este arquivo específico foi removido da fila
-    const currentUpload = uploads.find(u => u.file.name === fileName);
-    if (currentUpload?.status === 'cancelled') {
       return false;
     }
     
@@ -55,8 +49,6 @@ const Upload = () => {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-
-      console.log('Uploading file:', fileName, 'to session:', sessionId, 'customer:', customerId);
 
       const presignedResponse = await fetch(
         `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/s3-presigned-url`,
@@ -81,8 +73,6 @@ const Upload = () => {
       }
 
       const { presignedUrl, s3Key, bucket } = await presignedResponse.json();
-
-      console.log('Got presigned URL for:', fileName);
 
       const { data: pcapFile, error: dbError } = await supabase
         .from('pcap_files')
@@ -119,7 +109,6 @@ const Upload = () => {
               .update({ upload_status: 'completed', completed_at: new Date().toISOString() })
               .eq('id', pcapFile.id);
             updateUpload(fileName, { status: 'completed', progress: 100, pcapFileId: pcapFile.id });
-            console.log('Upload completed:', fileName);
             resolve(true);
           } else {
             await supabase
@@ -148,7 +137,6 @@ const Upload = () => {
             .delete()
             .eq('id', pcapFile.id);
           updateUpload(fileName, { status: 'cancelled' });
-          console.log('Upload cancelled:', fileName);
           resolve(false);
         });
 
@@ -162,21 +150,17 @@ const Upload = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       updateUpload(fileName, { status: 'error', error: errorMessage });
-      console.error('Upload error for', fileName, ':', errorMessage);
       return false;
     }
-  }, [updateUpload, uploads]);
+  }, [updateUpload]);
 
   const handleCancelAll = useCallback(() => {
     cancelledRef.current = true;
     
-    // Cancelar todos os uploads em andamento
-    xhrMapRef.current.forEach((xhr, fileName) => {
+    xhrMapRef.current.forEach((xhr) => {
       xhr.abort();
-      console.log('Aborting upload:', fileName);
     });
     
-    // Marcar todos os pendentes como cancelados
     setUploads(prev => prev.map(u => 
       u.status === 'pending' ? { ...u, status: 'cancelled' as const } : u
     ));
@@ -205,6 +189,11 @@ const Upload = () => {
       return;
     }
 
+    if (sessionMode === 'existing' && !selectedSession) {
+      toast.error('Select an existing session or create a new one');
+      return;
+    }
+
     cancelledRef.current = false;
     xhrMapRef.current.clear();
 
@@ -217,46 +206,47 @@ const Upload = () => {
     setStep('progress');
     setIsUploading(true);
 
-    const { data: session, error } = await supabase
-      .from('upload_sessions')
-      .insert({
-        customer_id: selectedCustomer.id,
-        name: sessionName || null,
-        description: sessionDescription || null,
-        uploaded_by: user?.id,
-        status: 'in_progress',
-      })
-      .select()
-      .single();
+    let sessionId: string;
 
-    if (error) {
-      toast.error('Error creating upload session: ' + error.message);
-      setStep('select');
-      setIsUploading(false);
-      return;
+    if (sessionMode === 'existing' && selectedSession) {
+      sessionId = selectedSession.id;
+    } else {
+      // Create new session with timestamp as default name
+      const defaultName = sessionName || format(new Date(), "MM/dd/yyyy 'at' HH:mm");
+      
+      const { data: session, error } = await supabase
+        .from('upload_sessions')
+        .insert({
+          customer_id: selectedCustomer.id,
+          name: defaultName,
+          description: sessionDescription || null,
+          uploaded_by: user?.id,
+          status: 'in_progress',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast.error('Error creating upload session: ' + error.message);
+        setStep('select');
+        setIsUploading(false);
+        return;
+      }
+
+      sessionId = session.id;
     }
 
-    console.log('Created session:', session.id);
-
     const customerId = selectedCustomer.id;
-    const sessionId = session.id;
 
     for (const file of files) {
-      // Verificar se foi cancelado globalmente
       if (cancelledRef.current) {
         break;
-      }
-      
-      // Verificar se este arquivo foi removido da fila
-      const currentStatus = uploads.find(u => u.file.name === file.name)?.status;
-      if (currentStatus === 'cancelled') {
-        continue;
       }
 
       await uploadFile(file, customerId, sessionId);
     }
 
-    // Atualizar estatísticas da sessão
+    // Update session statistics
     const { data: sessionFiles } = await supabase
       .from('pcap_files')
       .select('size_bytes')
@@ -285,14 +275,12 @@ const Upload = () => {
     setFiles([]);
     setSessionName('');
     setSessionDescription('');
+    setSessionMode('new');
+    setSelectedSession(null);
     setStep('select');
     setUploads([]);
     cancelledRef.current = false;
     xhrMapRef.current.clear();
-  };
-
-  const handleNewUpload = () => {
-    handleReset();
   };
 
   const completedCount = uploads.filter(u => u.status === 'completed').length;
@@ -333,28 +321,17 @@ const Upload = () => {
                       <>
                         <Separator />
                         
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="session-name">Session Name (optional)</Label>
-                            <Input
-                              id="session-name"
-                              placeholder="E.g.: January 2025 Capture"
-                              value={sessionName}
-                              onChange={(e) => setSessionName(e.target.value)}
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="session-description">Description (optional)</Label>
-                            <Textarea
-                              id="session-description"
-                              placeholder="Notes about this capture..."
-                              value={sessionDescription}
-                              onChange={(e) => setSessionDescription(e.target.value)}
-                              rows={2}
-                            />
-                          </div>
-                        </div>
+                        <SessionSelector
+                          customerId={selectedCustomer.id}
+                          selectedSessionId={selectedSession?.id || null}
+                          onSelectSession={setSelectedSession}
+                          newSessionName={sessionName}
+                          onNewSessionNameChange={setSessionName}
+                          newSessionDescription={sessionDescription}
+                          onNewSessionDescriptionChange={setSessionDescription}
+                          mode={sessionMode}
+                          onModeChange={setSessionMode}
+                        />
 
                         <Separator />
 
@@ -365,11 +342,14 @@ const Upload = () => {
 
                         <Button
                           onClick={handleStartUpload}
-                          disabled={files.length === 0}
+                          disabled={files.length === 0 || (sessionMode === 'existing' && !selectedSession)}
                           className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
                         >
                           <UploadIcon className="mr-2 h-4 w-4" />
-                          Start Upload ({files.length} file{files.length !== 1 ? 's' : ''})
+                          {sessionMode === 'existing' 
+                            ? `Add ${files.length} file${files.length !== 1 ? 's' : ''} to session`
+                            : `Start Upload (${files.length} file${files.length !== 1 ? 's' : ''})`
+                          }
                         </Button>
                       </>
                     )}
@@ -400,7 +380,7 @@ const Upload = () => {
 
                     {!isUploading && (
                       <div className="flex gap-2 justify-center">
-                        <Button variant="outline" onClick={handleNewUpload}>
+                        <Button variant="outline" onClick={handleReset}>
                           New Upload
                         </Button>
                       </div>
@@ -418,7 +398,7 @@ const Upload = () => {
                       {cancelledCount > 0 && ` ${cancelledCount} cancelled.`}
                     </p>
                     <div className="flex gap-2 justify-center">
-                      <Button onClick={handleNewUpload}>
+                      <Button onClick={handleReset}>
                         <UploadIcon className="mr-2 h-4 w-4" />
                         New Upload
                       </Button>
