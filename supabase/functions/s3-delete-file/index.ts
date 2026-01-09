@@ -77,22 +77,35 @@ async function deleteS3Object(
   const dateStamp = amzDate.substring(0, 8);
   
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  
+  // Encode the key properly for the URI
   const encodedKey = key.split('/').map(encodeURIComponentRFC3986).join('/');
   const canonicalUri = "/" + encodedKey;
   
-  const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n`;
-  const signedHeaders = "host;x-amz-date";
+  // Empty query string for DELETE
+  const canonicalQueryString = "";
   
+  // Hash of empty payload
   const payloadHash = await sha256("");
+  
+  // Canonical headers - must include x-amz-content-sha256 for S3
+  const canonicalHeaders = 
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`;
+  
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
   
   const canonicalRequest = [
     "DELETE",
     canonicalUri,
-    "",
+    canonicalQueryString,
     canonicalHeaders,
     signedHeaders,
     payloadHash,
   ].join("\n");
+  
+  console.log("[s3-delete-file] Canonical Request:\n", canonicalRequest);
   
   const canonicalRequestHash = await sha256(canonicalRequest);
   const stringToSign = [
@@ -102,16 +115,21 @@ async function deleteS3Object(
     canonicalRequestHash,
   ].join("\n");
   
+  console.log("[s3-delete-file] String to Sign:\n", stringToSign);
+  
   const signingKey = await getSignatureKey(secretAccessKey, dateStamp, region, service);
   const signatureBuffer = await hmacSha256(signingKey, stringToSign);
   const signature = toHex(signatureBuffer);
   
   const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   
-  const response = await fetch(`${endpoint}/${encodedKey}`, {
+  console.log("[s3-delete-file] Making DELETE request to:", `${endpoint}${canonicalUri}`);
+  
+  const response = await fetch(`${endpoint}${canonicalUri}`, {
     method: "DELETE",
     headers: {
       "Host": host,
+      "x-amz-content-sha256": payloadHash,
       "x-amz-date": amzDate,
       "Authorization": authorizationHeader,
     },
@@ -185,6 +203,7 @@ serve(async (req: Request) => {
     }
 
     console.log("[s3-delete-file] Deleting file from S3:", s3Key);
+    console.log("[s3-delete-file] Bucket:", bucket, "Region:", region);
 
     const deleteResponse = await deleteS3Object(
       bucket,
@@ -194,6 +213,9 @@ serve(async (req: Request) => {
       secretAccessKey
     );
 
+    console.log("[s3-delete-file] S3 Response status:", deleteResponse.status);
+
+    // S3 returns 204 No Content on successful delete
     if (deleteResponse.status === 204 || deleteResponse.status === 200) {
       console.log("[s3-delete-file] File deleted successfully");
       return new Response(
