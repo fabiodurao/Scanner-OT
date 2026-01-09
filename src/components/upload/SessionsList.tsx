@@ -4,7 +4,6 @@ import { UploadSession, PcapFile } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -353,25 +352,20 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                   No files in this session
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>File</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Uploaded</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {files.map((file) => (
-                      <TableRow key={file.id}>
-                        <TableCell className="font-mono text-sm max-w-xs truncate">
+                <div className="space-y-2">
+                  {files.map((file) => (
+                    <div 
+                      key={file.id} 
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm truncate" title={file.original_filename}>
                           {file.original_filename}
-                        </TableCell>
-                        <TableCell>{formatFileSize(file.size_bytes)}</TableCell>
-                        <TableCell>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{formatFileSize(file.size_bytes)}</span>
                           <Badge 
+                            variant="secondary"
                             className={
                               file.upload_status === 'completed' 
                                 ? 'bg-emerald-100 text-emerald-700' 
@@ -383,71 +377,66 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                             {file.upload_status === 'completed' ? 'Completed' : 
                              file.upload_status === 'uploading' ? 'Uploading' : 'Error'}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {file.completed_at 
-                            ? format(new Date(file.completed_at), 'MM/dd/yyyy HH:mm')
-                            : '-'
-                          }
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {file.upload_status === 'completed' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownloadFile(file)}
-                                disabled={downloadingFile === file.id}
-                                className="h-8 w-8 p-0"
-                                title="Download file"
-                              >
-                                {downloadingFile === file.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Download className="h-4 w-4" />
-                                )}
-                              </Button>
+                          {file.completed_at && (
+                            <span>{format(new Date(file.completed_at), 'MM/dd/yyyy HH:mm')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {file.upload_status === 'completed' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadFile(file)}
+                            disabled={downloadingFile === file.id}
+                            className="h-8 w-8 p-0"
+                            title="Download file"
+                          >
+                            {downloadingFile === file.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
                             )}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={deletingFile === file.id}
-                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  title="Delete file"
-                                >
-                                  {deletingFile === file.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete file?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteFile(file, session.id)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          </Button>
+                        )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={deletingFile === file.id}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              title="Delete file"
+                            >
+                              {deletingFile === file.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete file?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteFile(file, session.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
 
               {/* Delete session button */}

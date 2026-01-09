@@ -297,8 +297,9 @@ const Upload = () => {
           </p>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="space-y-6">
+        <div className="grid gap-8 lg:grid-cols-5">
+          {/* Upload column - 2/5 width */}
+          <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -409,7 +410,8 @@ const Upload = () => {
             </Card>
           </div>
 
-          <div className="space-y-6">
+          {/* Previous uploads column - 3/5 width */}
+          <div className="lg:col-span-3 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
