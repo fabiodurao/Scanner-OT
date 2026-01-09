@@ -46,6 +46,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionFiles, setSessionFiles] = useState<Record<string, PcapFile[]>>({});
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [deletingSession, setDeletingSession] = useState<string | null>(null);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
   const fetchSessions = async () => {
@@ -92,47 +93,6 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
     }
   };
 
-  const handleDeleteSession = async (sessionId: string) => {
-    const files = sessionFiles[sessionId] || [];
-    
-    // Delete all files from S3 first
-    for (const file of files) {
-      if (file.upload_status === 'completed') {
-        await deleteFileFromS3(file, false);
-      }
-    }
-
-    // Delete all file records
-    const { error: filesError } = await supabase
-      .from('pcap_files')
-      .delete()
-      .eq('session_id', sessionId);
-
-    if (filesError) {
-      toast.error('Error deleting session files');
-      return;
-    }
-
-    // Delete the session
-    const { error: sessionError } = await supabase
-      .from('upload_sessions')
-      .delete()
-      .eq('id', sessionId);
-
-    if (sessionError) {
-      toast.error('Error deleting session');
-      return;
-    }
-
-    toast.success('Session deleted successfully');
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    setSessionFiles(prev => {
-      const newFiles = { ...prev };
-      delete newFiles[sessionId];
-      return newFiles;
-    });
-  };
-
   const deleteFileFromS3 = async (file: PcapFile, showToast: boolean = true): Promise<boolean> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -167,6 +127,76 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
       console.error('Error deleting from S3:', error);
       return false;
     }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    setDeletingSession(sessionId);
+    
+    try {
+      // First, fetch all files for this session directly from the database
+      const { data: files, error: filesQueryError } = await supabase
+        .from('pcap_files')
+        .select('*')
+        .eq('session_id', sessionId);
+
+      if (filesQueryError) {
+        console.error('Error fetching session files:', filesQueryError);
+        toast.error('Error fetching session files');
+        setDeletingSession(null);
+        return;
+      }
+
+      // Delete all files from S3
+      if (files && files.length > 0) {
+        for (const file of files) {
+          if (file.upload_status === 'completed') {
+            await deleteFileFromS3(file, false);
+          }
+        }
+      }
+
+      // Delete all file records from database
+      const { error: filesDeleteError } = await supabase
+        .from('pcap_files')
+        .delete()
+        .eq('session_id', sessionId);
+
+      if (filesDeleteError) {
+        console.error('Error deleting file records:', filesDeleteError);
+        toast.error('Error deleting session files');
+        setDeletingSession(null);
+        return;
+      }
+
+      // Delete the session
+      const { error: sessionError } = await supabase
+        .from('upload_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (sessionError) {
+        console.error('Error deleting session:', sessionError);
+        toast.error('Error deleting session: ' + sessionError.message);
+        setDeletingSession(null);
+        return;
+      }
+
+      toast.success('Session deleted successfully');
+      
+      // Update local state
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      setSessionFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[sessionId];
+        return newFiles;
+      });
+      
+    } catch (error) {
+      console.error('Error in handleDeleteSession:', error);
+      toast.error('Error deleting session');
+    }
+    
+    setDeletingSession(null);
   };
 
   const handleDeleteFile = async (file: PcapFile, sessionId: string) => {
@@ -305,6 +335,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
         const status = statusConfig[session.status] || statusConfig.error;
         const StatusIcon = status.icon;
         const files = sessionFiles[session.id] || [];
+        const isDeleting = deletingSession === session.id;
         
         return (
           <AccordionItem key={session.id} value={session.id} className="border rounded-lg mb-2">
@@ -443,9 +474,18 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
               <div className="mt-4 pt-4 border-t flex justify-end">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Session
+                    <Button variant="destructive" size="sm" disabled={isDeleting}>
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Session
+                        </>
+                      )}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
