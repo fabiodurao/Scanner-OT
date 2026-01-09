@@ -16,9 +16,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+
+const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
 interface SessionsListProps {
   customerId: string;
@@ -44,6 +46,8 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionFiles, setSessionFiles] = useState<Record<string, PcapFile[]>>({});
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -90,7 +94,16 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   };
 
   const handleDeleteSession = async (sessionId: string) => {
-    // First delete all files in the session
+    const files = sessionFiles[sessionId] || [];
+    
+    // Delete all files from S3 first
+    for (const file of files) {
+      if (file.upload_status === 'completed') {
+        await deleteFileFromS3(file, false);
+      }
+    }
+
+    // Delete all file records
     const { error: filesError } = await supabase
       .from('pcap_files')
       .delete()
@@ -101,7 +114,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
       return;
     }
 
-    // Then delete the session
+    // Delete the session
     const { error: sessionError } = await supabase
       .from('upload_sessions')
       .delete()
@@ -119,6 +132,143 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
       delete newFiles[sessionId];
       return newFiles;
     });
+  };
+
+  const deleteFileFromS3 = async (file: PcapFile, showToast: boolean = true): Promise<boolean> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (showToast) toast.error('Not authenticated');
+        return false;
+      }
+
+      const response = await fetch(
+        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/s3-delete-file`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            s3Key: file.s3_key,
+            bucket: file.s3_bucket,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('S3 delete error:', errorData);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting from S3:', error);
+      return false;
+    }
+  };
+
+  const handleDeleteFile = async (file: PcapFile, sessionId: string) => {
+    setDeletingFile(file.id);
+
+    // Delete from S3
+    const s3Deleted = await deleteFileFromS3(file);
+    
+    if (!s3Deleted) {
+      toast.error('Error deleting file from S3');
+      setDeletingFile(null);
+      return;
+    }
+
+    // Delete from database
+    const { error: dbError } = await supabase
+      .from('pcap_files')
+      .delete()
+      .eq('id', file.id);
+
+    if (dbError) {
+      toast.error('Error deleting file record');
+      setDeletingFile(null);
+      return;
+    }
+
+    // Update session statistics
+    const remainingFiles = (sessionFiles[sessionId] || []).filter(f => f.id !== file.id);
+    const totalSize = remainingFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
+
+    await supabase
+      .from('upload_sessions')
+      .update({
+        total_files: remainingFiles.length,
+        total_size_bytes: totalSize,
+      })
+      .eq('id', sessionId);
+
+    // Update local state
+    setSessionFiles(prev => ({
+      ...prev,
+      [sessionId]: remainingFiles,
+    }));
+
+    // Update session in list
+    setSessions(prev => prev.map(s => 
+      s.id === sessionId 
+        ? { ...s, total_files: remainingFiles.length, total_size_bytes: totalSize }
+        : s
+    ));
+
+    toast.success('File deleted successfully');
+    setDeletingFile(null);
+  };
+
+  const handleDownloadFile = async (file: PcapFile) => {
+    setDownloadingFile(file.id);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Not authenticated');
+        setDownloadingFile(null);
+        return;
+      }
+
+      const response = await fetch(
+        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/s3-download-url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            s3Key: file.s3_key,
+            bucket: file.s3_bucket,
+            originalFilename: file.original_filename,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error('Error generating download URL: ' + (errorData.error || 'Unknown error'));
+        setDownloadingFile(null);
+        return;
+      }
+
+      const { downloadUrl } = await response.json();
+      
+      // Open download in new tab
+      window.open(downloadUrl, '_blank');
+      
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Error downloading file');
+    }
+
+    setDownloadingFile(null);
   };
 
   const formatSessionName = (session: UploadSession) => {
@@ -210,6 +360,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                       <TableHead>Size</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Uploaded</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -239,6 +390,60 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                             : '-'
                           }
                         </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {file.upload_status === 'completed' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownloadFile(file)}
+                                disabled={downloadingFile === file.id}
+                                className="h-8 w-8 p-0"
+                                title="Download file"
+                              >
+                                {downloadingFile === file.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={deletingFile === file.id}
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  title="Delete file"
+                                >
+                                  {deletingFile === file.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete file?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteFile(file, session.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -258,8 +463,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete session?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete this upload session and all associated file records.
-                        The files in S3 will NOT be deleted.
+                        This will permanently delete this upload session, all file records, AND all files from S3 storage. This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -268,7 +472,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
                         onClick={() => handleDeleteSession(session.id)}
                         className="bg-red-600 hover:bg-red-700"
                       >
-                        Delete
+                        Delete Everything
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
