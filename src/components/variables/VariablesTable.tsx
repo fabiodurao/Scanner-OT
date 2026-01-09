@@ -27,13 +27,13 @@ export const VariablesTable = ({ variables, equipment = [], showEquipment = fals
       <Table>
         <TableHeader>
           <TableRow>
-            {showEquipment && <TableHead>Equipamento</TableHead>}
-            <TableHead>Endereço</TableHead>
-            <TableHead>Valor</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Hipótese Semântica</TableHead>
-            <TableHead>Confiança</TableHead>
-            <TableHead>Estado</TableHead>
+            {showEquipment && <TableHead>Equipment</TableHead>}
+            <TableHead>Address</TableHead>
+            <TableHead>Value</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Semantic Hypothesis</TableHead>
+            <TableHead>Confidence</TableHead>
+            <TableHead>State</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -47,7 +47,7 @@ export const VariablesTable = ({ variables, equipment = [], showEquipment = fals
               <TableCell className="font-mono">{variable.register_address}</TableCell>
               <TableCell className="font-mono">
                 {typeof variable.raw_value === 'number' 
-                  ? variable.raw_value.toLocaleString('pt-BR')
+                  ? variable.raw_value.toLocaleString('en-US')
                   : variable.raw_value}
                 {variable.unit && <span className="text-muted-foreground ml-1">{variable.unit}</span>}
               </TableCell>
@@ -58,7 +58,7 @@ export const VariablesTable = ({ variables, equipment = [], showEquipment = fals
               </TableCell>
               <TableCell>
                 {variable.semantic_hypothesis || (
-                  <span className="text-muted-foreground italic">Não identificado</span>
+                  <span className="text-muted-foreground italic">Not identified</span>
                 )}
               </TableCell>
               <TableCell>
@@ -77,7 +77,7 @@ export const VariablesTable = ({ variables, equipment = [], showEquipment = fals
           {variables.length === 0 && (
             <TableRow>
               <TableCell colSpan={showEquipment ? 7 : 6} className="text-center py-8 text-muted-foreground">
-                Nenhuma variável encontrada
+                No variables found
               </TableCell>
             </TableRow>
           )}

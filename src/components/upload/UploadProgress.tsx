@@ -22,10 +22,10 @@ export const UploadProgress = ({ uploads }: UploadProgressProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">Progresso do Upload</div>
+        <div className="text-sm font-medium">Upload Progress</div>
         <div className="text-sm text-muted-foreground">
-          {completedCount}/{uploads.length} concluídos
-          {errorCount > 0 && <span className="text-red-500 ml-2">({errorCount} erros)</span>}
+          {completedCount}/{uploads.length} completed
+          {errorCount > 0 && <span className="text-red-500 ml-2">({errorCount} errors)</span>}
         </div>
       </div>
       <Progress value={totalProgress} className="h-2" />

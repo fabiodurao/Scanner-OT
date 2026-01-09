@@ -12,12 +12,12 @@ interface EquipmentCardProps {
 
 const equipmentTypeConfig: Record<EquipmentType, { label: string; icon: React.ElementType; color: string }> = {
   scada: { label: 'SCADA', icon: Server, color: 'bg-blue-100 text-blue-700' },
-  clp: { label: 'CLP', icon: Cpu, color: 'bg-purple-100 text-purple-700' },
-  inversor: { label: 'Inversor', icon: Zap, color: 'bg-yellow-100 text-yellow-700' },
-  gerador: { label: 'Gerador', icon: Activity, color: 'bg-green-100 text-green-700' },
-  multimedidor: { label: 'Multimedidor', icon: Gauge, color: 'bg-orange-100 text-orange-700' },
+  clp: { label: 'PLC', icon: Cpu, color: 'bg-purple-100 text-purple-700' },
+  inversor: { label: 'Inverter', icon: Zap, color: 'bg-yellow-100 text-yellow-700' },
+  gerador: { label: 'Generator', icon: Activity, color: 'bg-green-100 text-green-700' },
+  multimedidor: { label: 'Multimeter', icon: Gauge, color: 'bg-orange-100 text-orange-700' },
   gateway: { label: 'Gateway', icon: Network, color: 'bg-slate-100 text-slate-700' },
-  unknown: { label: 'Desconhecido', icon: Server, color: 'bg-gray-100 text-gray-700' },
+  unknown: { label: 'Unknown', icon: Server, color: 'bg-gray-100 text-gray-700' },
 };
 
 export const EquipmentCard = ({ equipment, variableCount, siteId }: EquipmentCardProps) => {
@@ -36,7 +36,7 @@ export const EquipmentCard = ({ equipment, variableCount, siteId }: EquipmentCar
               <div>
                 <CardTitle className="text-base">{equipment.name}</CardTitle>
                 <div className="text-sm text-muted-foreground">
-                  {equipment.manufacturer || 'Fabricante desconhecido'}
+                  {equipment.manufacturer || 'Unknown manufacturer'}
                 </div>
               </div>
             </div>
@@ -54,7 +54,7 @@ export const EquipmentCard = ({ equipment, variableCount, siteId }: EquipmentCar
               <span className="font-mono text-xs">{equipment.mac_address}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Variáveis:</span>
+              <span className="text-muted-foreground">Variables:</span>
               <span className="font-bold">{variableCount}</span>
             </div>
           </div>

@@ -17,12 +17,12 @@ import { useState } from 'react';
 
 const equipmentTypeConfig: Record<EquipmentType, { label: string; icon: React.ElementType; color: string }> = {
   scada: { label: 'SCADA', icon: Server, color: 'bg-blue-100 text-blue-700' },
-  clp: { label: 'CLP', icon: Cpu, color: 'bg-purple-100 text-purple-700' },
-  inversor: { label: 'Inversor', icon: Zap, color: 'bg-yellow-100 text-yellow-700' },
-  gerador: { label: 'Gerador', icon: Activity, color: 'bg-green-100 text-green-700' },
-  multimedidor: { label: 'Multimedidor', icon: Gauge, color: 'bg-orange-100 text-orange-700' },
+  clp: { label: 'PLC', icon: Cpu, color: 'bg-purple-100 text-purple-700' },
+  inversor: { label: 'Inverter', icon: Zap, color: 'bg-yellow-100 text-yellow-700' },
+  gerador: { label: 'Generator', icon: Activity, color: 'bg-green-100 text-green-700' },
+  multimedidor: { label: 'Multimeter', icon: Gauge, color: 'bg-orange-100 text-orange-700' },
   gateway: { label: 'Gateway', icon: Network, color: 'bg-slate-100 text-slate-700' },
-  unknown: { label: 'Desconhecido', icon: Server, color: 'bg-gray-100 text-gray-700' },
+  unknown: { label: 'Unknown', icon: Server, color: 'bg-gray-100 text-gray-700' },
 };
 
 const EquipmentDetail = () => {
@@ -39,9 +39,9 @@ const EquipmentDetail = () => {
       <MainLayout>
         <div className="p-8">
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-slate-900">Equipamento não encontrado</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Equipment not found</h2>
             <Link to="/sites" className="text-emerald-600 hover:underline mt-2 inline-block">
-              Voltar para Sites
+              Back to Sites
             </Link>
           </div>
         </div>
@@ -68,7 +68,7 @@ const EquipmentDetail = () => {
           className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-4"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
-          Voltar para {site.name}
+          Back to {site.name}
         </Link>
 
         <div className="mb-8">
@@ -80,7 +80,7 @@ const EquipmentDetail = () => {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">{equipment.name}</h1>
                 <div className="text-muted-foreground mt-1">
-                  {equipment.manufacturer || 'Fabricante desconhecido'}
+                  {equipment.manufacturer || 'Unknown manufacturer'}
                 </div>
               </div>
             </div>
@@ -91,12 +91,12 @@ const EquipmentDetail = () => {
         {/* Equipment Info */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Informações do Equipamento</CardTitle>
+            <CardTitle>Equipment Information</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-sm text-muted-foreground">Endereço IP</div>
+                <div className="text-sm text-muted-foreground">IP Address</div>
                 <div className="font-mono">{equipment.ip_address}</div>
               </div>
               <div>
@@ -104,12 +104,12 @@ const EquipmentDetail = () => {
                 <div className="font-mono text-sm">{equipment.mac_address}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Descoberto em</div>
-                <div>{new Date(equipment.discovered_at).toLocaleDateString('pt-BR')}</div>
+                <div className="text-sm text-muted-foreground">Discovered on</div>
+                <div>{new Date(equipment.discovered_at).toLocaleDateString('en-US')}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Última atividade</div>
-                <div>{new Date(equipment.last_seen).toLocaleDateString('pt-BR')}</div>
+                <div className="text-sm text-muted-foreground">Last activity</div>
+                <div>{new Date(equipment.last_seen).toLocaleDateString('en-US')}</div>
               </div>
             </div>
           </CardContent>
@@ -119,27 +119,27 @@ const EquipmentDetail = () => {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">
-              Variáveis ({filteredVariables.length})
+              Variables ({filteredVariables.length})
             </h2>
             <div className="flex gap-2">
               <Select value={stateFilter} onValueChange={setStateFilter}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Estado" />
+                  <SelectValue placeholder="State" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os estados</SelectItem>
-                  <SelectItem value="unknown">Desconhecido</SelectItem>
-                  <SelectItem value="hypothesis">Hipótese</SelectItem>
-                  <SelectItem value="confirmed">Confirmado</SelectItem>
-                  <SelectItem value="published">Publicado</SelectItem>
+                  <SelectItem value="all">All states</SelectItem>
+                  <SelectItem value="unknown">Unknown</SelectItem>
+                  <SelectItem value="hypothesis">Hypothesis</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Tipo de dado" />
+                  <SelectValue placeholder="Data type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
                   {dataTypes.map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}

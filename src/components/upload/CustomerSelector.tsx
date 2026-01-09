@@ -41,7 +41,7 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
       .order('name');
 
     if (error) {
-      toast.error('Erro ao carregar clientes');
+      toast.error('Error loading customers');
       console.error(error);
     } else {
       setCustomers(data || []);
@@ -55,7 +55,7 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
-      toast.error('Digite o nome do cliente');
+      toast.error('Enter the customer name');
       return;
     }
 
@@ -73,9 +73,9 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
       .single();
 
     if (error) {
-      toast.error('Erro ao criar cliente: ' + error.message);
+      toast.error('Error creating customer: ' + error.message);
     } else {
-      toast.success('Cliente criado com sucesso!');
+      toast.success('Customer created successfully!');
       setCustomers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       onSelectCustomer(data);
       setNewCustomerName('');
@@ -98,18 +98,18 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Carregando clientes...
+        Loading customers...
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <Label>Cliente</Label>
+      <Label>Customer</Label>
       <div className="flex gap-2">
         <Select value={selectedCustomerId || ''} onValueChange={handleSelectChange}>
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Selecione um cliente" />
+            <SelectValue placeholder="Select a customer" />
           </SelectTrigger>
           <SelectContent>
             {customers.map(customer => (
@@ -123,7 +123,7 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
             <SelectItem value="new" className="text-[#2563EB]">
               <div className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Novo cliente...
+                New customer...
               </div>
             </SelectItem>
           </SelectContent>
@@ -133,17 +133,17 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogTitle>New Customer</DialogTitle>
             <DialogDescription>
-              Cadastre um novo cliente para associar os arquivos PCAP.
+              Register a new customer to associate PCAP files.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="customer-name">Nome do Cliente</Label>
+              <Label htmlFor="customer-name">Customer Name</Label>
               <Input
                 id="customer-name"
-                placeholder="Ex: Usina Solar Nordeste"
+                placeholder="E.g.: Northeast Solar Plant"
                 value={newCustomerName}
                 onChange={(e) => setNewCustomerName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateCustomer()}
@@ -152,16 +152,16 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
+              Cancel
             </Button>
             <Button onClick={handleCreateCustomer} disabled={creating}>
               {creating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
+                  Creating...
                 </>
               ) : (
-                'Criar Cliente'
+                'Create Customer'
               )}
             </Button>
           </DialogFooter>

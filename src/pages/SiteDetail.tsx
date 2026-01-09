@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, MapPin, Server, Variable, CheckCircle, Upload, AlertCircle, Lightbulb } from 'lucide-react';
 
 const siteTypeLabels: Record<string, string> = {
-  eolica: 'Eólica',
-  fotovoltaica: 'Fotovoltaica',
-  hibrida: 'Híbrida',
-  subestacao: 'Subestação',
+  eolica: 'Wind',
+  fotovoltaica: 'Solar',
+  hibrida: 'Hybrid',
+  subestacao: 'Substation',
 };
 
 const SiteDetail = () => {
@@ -24,9 +24,9 @@ const SiteDetail = () => {
       <MainLayout>
         <div className="p-8">
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-slate-900">Site não encontrado</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Site not found</h2>
             <Link to="/sites" className="text-emerald-600 hover:underline mt-2 inline-block">
-              Voltar para Sites
+              Back to Sites
             </Link>
           </div>
         </div>
@@ -46,7 +46,7 @@ const SiteDetail = () => {
           className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-4"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
-          Voltar para Sites
+          Back to Sites
         </Link>
 
         <div className="mb-8">
@@ -66,7 +66,7 @@ const SiteDetail = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Equipamentos</CardTitle>
+              <CardTitle className="text-sm font-medium">Equipment</CardTitle>
               <Server className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -75,7 +75,7 @@ const SiteDetail = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Variáveis</CardTitle>
+              <CardTitle className="text-sm font-medium">Variables</CardTitle>
               <Variable className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -84,7 +84,7 @@ const SiteDetail = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Confirmadas</CardTitle>
+              <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
               <CheckCircle className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
@@ -93,7 +93,7 @@ const SiteDetail = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Publicadas</CardTitle>
+              <CardTitle className="text-sm font-medium">Published</CardTitle>
               <Upload className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -105,7 +105,7 @@ const SiteDetail = () => {
         {/* Learning State Summary */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Resumo de Aprendizado</CardTitle>
+            <CardTitle>Learning Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-8">
@@ -113,28 +113,28 @@ const SiteDetail = () => {
                 <AlertCircle className="h-5 w-5 text-slate-500" />
                 <div>
                   <div className="text-xl font-bold">{stats.unknown_variables}</div>
-                  <div className="text-xs text-muted-foreground">Desconhecidas</div>
+                  <div className="text-xs text-muted-foreground">Unknown</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-amber-500" />
                 <div>
                   <div className="text-xl font-bold">{stats.hypothesis_variables}</div>
-                  <div className="text-xs text-muted-foreground">Hipóteses</div>
+                  <div className="text-xs text-muted-foreground">Hypotheses</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-emerald-500" />
                 <div>
                   <div className="text-xl font-bold">{stats.confirmed_variables}</div>
-                  <div className="text-xs text-muted-foreground">Confirmadas</div>
+                  <div className="text-xs text-muted-foreground">Confirmed</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Upload className="h-5 w-5 text-blue-500" />
                 <div>
                   <div className="text-xl font-bold">{stats.published_variables}</div>
-                  <div className="text-xs text-muted-foreground">Publicadas</div>
+                  <div className="text-xs text-muted-foreground">Published</div>
                 </div>
               </div>
             </div>
@@ -143,7 +143,7 @@ const SiteDetail = () => {
 
         {/* Equipment Grid */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Equipamentos</h2>
+          <h2 className="text-xl font-semibold mb-4">Equipment</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {siteEquipment.map((equipment) => (
               <EquipmentCard
@@ -156,7 +156,7 @@ const SiteDetail = () => {
           </div>
           {siteEquipment.length === 0 && (
             <div className="text-center py-12 text-muted-foreground border rounded-lg">
-              Nenhum equipamento descoberto ainda
+              No equipment discovered yet
             </div>
           )}
         </div>

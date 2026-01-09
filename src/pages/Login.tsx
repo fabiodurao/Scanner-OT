@@ -42,11 +42,11 @@ const Login = () => {
       if (error) {
         console.error('Login error:', error);
         if (error.message.includes('Invalid login credentials')) {
-          toast.error('E-mail ou senha incorretos.');
+          toast.error('Invalid email or password.');
         } else if (error.message.includes('Email not confirmed')) {
-          toast.error('E-mail não confirmado. Verifique sua caixa de entrada.');
+          toast.error('Email not confirmed. Check your inbox.');
         } else {
-          toast.error('Erro ao fazer login: ' + error.message);
+          toast.error('Login error: ' + error.message);
         }
         setLoading(false);
         return;
@@ -74,15 +74,15 @@ const Login = () => {
             const { error: createError } = await supabase.from('profiles').insert({
               id: data.user.id,
               email: data.user.email || loginEmail,
-              full_name: data.user.user_metadata?.full_name || 'Usuário',
-              role_in_company: data.user.user_metadata?.role_in_company || 'Não informado',
+              full_name: data.user.user_metadata?.full_name || 'User',
+              role_in_company: data.user.user_metadata?.role_in_company || 'Not specified',
               is_approved: isAdmin,
               is_admin: isAdmin,
             });
             
             if (createError) {
               console.error('Error creating profile:', createError);
-              toast.error('Erro ao criar perfil. Tente novamente.');
+              toast.error('Error creating profile. Please try again.');
               await supabase.auth.signOut();
               setLoading(false);
               return;
@@ -92,17 +92,17 @@ const Login = () => {
             await refreshProfile();
             
             if (isAdmin) {
-              toast.success('Login realizado com sucesso!');
+              toast.success('Login successful!');
               navigate('/', { replace: true });
             } else {
-              toast.info('Aguardando aprovação do administrador.');
+              toast.info('Waiting for administrator approval.');
               navigate('/pending-approval', { replace: true });
             }
             setLoading(false);
             return;
           }
           
-          toast.error('Erro ao verificar perfil. Tente novamente.');
+          toast.error('Error verifying profile. Please try again.');
           await supabase.auth.signOut();
           setLoading(false);
           return;
@@ -112,19 +112,19 @@ const Login = () => {
         await refreshProfile();
 
         if (!profile.is_approved) {
-          toast.info('Sua conta ainda não foi aprovada.');
+          toast.info('Your account has not been approved yet.');
           navigate('/pending-approval', { replace: true });
           setLoading(false);
           return;
         }
 
-        toast.success('Login realizado com sucesso!');
+        toast.success('Login successful!');
         navigate('/', { replace: true });
         setLoading(false);
       }
     } catch (err) {
       console.error('Login error:', err);
-      toast.error('Erro ao fazer login.');
+      toast.error('Login error.');
       setLoading(false);
     }
   };
@@ -133,17 +133,17 @@ const Login = () => {
     e.preventDefault();
     
     if (signupPassword !== signupConfirmPassword) {
-      toast.error('As senhas não coincidem');
+      toast.error('Passwords do not match');
       return;
     }
 
     if (signupPassword.length < 8) {
-      toast.error('A senha deve ter pelo menos 8 caracteres');
+      toast.error('Password must be at least 8 characters');
       return;
     }
 
     if (!fullName.trim() || !roleInCompany.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -164,16 +164,16 @@ const Login = () => {
       if (error) {
         console.error('Signup error:', error);
         if (error.message.includes('already registered')) {
-          toast.error('Este e-mail já está cadastrado. Tente fazer login.');
+          toast.error('This email is already registered. Try logging in.');
         } else {
-          toast.error('Erro ao criar conta: ' + error.message);
+          toast.error('Error creating account: ' + error.message);
         }
         setLoading(false);
         return;
       }
 
       if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-        toast.error('Este e-mail já está cadastrado. Tente fazer login.');
+        toast.error('This email is already registered. Try logging in.');
         setLoading(false);
         return;
       }
@@ -190,7 +190,7 @@ const Login = () => {
       
     } catch (err) {
       console.error('Signup error:', err);
-      toast.error('Erro inesperado ao criar conta.');
+      toast.error('Unexpected error creating account.');
       setLoading(false);
     }
   };
@@ -205,9 +205,9 @@ const Login = () => {
                 <Mail className="h-8 w-8 text-[#2563EB]" />
               </div>
             </div>
-            <CardTitle className="text-2xl">Confirme seu e-mail</CardTitle>
+            <CardTitle className="text-2xl">Confirm your email</CardTitle>
             <CardDescription>
-              Enviamos um link de confirmação para:
+              We sent a confirmation link to:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -218,21 +218,21 @@ const Login = () => {
             <Alert className="border-blue-200 bg-blue-50">
               <CheckCircle className="h-4 w-4 text-[#2563EB]" />
               <AlertDescription>
-                <strong>Passo 1:</strong> Clique no link enviado para seu e-mail para confirmar sua conta.
+                <strong>Step 1:</strong> Click the link sent to your email to confirm your account.
               </AlertDescription>
             </Alert>
 
             <Alert className="border-amber-200 bg-amber-50">
               <Info className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-800">
-                <strong>Passo 2:</strong> Após confirmar o e-mail, um administrador precisará aprovar seu acesso. 
-                Entre em contato com o administrador do sistema para agilizar a liberação.
+                <strong>Step 2:</strong> After confirming your email, an administrator will need to approve your access. 
+                Contact the system administrator to expedite the approval.
               </AlertDescription>
             </Alert>
 
             <div className="text-sm text-muted-foreground text-center">
-              <p>Não recebeu o e-mail?</p>
-              <p>Verifique sua pasta de spam ou lixo eletrônico.</p>
+              <p>Didn't receive the email?</p>
+              <p>Check your spam or junk folder.</p>
             </div>
 
             <Button 
@@ -240,7 +240,7 @@ const Login = () => {
               className="w-full"
               onClick={() => setShowEmailConfirmation(false)}
             >
-              Voltar para o login
+              Back to login
             </Button>
           </CardContent>
         </Card>
@@ -260,24 +260,24 @@ const Login = () => {
             />
           </div>
           <CardDescription className="text-base">
-            Scanner OT
+            OT Scanner
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Solicitar Acesso</TabsTrigger>
+              <TabsTrigger value="login">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Request Access</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">E-mail</Label>
+                  <Label htmlFor="login-email">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="seu@email.com"
+                    placeholder="your@email.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
@@ -286,7 +286,7 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <Label htmlFor="login-password">Password</Label>
                   <Input
                     id="login-password"
                     type="password"
@@ -306,14 +306,14 @@ const Login = () => {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Entrando...
+                      Signing in...
                     </>
                   ) : (
-                    'Entrar'
+                    'Sign In'
                   )}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-4">
-                  Não tem conta? Clique em "Solicitar Acesso" acima.
+                  Don't have an account? Click "Request Access" above.
                 </p>
               </form>
             </TabsContent>
@@ -321,11 +321,11 @@ const Login = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">E-mail corporativo *</Label>
+                  <Label htmlFor="signup-email">Corporate email *</Label>
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="seu@empresa.com"
+                    placeholder="your@company.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required
@@ -334,11 +334,11 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="full-name">Nome completo *</Label>
+                  <Label htmlFor="full-name">Full name *</Label>
                   <Input
                     id="full-name"
                     type="text"
-                    placeholder="João da Silva"
+                    placeholder="John Smith"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -347,11 +347,11 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Função na empresa *</Label>
+                  <Label htmlFor="role">Role in company *</Label>
                   <Input
                     id="role"
                     type="text"
-                    placeholder="Ex: Engenheiro de Automação"
+                    placeholder="E.g.: Automation Engineer"
                     value={roleInCompany}
                     onChange={(e) => setRoleInCompany(e.target.value)}
                     required
@@ -360,11 +360,11 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha *</Label>
+                  <Label htmlFor="signup-password">Password *</Label>
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Mínimo 8 caracteres"
+                    placeholder="Minimum 8 characters"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     required
@@ -374,7 +374,7 @@ const Login = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirmar senha *</Label>
+                  <Label htmlFor="confirm-password">Confirm password *</Label>
                   <Input
                     id="confirm-password"
                     type="password"
@@ -390,8 +390,8 @@ const Login = () => {
                 <Alert className="border-blue-200 bg-blue-50">
                   <Info className="h-4 w-4 text-[#2563EB]" />
                   <AlertDescription className="text-[#1a2744] text-xs">
-                    Após o cadastro, você receberá um e-mail de confirmação. 
-                    Depois de confirmar, um administrador precisará aprovar seu acesso ao sistema.
+                    After registration, you will receive a confirmation email. 
+                    After confirming, an administrator will need to approve your access to the system.
                   </AlertDescription>
                 </Alert>
                 <Button 
@@ -402,10 +402,10 @@ const Login = () => {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
+                      Submitting...
                     </>
                   ) : (
-                    'Solicitar Acesso'
+                    'Request Access'
                   )}
                 </Button>
               </form>

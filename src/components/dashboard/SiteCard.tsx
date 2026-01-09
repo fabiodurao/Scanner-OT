@@ -10,10 +10,10 @@ interface SiteCardProps {
 }
 
 const siteTypeLabels: Record<Site['type'], string> = {
-  eolica: 'Eólica',
-  fotovoltaica: 'Fotovoltaica',
-  hibrida: 'Híbrida',
-  subestacao: 'Subestação',
+  eolica: 'Wind',
+  fotovoltaica: 'Solar',
+  hibrida: 'Hybrid',
+  subestacao: 'Substation',
 };
 
 const siteTypeColors: Record<Site['type'], string> = {
@@ -47,7 +47,7 @@ export const SiteCard = ({ site, stats }: SiteCardProps) => {
               </div>
               <div>
                 <div className="text-2xl font-bold text-[#1a2744]">{stats.total_equipment}</div>
-                <div className="text-xs text-muted-foreground">Equipamentos</div>
+                <div className="text-xs text-muted-foreground">Equipment</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export const SiteCard = ({ site, stats }: SiteCardProps) => {
               </div>
               <div>
                 <div className="text-2xl font-bold text-[#1a2744]">{stats.total_variables}</div>
-                <div className="text-xs text-muted-foreground">Variáveis</div>
+                <div className="text-xs text-muted-foreground">Variables</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export const SiteCard = ({ site, stats }: SiteCardProps) => {
               </div>
               <div>
                 <div className="text-2xl font-bold text-emerald-600">{stats.confirmed_variables}</div>
-                <div className="text-xs text-muted-foreground">Confirmadas</div>
+                <div className="text-xs text-muted-foreground">Confirmed</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export const SiteCard = ({ site, stats }: SiteCardProps) => {
               </div>
               <div>
                 <div className="text-2xl font-bold text-[#2563EB]">{stats.published_variables}</div>
-                <div className="text-xs text-muted-foreground">Publicadas</div>
+                <div className="text-xs text-muted-foreground">Published</div>
               </div>
             </div>
           </div>

@@ -8,22 +8,22 @@ interface LearningStateBadgeProps {
 
 const stateConfig: Record<LearningState, { label: string; className: string; icon: React.ElementType }> = {
   unknown: {
-    label: 'Desconhecido',
+    label: 'Unknown',
     className: 'bg-slate-100 text-slate-700 hover:bg-slate-100',
     icon: HelpCircle,
   },
   hypothesis: {
-    label: 'Hipótese',
+    label: 'Hypothesis',
     className: 'bg-amber-100 text-amber-700 hover:bg-amber-100',
     icon: Lightbulb,
   },
   confirmed: {
-    label: 'Confirmado',
+    label: 'Confirmed',
     className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
     icon: CheckCircle,
   },
   published: {
-    label: 'Publicado',
+    label: 'Published',
     className: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
     icon: Upload,
   },

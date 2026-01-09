@@ -40,7 +40,7 @@ const Upload = () => {
       updateUpload(fileName, { status: 'uploading', progress: 0 });
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Não autenticado');
+      if (!session) throw new Error('Not authenticated');
 
       console.log('Uploading file:', fileName, 'to session:', sessionId, 'customer:', customerId);
 
@@ -63,7 +63,7 @@ const Upload = () => {
 
       if (!presignedResponse.ok) {
         const errorData = await presignedResponse.json();
-        throw new Error(errorData.error || 'Erro ao gerar URL de upload');
+        throw new Error(errorData.error || 'Error generating upload URL');
       }
 
       const { presignedUrl, s3Key, bucket } = await presignedResponse.json();
@@ -85,7 +85,7 @@ const Upload = () => {
         .select()
         .single();
 
-      if (dbError) throw new Error('Erro ao registrar arquivo: ' + dbError.message);
+      if (dbError) throw new Error('Error registering file: ' + dbError.message);
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -117,7 +117,7 @@ const Upload = () => {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       updateUpload(fileName, { status: 'error', error: errorMessage });
       console.error('Upload error for', fileName, ':', errorMessage);
       throw error;
@@ -126,7 +126,7 @@ const Upload = () => {
 
   const handleStartUpload = async () => {
     if (!selectedCustomer || files.length === 0) {
-      toast.error('Selecione um cliente e adicione arquivos');
+      toast.error('Select a customer and add files');
       return;
     }
 
@@ -152,7 +152,7 @@ const Upload = () => {
       .single();
 
     if (error) {
-      toast.error('Erro ao criar sessão de upload: ' + error.message);
+      toast.error('Error creating upload session: ' + error.message);
       setStep('select');
       setIsUploading(false);
       return;
@@ -213,9 +213,9 @@ const Upload = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2744]">Upload PCAP</h1>
+          <h1 className="text-3xl font-bold text-[#1a2744]">PCAP Upload</h1>
           <p className="text-muted-foreground mt-1">
-            Faça upload de arquivos de captura de tráfego OT
+            Upload OT traffic capture files
           </p>
         </div>
 
@@ -225,10 +225,10 @@ const Upload = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UploadIcon className="h-5 w-5" />
-                  Novo Upload
+                  New Upload
                 </CardTitle>
                 <CardDescription>
-                  Selecione o cliente e adicione os arquivos PCAP para upload
+                  Select the customer and add PCAP files for upload
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -245,20 +245,20 @@ const Upload = () => {
                         
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="session-name">Nome da Sessão (opcional)</Label>
+                            <Label htmlFor="session-name">Session Name (optional)</Label>
                             <Input
                               id="session-name"
-                              placeholder="Ex: Captura Janeiro 2025"
+                              placeholder="E.g.: January 2025 Capture"
                               value={sessionName}
                               onChange={(e) => setSessionName(e.target.value)}
                             />
                           </div>
                           
                           <div className="space-y-2">
-                            <Label htmlFor="session-description">Descrição (opcional)</Label>
+                            <Label htmlFor="session-description">Description (optional)</Label>
                             <Textarea
                               id="session-description"
-                              placeholder="Observações sobre esta captura..."
+                              placeholder="Notes about this capture..."
                               value={sessionDescription}
                               onChange={(e) => setSessionDescription(e.target.value)}
                               rows={2}
@@ -279,7 +279,7 @@ const Upload = () => {
                           className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
                         >
                           <UploadIcon className="mr-2 h-4 w-4" />
-                          Iniciar Upload ({files.length} arquivo{files.length !== 1 ? 's' : ''})
+                          Start Upload ({files.length} file{files.length !== 1 ? 's' : ''})
                         </Button>
                       </>
                     )}
@@ -289,7 +289,7 @@ const Upload = () => {
                 {step === 'progress' && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>Cliente:</span>
+                      <span>Customer:</span>
                       <span className="font-medium text-foreground">{selectedCustomer?.name}</span>
                     </div>
                     
@@ -298,14 +298,14 @@ const Upload = () => {
                     {isUploading && (
                       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Enviando arquivos... Não feche esta página.
+                        Uploading files... Do not close this page.
                       </div>
                     )}
 
                     {!isUploading && errorCount > 0 && (
                       <div className="flex gap-2 justify-center">
                         <Button variant="outline" onClick={handleNewUpload}>
-                          Novo Upload
+                          New Upload
                         </Button>
                       </div>
                     )}
@@ -315,15 +315,15 @@ const Upload = () => {
                 {step === 'complete' && (
                   <div className="text-center py-8">
                     <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Upload Concluído!</h3>
+                    <h3 className="text-xl font-semibold mb-2">Upload Complete!</h3>
                     <p className="text-muted-foreground mb-6">
-                      {completedCount} arquivo{completedCount !== 1 ? 's' : ''} enviado{completedCount !== 1 ? 's' : ''} com sucesso.
-                      {errorCount > 0 && ` ${errorCount} erro${errorCount !== 1 ? 's' : ''}.`}
+                      {completedCount} file{completedCount !== 1 ? 's' : ''} uploaded successfully.
+                      {errorCount > 0 && ` ${errorCount} error${errorCount !== 1 ? 's' : ''}.`}
                     </p>
                     <div className="flex gap-2 justify-center">
                       <Button onClick={handleNewUpload}>
                         <UploadIcon className="mr-2 h-4 w-4" />
-                        Novo Upload
+                        New Upload
                       </Button>
                     </div>
                   </div>
@@ -337,12 +337,12 @@ const Upload = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FolderOpen className="h-5 w-5" />
-                  Uploads Anteriores
+                  Previous Uploads
                 </CardTitle>
                 <CardDescription>
                   {selectedCustomer 
-                    ? `Histórico de uploads para ${selectedCustomer.name}`
-                    : 'Selecione um cliente para ver o histórico'
+                    ? `Upload history for ${selectedCustomer.name}`
+                    : 'Select a customer to view history'
                   }
                 </CardDescription>
               </CardHeader>
@@ -354,7 +354,7 @@ const Upload = () => {
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
-                    Selecione um cliente para ver os uploads anteriores
+                    Select a customer to view previous uploads
                   </div>
                 )}
               </CardContent>

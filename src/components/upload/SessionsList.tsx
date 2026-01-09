@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileArchive, Calendar, User, HardDrive, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface SessionsListProps {
   customerId: string;
@@ -21,10 +21,10 @@ const formatFileSize = (bytes: number) => {
 };
 
 const statusConfig = {
-  in_progress: { label: 'Em andamento', icon: Loader2, color: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Concluído', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
-  processing: { label: 'Processando', icon: Clock, color: 'bg-amber-100 text-amber-700' },
-  error: { label: 'Erro', icon: AlertCircle, color: 'bg-red-100 text-red-700' },
+  in_progress: { label: 'In progress', icon: Loader2, color: 'bg-blue-100 text-blue-700' },
+  completed: { label: 'Completed', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
+  processing: { label: 'Processing', icon: Clock, color: 'bg-amber-100 text-amber-700' },
+  error: { label: 'Error', icon: AlertCircle, color: 'bg-red-100 text-red-700' },
 };
 
 export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) => {
@@ -47,7 +47,7 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   };
 
   if (loading) return <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
-  if (sessions.length === 0) return <div className="text-center py-8 text-muted-foreground border rounded-lg"><FileArchive className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>Nenhum upload realizado.</p></div>;
+  if (sessions.length === 0) return <div className="text-center py-8 text-muted-foreground border rounded-lg"><FileArchive className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No uploads yet.</p></div>;
 
   return (
     <Accordion type="single" collapsible value={expandedSession || undefined} onValueChange={(v) => { setExpandedSession(v); if (v) loadSessionFiles(v); }}>
@@ -55,17 +55,17 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
         const status = statusConfig[session.status];
         const StatusIcon = status.icon;
         const files = sessionFiles[session.id] || [];
-        const uploaderName = (session as any).profiles?.full_name || 'Usuário';
+        const uploaderName = (session as any).profiles?.full_name || 'User';
         return (
           <AccordionItem key={session.id} value={session.id} className="border rounded-lg mb-2">
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center justify-between w-full pr-4">
                 <div className="text-left">
-                  <div className="font-medium">{session.name || `Upload de ${formatDistanceToNow(new Date(session.created_at), { addSuffix: true, locale: ptBR })}`}</div>
+                  <div className="font-medium">{session.name || `Upload from ${formatDistanceToNow(new Date(session.created_at), { addSuffix: true, locale: enUS })}`}</div>
                   <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1">
-                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(session.created_at).toLocaleDateString('pt-BR')}</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(session.created_at).toLocaleDateString('en-US')}</span>
                     <span className="flex items-center gap-1"><User className="h-3 w-3" />{uploaderName}</span>
-                    <span className="flex items-center gap-1"><FileArchive className="h-3 w-3" />{session.total_files} arquivos</span>
+                    <span className="flex items-center gap-1"><FileArchive className="h-3 w-3" />{session.total_files} files</span>
                     <span className="flex items-center gap-1"><HardDrive className="h-3 w-3" />{formatFileSize(session.total_size_bytes)}</span>
                   </div>
                 </div>
@@ -73,15 +73,15 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4">
-              {files.length === 0 ? <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando...</div> : (
+              {files.length === 0 ? <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading...</div> : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Arquivo</TableHead><TableHead>Tamanho</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>File</TableHead><TableHead>Size</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {files.map((file) => (
                       <TableRow key={file.id}>
                         <TableCell className="font-mono text-sm">{file.original_filename}</TableCell>
                         <TableCell>{formatFileSize(file.size_bytes)}</TableCell>
-                        <TableCell><Badge className={file.upload_status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>{file.upload_status === 'completed' ? 'Concluído' : 'Erro'}</Badge></TableCell>
+                        <TableCell><Badge className={file.upload_status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>{file.upload_status === 'completed' ? 'Completed' : 'Error'}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -83,8 +83,8 @@ export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzonePro
         )}
       >
         <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-        <div className="text-lg font-medium mb-2">Arraste arquivos PCAP aqui</div>
-        <div className="text-sm text-muted-foreground mb-4">ou clique para selecionar</div>
+        <div className="text-lg font-medium mb-2">Drag PCAP files here</div>
+        <div className="text-sm text-muted-foreground mb-4">or click to select</div>
         <Button 
           type="button" 
           disabled={disabled} 
@@ -94,14 +94,14 @@ export const FileDropzone = ({ files, onFilesChange, disabled }: FileDropzonePro
             handleButtonClick();
           }}
         >
-          Selecionar Arquivos
+          Select Files
         </Button>
-        <div className="text-xs text-muted-foreground mt-4">Suporte a .pcap, .pcapng, .pcap.zst, .pcap.gz</div>
+        <div className="text-xs text-muted-foreground mt-4">Supports .pcap, .pcapng, .pcap.zst, .pcap.gz</div>
       </div>
       {files.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{files.length} arquivo(s)</span>
+            <span className="font-medium">{files.length} file(s)</span>
             <span className="text-muted-foreground">Total: {formatFileSize(files.reduce((s, f) => s + f.size, 0))}</span>
           </div>
           <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2">

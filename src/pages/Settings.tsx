@@ -11,9 +11,9 @@ const Settings = () => {
     <MainLayout>
       <div className="p-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Configurações</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie as configurações do Middleware OT
+            Manage OT Scanner settings
           </p>
         </div>
 
@@ -21,17 +21,17 @@ const Settings = () => {
           {/* General Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações Gerais</CardTitle>
+              <CardTitle>General Settings</CardTitle>
               <CardDescription>
-                Configurações básicas do sistema
+                Basic system settings
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Publicação Automática</Label>
+                  <Label>Auto Publish</Label>
                   <p className="text-sm text-muted-foreground">
-                    Publicar automaticamente variáveis com alta confiança
+                    Automatically publish variables with high confidence
                   </p>
                 </div>
                 <Switch />
@@ -39,9 +39,9 @@ const Settings = () => {
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Notificações</Label>
+                  <Label>Notifications</Label>
                   <p className="text-sm text-muted-foreground">
-                    Receber notificações sobre novos equipamentos descobertos
+                    Receive notifications about newly discovered equipment
                   </p>
                 </div>
                 <Switch defaultChecked />
@@ -52,15 +52,15 @@ const Settings = () => {
           {/* Inference Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações de Inferência</CardTitle>
+              <CardTitle>Inference Settings</CardTitle>
               <CardDescription>
-                Ajuste os parâmetros de inferência semântica
+                Adjust semantic inference parameters
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="confidence-threshold">
-                  Limiar de Confiança para Confirmação Automática
+                  Confidence Threshold for Auto Confirmation
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -80,9 +80,9 @@ const Settings = () => {
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Aprendizado Cruzado</Label>
+                  <Label>Cross-Site Learning</Label>
                   <p className="text-sm text-muted-foreground">
-                    Usar dados de outros sites para melhorar inferências
+                    Use data from other sites to improve inferences
                   </p>
                 </div>
                 <Switch />
@@ -93,15 +93,15 @@ const Settings = () => {
           {/* Integration Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Integrações</CardTitle>
+              <CardTitle>Integrations</CardTitle>
               <CardDescription>
-                Configure integrações com sistemas externos
+                Configure integrations with external systems
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="saas-endpoint">
-                  Endpoint SaaS CyberEnergia
+                  CyberEnergia SaaS Endpoint
                 </Label>
                 <Input
                   id="saas-endpoint"
@@ -111,7 +111,7 @@ const Settings = () => {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="n8n-webhook">
-                  Webhook n8n
+                  n8n Webhook
                 </Label>
                 <Input
                   id="n8n-webhook"
@@ -122,7 +122,7 @@ const Settings = () => {
           </Card>
 
           <div className="flex justify-end">
-            <Button>Salvar Configurações</Button>
+            <Button>Save Settings</Button>
           </div>
         </div>
       </div>

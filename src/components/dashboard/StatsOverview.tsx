@@ -16,28 +16,28 @@ export const StatsOverview = ({
 }: StatsOverviewProps) => {
   const stats = [
     {
-      title: 'Sites Ativos',
+      title: 'Active Sites',
       value: totalSites,
       icon: Building2,
       color: 'text-[#2563EB]',
       bgColor: 'bg-blue-100',
     },
     {
-      title: 'Equipamentos',
+      title: 'Equipment',
       value: totalEquipment,
       icon: Server,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
     },
     {
-      title: 'Variáveis Totais',
+      title: 'Total Variables',
       value: totalVariables,
       icon: Variable,
       color: 'text-slate-600',
       bgColor: 'bg-slate-100',
     },
     {
-      title: 'Variáveis Confirmadas',
+      title: 'Confirmed Variables',
       value: confirmedVariables,
       icon: CheckCircle,
       color: 'text-emerald-600',

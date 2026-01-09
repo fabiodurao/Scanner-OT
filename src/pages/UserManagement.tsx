@@ -46,7 +46,7 @@ const UserManagement = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error('Erro ao carregar usuários');
+      toast.error('Error loading users');
       console.error(error);
     } else {
       setUsers(data || []);
@@ -64,9 +64,9 @@ const UserManagement = () => {
       .eq('id', userId);
 
     if (error) {
-      toast.error('Erro ao aprovar usuário');
+      toast.error('Error approving user');
     } else {
-      toast.success('Usuário aprovado com sucesso!');
+      toast.success('User approved successfully!');
       fetchUsers();
     }
   };
@@ -78,9 +78,9 @@ const UserManagement = () => {
       .eq('id', userId);
 
     if (error) {
-      toast.error('Erro ao revogar acesso');
+      toast.error('Error revoking access');
     } else {
-      toast.success('Acesso revogado');
+      toast.success('Access revoked');
       fetchUsers();
     }
   };
@@ -92,9 +92,9 @@ const UserManagement = () => {
       .eq('id', userId);
 
     if (error) {
-      toast.error('Erro ao alterar permissões');
+      toast.error('Error changing permissions');
     } else {
-      toast.success(currentStatus ? 'Permissão de admin removida' : 'Usuário promovido a admin');
+      toast.success(currentStatus ? 'Admin permission removed' : 'User promoted to admin');
       fetchUsers();
     }
   };
@@ -106,9 +106,9 @@ const UserManagement = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Gerenciamento de Usuários</h1>
+          <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
           <p className="text-muted-foreground mt-1">
-            Aprove solicitações e gerencie permissões de acesso
+            Approve requests and manage access permissions
           </p>
         </div>
 
@@ -116,7 +116,7 @@ const UserManagement = () => {
         <div className="grid gap-4 md:grid-cols-3 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -125,7 +125,7 @@ const UserManagement = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
               <Clock className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
@@ -134,7 +134,7 @@ const UserManagement = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
@@ -149,7 +149,7 @@ const UserManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-amber-500" />
-                Solicitações Pendentes ({pendingUsers.length})
+                Pending Requests ({pendingUsers.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -157,11 +157,11 @@ const UserManagement = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Função</TableHead>
-                      <TableHead>Data da Solicitação</TableHead>
-                      <TableHead>Ações</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Request Date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -171,7 +171,7 @@ const UserManagement = () => {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.role_in_company}</TableCell>
                         <TableCell>
-                          {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                          {new Date(user.created_at).toLocaleDateString('en-US')}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -181,29 +181,29 @@ const UserManagement = () => {
                               className="bg-emerald-600 hover:bg-emerald-700"
                             >
                               <UserCheck className="h-4 w-4 mr-1" />
-                              Aprovar
+                              Approve
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="destructive">
                                   <UserX className="h-4 w-4 mr-1" />
-                                  Recusar
+                                  Reject
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Recusar solicitação?</AlertDialogTitle>
+                                  <AlertDialogTitle>Reject request?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Esta ação irá manter o usuário sem acesso ao sistema.
+                                    This action will keep the user without access to the system.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleRevoke(user.id)}
                                     className="bg-red-600 hover:bg-red-700"
                                   >
-                                    Recusar
+                                    Reject
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -224,7 +224,7 @@ const UserManagement = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-emerald-500" />
-              Usuários Aprovados ({approvedUsers.length})
+              Approved Users ({approvedUsers.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -232,11 +232,11 @@ const UserManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead>Função</TableHead>
-                    <TableHead>Permissões</TableHead>
-                    <TableHead>Ações</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Permissions</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -249,7 +249,7 @@ const UserManagement = () => {
                         <div className="flex gap-2">
                           <Badge className="bg-emerald-100 text-emerald-700">
                             <CheckCircle className="h-3 w-3 mr-1" />
-                            Aprovado
+                            Approved
                           </Badge>
                           {user.is_admin && (
                             <Badge className="bg-purple-100 text-purple-700">
@@ -267,29 +267,29 @@ const UserManagement = () => {
                             onClick={() => handleToggleAdmin(user.id, user.is_admin)}
                           >
                             <Shield className="h-4 w-4 mr-1" />
-                            {user.is_admin ? 'Remover Admin' : 'Tornar Admin'}
+                            {user.is_admin ? 'Remove Admin' : 'Make Admin'}
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="destructive">
                                 <XCircle className="h-4 w-4 mr-1" />
-                                Revogar
+                                Revoke
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Revogar acesso?</AlertDialogTitle>
+                                <AlertDialogTitle>Revoke access?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  O usuário {user.full_name} perderá acesso ao sistema.
+                                  User {user.full_name} will lose access to the system.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleRevoke(user.id)}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
-                                  Revogar Acesso
+                                  Revoke Access
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -301,7 +301,7 @@ const UserManagement = () => {
                   {approvedUsers.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        Nenhum usuário aprovado ainda
+                        No approved users yet
                       </TableCell>
                     </TableRow>
                   )}

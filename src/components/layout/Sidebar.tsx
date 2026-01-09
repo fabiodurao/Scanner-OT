@@ -20,14 +20,14 @@ const Sidebar = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Sites', href: '/sites', icon: Server },
-    { name: 'Variáveis', href: '/variables', icon: Table },
-    { name: 'Upload PCAP', href: '/upload', icon: Upload },
-    { name: 'Configurações', href: '/settings', icon: Settings },
+    { name: 'Variables', href: '/variables', icon: Table },
+    { name: 'PCAP Upload', href: '/upload', icon: Upload },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   // Add user management for admins
   if (profile?.is_admin) {
-    navigation.push({ name: 'Usuários', href: '/users', icon: Users });
+    navigation.push({ name: 'Users', href: '/users', icon: Users });
   }
 
   return (
@@ -79,10 +79,10 @@ const Sidebar = () => {
           className="w-full justify-start text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Sair
+          Sign Out
         </Button>
         <div className="text-xs text-gray-500 mt-3">
-          Scanner OT v0.2
+          OT Scanner v0.2
         </div>
       </div>
     </div>

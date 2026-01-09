@@ -15,27 +15,27 @@ const PendingApproval = () => {
               <Clock className="h-8 w-8 text-amber-600" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Aguardando Aprovação</CardTitle>
+          <CardTitle className="text-2xl">Awaiting Approval</CardTitle>
           <CardDescription>
-            Sua solicitação de acesso está sendo analisada
+            Your access request is being reviewed
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-slate-50 rounded-lg p-4 text-left border">
-            <div className="text-sm text-muted-foreground mb-1">Nome</div>
+            <div className="text-sm text-muted-foreground mb-1">Name</div>
             <div className="font-medium">{profile?.full_name}</div>
-            <div className="text-sm text-muted-foreground mb-1 mt-3">E-mail</div>
+            <div className="text-sm text-muted-foreground mb-1 mt-3">Email</div>
             <div className="font-medium">{profile?.email}</div>
-            <div className="text-sm text-muted-foreground mb-1 mt-3">Função</div>
+            <div className="text-sm text-muted-foreground mb-1 mt-3">Role</div>
             <div className="font-medium">{profile?.role_in_company}</div>
           </div>
           <p className="text-sm text-muted-foreground">
-            O administrador do sistema irá revisar sua solicitação em breve. 
-            Você receberá acesso assim que for aprovado.
+            The system administrator will review your request shortly. 
+            You will gain access once approved.
           </p>
           <Button variant="outline" onClick={signOut} className="w-full">
             <LogOut className="mr-2 h-4 w-4" />
-            Sair
+            Sign Out
           </Button>
           <div className="pt-4 border-t">
             <img 

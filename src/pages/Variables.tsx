@@ -39,9 +39,9 @@ const Variables = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Variáveis</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Variables</h1>
           <p className="text-muted-foreground mt-1">
-            Visão consolidada de todas as variáveis do sistema
+            Consolidated view of all system variables
           </p>
         </div>
 
@@ -49,7 +49,7 @@ const Variables = () => {
           <div className="relative flex-1 min-w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por endereço ou hipótese..."
+              placeholder="Search by address or hypothesis..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -60,7 +60,7 @@ const Variables = () => {
               <SelectValue placeholder="Site" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os sites</SelectItem>
+              <SelectItem value="all">All sites</SelectItem>
               {mockSites.map(site => (
                 <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
               ))}
@@ -68,20 +68,20 @@ const Variables = () => {
           </Select>
           <Select value={stateFilter} onValueChange={setStateFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Estado" />
+              <SelectValue placeholder="State" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os estados</SelectItem>
-              <SelectItem value="unknown">Desconhecido</SelectItem>
-              <SelectItem value="hypothesis">Hipótese</SelectItem>
-              <SelectItem value="confirmed">Confirmado</SelectItem>
-              <SelectItem value="published">Publicado</SelectItem>
+              <SelectItem value="all">All states</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+              <SelectItem value="hypothesis">Hypothesis</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="mb-4 text-sm text-muted-foreground">
-          {filteredVariables.length} variáveis encontradas
+          {filteredVariables.length} variables found
         </div>
 
         <VariablesTable 

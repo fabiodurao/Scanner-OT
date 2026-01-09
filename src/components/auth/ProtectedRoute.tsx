@@ -16,7 +16,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
-          <p className="text-slate-400">Verificando autenticação...</p>
+          <p className="text-slate-400">Verifying authentication...</p>
         </div>
       </div>
     );
@@ -33,7 +33,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-emerald-500 mx-auto mb-4" />
-          <p className="text-slate-400">Carregando perfil...</p>
+          <p className="text-slate-400">Loading profile...</p>
         </div>
       </div>
     );
