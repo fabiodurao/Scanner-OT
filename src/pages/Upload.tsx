@@ -32,6 +32,10 @@ const Upload = () => {
   const cancelledRef = useRef(false);
   const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map());
 
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   const updateUpload = useCallback((fileName: string, update: Partial<FileUploadProgress>) => {
     setUploads(prev => prev.map(u => u.file.name === fileName ? { ...u, ...update } : u));
   }, []);
@@ -268,7 +272,7 @@ const Upload = () => {
 
     setIsUploading(false);
     setStep('complete');
-    setRefreshTrigger(prev => prev + 1);
+    triggerRefresh();
   };
 
   const handleReset = () => {
@@ -332,6 +336,7 @@ const Upload = () => {
                           onNewSessionDescriptionChange={setSessionDescription}
                           mode={sessionMode}
                           onModeChange={setSessionMode}
+                          refreshTrigger={refreshTrigger}
                         />
 
                         <Separator />
@@ -430,6 +435,7 @@ const Upload = () => {
                   <SessionsList 
                     customerId={selectedCustomer.id} 
                     refreshTrigger={refreshTrigger}
+                    onSessionsChange={triggerRefresh}
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">

@@ -24,6 +24,7 @@ interface SessionSelectorProps {
   onNewSessionDescriptionChange: (description: string) => void;
   mode: 'new' | 'existing';
   onModeChange: (mode: 'new' | 'existing') => void;
+  refreshTrigger?: number;
 }
 
 export const SessionSelector = ({
@@ -36,6 +37,7 @@ export const SessionSelector = ({
   onNewSessionDescriptionChange,
   mode,
   onModeChange,
+  refreshTrigger,
 }: SessionSelectorProps) => {
   const [sessions, setSessions] = useState<UploadSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,14 @@ export const SessionSelector = ({
 
     if (!error && data) {
       setSessions(data);
+      
+      // If selected session was deleted, clear selection
+      if (selectedSessionId && !data.find(s => s.id === selectedSessionId)) {
+        onSelectSession(null);
+        if (mode === 'existing') {
+          onModeChange('new');
+        }
+      }
     }
     setLoading(false);
   };
@@ -58,7 +68,7 @@ export const SessionSelector = ({
     if (customerId) {
       fetchSessions();
     }
-  }, [customerId]);
+  }, [customerId, refreshTrigger]);
 
   const formatSessionName = (session: UploadSession) => {
     if (session.name) {

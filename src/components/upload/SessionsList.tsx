@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UploadSession, PcapFile } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   AlertDialog,
@@ -15,7 +16,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2, Download } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2, Download, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -24,6 +33,7 @@ const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 interface SessionsListProps {
   customerId: string;
   refreshTrigger?: number;
+  onSessionsChange?: () => void;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -40,7 +50,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Loader2; color:
   error: { label: 'Error', icon: AlertCircle, color: 'bg-red-100 text-red-700' },
 };
 
-export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) => {
+export const SessionsList = ({ customerId, refreshTrigger, onSessionsChange }: SessionsListProps) => {
   const [sessions, setSessions] = useState<UploadSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -48,6 +58,12 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  
+  // Edit session state
+  const [editingSession, setEditingSession] = useState<UploadSession | null>(null);
+  const [editSessionName, setEditSessionName] = useState('');
+  const [editSessionDescription, setEditSessionDescription] = useState('');
+  const [savingSession, setSavingSession] = useState(false);
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -191,6 +207,9 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
         return newFiles;
       });
       
+      // Notify parent to refresh session selector
+      onSessionsChange?.();
+      
     } catch (error) {
       console.error('Error in handleDeleteSession:', error);
       toast.error('Error deleting session');
@@ -300,6 +319,46 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
     setDownloadingFile(null);
   };
 
+  const handleEditSession = (session: UploadSession) => {
+    setEditingSession(session);
+    setEditSessionName(session.name || '');
+    setEditSessionDescription(session.description || '');
+  };
+
+  const handleSaveSession = async () => {
+    if (!editingSession) return;
+    
+    setSavingSession(true);
+    
+    const { error } = await supabase
+      .from('upload_sessions')
+      .update({
+        name: editSessionName || null,
+        description: editSessionDescription || null,
+      })
+      .eq('id', editingSession.id);
+
+    if (error) {
+      toast.error('Error updating session: ' + error.message);
+      setSavingSession(false);
+      return;
+    }
+
+    // Update local state
+    setSessions(prev => prev.map(s => 
+      s.id === editingSession.id 
+        ? { ...s, name: editSessionName || null, description: editSessionDescription || null }
+        : s
+    ));
+
+    toast.success('Session updated successfully');
+    setEditingSession(null);
+    setSavingSession(false);
+    
+    // Notify parent to refresh session selector
+    onSessionsChange?.();
+  };
+
   const formatSessionName = (session: UploadSession) => {
     if (session.name) {
       return session.name;
@@ -325,192 +384,257 @@ export const SessionsList = ({ customerId, refreshTrigger }: SessionsListProps) 
   }
 
   return (
-    <Accordion 
-      type="single" 
-      collapsible 
-      value={expandedSession || undefined} 
-      onValueChange={handleAccordionChange}
-    >
-      {sessions.map((session) => {
-        const status = statusConfig[session.status] || statusConfig.error;
-        const StatusIcon = status.icon;
-        const files = sessionFiles[session.id] || [];
-        const isDeleting = deletingSession === session.id;
-        
-        return (
-          <AccordionItem key={session.id} value={session.id} className="border rounded-lg mb-2">
-            <AccordionTrigger className="px-4 hover:no-underline">
-              <div className="flex items-center justify-between w-full pr-4">
-                <div className="text-left">
-                  <div className="font-medium">
-                    {formatSessionName(session)}
+    <>
+      <Accordion 
+        type="single" 
+        collapsible 
+        value={expandedSession || undefined} 
+        onValueChange={handleAccordionChange}
+      >
+        {sessions.map((session) => {
+          const status = statusConfig[session.status] || statusConfig.error;
+          const StatusIcon = status.icon;
+          const files = sessionFiles[session.id] || [];
+          const isDeleting = deletingSession === session.id;
+          
+          return (
+            <AccordionItem key={session.id} value={session.id} className="border rounded-lg mb-2">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center justify-between w-full pr-4">
+                  <div className="text-left">
+                    <div className="font-medium">
+                      {formatSessionName(session)}
+                    </div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(session.created_at), 'MM/dd/yyyy')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <FileArchive className="h-3 w-3" />
+                        {session.total_files} file{session.total_files !== 1 ? 's' : ''}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <HardDrive className="h-3 w-3" />
+                        {formatFileSize(session.total_size_bytes || 0)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(session.created_at), 'MM/dd/yyyy')}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FileArchive className="h-3 w-3" />
-                      {session.total_files} file{session.total_files !== 1 ? 's' : ''}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <HardDrive className="h-3 w-3" />
-                      {formatFileSize(session.total_size_bytes || 0)}
-                    </span>
+                  <Badge className={status.color}>
+                    <StatusIcon className={`h-3 w-3 mr-1 ${session.status === 'in_progress' ? 'animate-spin' : ''}`} />
+                    {status.label}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                {session.description && (
+                  <p className="text-sm text-muted-foreground mb-4 italic">
+                    {session.description}
+                  </p>
+                )}
+                
+                {files.length === 0 && !sessionFiles[session.id] ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading files...
                   </div>
-                </div>
-                <Badge className={status.color}>
-                  <StatusIcon className={`h-3 w-3 mr-1 ${session.status === 'in_progress' ? 'animate-spin' : ''}`} />
-                  {status.label}
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              {session.description && (
-                <p className="text-sm text-muted-foreground mb-4 italic">
-                  {session.description}
-                </p>
-              )}
-              
-              {files.length === 0 && !sessionFiles[session.id] ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Loading files...
-                </div>
-              ) : files.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No files in this session
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {files.map((file) => (
-                    <div 
-                      key={file.id} 
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-3"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-mono text-sm truncate" title={file.original_filename}>
-                          {file.original_filename}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span>{formatFileSize(file.size_bytes)}</span>
-                          <Badge 
-                            variant="secondary"
-                            className={
-                              file.upload_status === 'completed' 
-                                ? 'bg-emerald-100 text-emerald-700' 
-                                : file.upload_status === 'uploading'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-red-100 text-red-700'
-                            }
-                          >
-                            {file.upload_status === 'completed' ? 'Completed' : 
-                             file.upload_status === 'uploading' ? 'Uploading' : 'Error'}
-                          </Badge>
-                          {file.completed_at && (
-                            <span>{format(new Date(file.completed_at), 'MM/dd/yyyy HH:mm')}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {file.upload_status === 'completed' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownloadFile(file)}
-                            disabled={downloadingFile === file.id}
-                            className="h-8 w-8 p-0"
-                            title="Download file"
-                          >
-                            {downloadingFile === file.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4" />
+                ) : files.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No files in this session
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {files.map((file) => (
+                      <div 
+                        key={file.id} 
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-sm truncate" title={file.original_filename}>
+                            {file.original_filename}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span>{formatFileSize(file.size_bytes)}</span>
+                            <Badge 
+                              variant="secondary"
+                              className={
+                                file.upload_status === 'completed' 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : file.upload_status === 'uploading'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-red-100 text-red-700'
+                              }
+                            >
+                              {file.upload_status === 'completed' ? 'Completed' : 
+                               file.upload_status === 'uploading' ? 'Uploading' : 'Error'}
+                            </Badge>
+                            {file.completed_at && (
+                              <span>{format(new Date(file.completed_at), 'MM/dd/yyyy HH:mm')}</span>
                             )}
-                          </Button>
-                        )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {file.upload_status === 'completed' && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              disabled={deletingFile === file.id}
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              title="Delete file"
+                              onClick={() => handleDownloadFile(file)}
+                              disabled={downloadingFile === file.id}
+                              className="h-8 w-8 p-0"
+                              title="Download file"
                             >
-                              {deletingFile === file.id ? (
+                              {downloadingFile === file.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Trash2 className="h-4 w-4" />
+                                <Download className="h-4 w-4" />
                               )}
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete file?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteFile(file, session.id)}
-                                className="bg-red-600 hover:bg-red-700"
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={deletingFile === file.id}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                title="Delete file"
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                {deletingFile === file.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete file?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteFile(file, session.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
-              {/* Delete session button */}
-              <div className="mt-4 pt-4 border-t flex justify-end">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isDeleting}>
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Session
-                        </>
-                      )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete session?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete this upload session, all file records, AND all files from S3 storage. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDeleteSession(session.id)}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Delete Everything
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
+                {/* Session actions */}
+                <div className="mt-4 pt-4 border-t flex justify-between">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleEditSession(session)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Session
+                  </Button>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={isDeleting}>
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Session
+                          </>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete session?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete this upload session, all file records, AND all files from S3 storage. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteSession(session.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete Everything
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+
+      {/* Edit Session Dialog */}
+      <Dialog open={!!editingSession} onOpenChange={(open) => !open && setEditingSession(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>
+              Update the session name and description.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="edit-session-name" className="text-sm font-medium">
+                Session Name
+              </label>
+              <Input
+                id="edit-session-name"
+                placeholder="E.g.: January 2025 Capture"
+                value={editSessionName}
+                onChange={(e) => setEditSessionName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                If left empty, the date and time will be displayed
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="edit-session-description" className="text-sm font-medium">
+                Description (optional)
+              </label>
+              <Input
+                id="edit-session-description"
+                placeholder="Notes about this capture..."
+                value={editSessionDescription}
+                onChange={(e) => setEditSessionDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingSession(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSession} disabled={savingSession}>
+              {savingSession ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
