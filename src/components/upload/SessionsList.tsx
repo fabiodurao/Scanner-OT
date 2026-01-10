@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
 interface SessionsListProps {
-  customerId: string;
+  siteId: string;
   refreshTrigger?: number;
   onSessionsChange?: () => void;
 }
@@ -50,7 +50,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Loader2; color:
   error: { label: 'Error', icon: AlertCircle, color: 'bg-red-100 text-red-700' },
 };
 
-export const SessionsList = ({ customerId, refreshTrigger, onSessionsChange }: SessionsListProps) => {
+export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: SessionsListProps) => {
   const [sessions, setSessions] = useState<UploadSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export const SessionsList = ({ customerId, refreshTrigger, onSessionsChange }: S
     const { data, error } = await supabase
       .from('upload_sessions')
       .select('*')
-      .eq('customer_id', customerId)
+      .eq('customer_id', siteId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -83,10 +83,10 @@ export const SessionsList = ({ customerId, refreshTrigger, onSessionsChange }: S
   };
 
   useEffect(() => {
-    if (customerId) {
+    if (siteId) {
       fetchSessions();
     }
-  }, [customerId, refreshTrigger]);
+  }, [siteId, refreshTrigger]);
 
   const loadSessionFiles = async (sessionId: string) => {
     if (sessionFiles[sessionId]) return;
@@ -378,7 +378,7 @@ export const SessionsList = ({ customerId, refreshTrigger, onSessionsChange }: S
     return (
       <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
         <FileArchive className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p>No uploads yet for this customer.</p>
+        <p>No uploads yet for this site.</p>
       </div>
     );
   }

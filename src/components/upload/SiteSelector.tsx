@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer } from '@/types/upload';
+import { Site } from '@/types/upload';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,39 +14,39 @@ import { Building2, Loader2, MapPin, ExternalLink, Copy, Check } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-interface CustomerSelectorProps {
-  selectedCustomerId: string | null;
-  onSelectCustomer: (customer: Customer | null) => void;
+interface SiteSelectorProps {
+  selectedSiteId: string | null;
+  onSelectSite: (site: Site | null) => void;
 }
 
-export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: CustomerSelectorProps) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+export const SiteSelector = ({ selectedSiteId, onSelectSite }: SiteSelectorProps) => {
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
-  const fetchCustomers = async () => {
+  const fetchSites = async () => {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
       .order('name');
 
     if (!error) {
-      setCustomers(data || []);
+      setSites(data || []);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchCustomers();
+    fetchSites();
   }, []);
 
   const handleSelectChange = (value: string) => {
     if (value === 'manage') {
-      navigate('/customers');
+      navigate('/sites-management');
     } else {
-      const customer = customers.find(c => c.id === value);
-      onSelectCustomer(customer || null);
+      const site = sites.find(s => s.id === value);
+      onSelectSite(site || null);
     }
   };
 
@@ -61,77 +61,77 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
     }
   };
 
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const selectedSite = sites.find(s => s.id === selectedSiteId);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Loading customers...
+        Loading sites...
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <Label>Customer</Label>
+      <Label>Site</Label>
       <div className="flex gap-2">
-        <Select value={selectedCustomerId || ''} onValueChange={handleSelectChange}>
+        <Select value={selectedSiteId || ''} onValueChange={handleSelectChange}>
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Select a customer" />
+            <SelectValue placeholder="Select a site" />
           </SelectTrigger>
           <SelectContent>
-            {customers.map(customer => (
-              <SelectItem key={customer.id} value={customer.id}>
+            {sites.map(site => (
+              <SelectItem key={site.id} value={site.id}>
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-col">
-                    <span>{customer.name}</span>
-                    {(customer.city || customer.state) && (
+                    <span>{site.name}</span>
+                    {(site.city || site.state) && (
                       <span className="text-xs text-muted-foreground">
-                        {[customer.city, customer.state].filter(Boolean).join(', ')}
+                        {[site.city, site.state].filter(Boolean).join(', ')}
                       </span>
                     )}
                   </div>
                 </div>
               </SelectItem>
             ))}
-            {customers.length === 0 && (
+            {sites.length === 0 && (
               <SelectItem value="none" disabled>
-                No customers registered
+                No sites registered
               </SelectItem>
             )}
             <SelectItem value="manage" className="text-[#2563EB]">
               <div className="flex items-center gap-2">
                 <ExternalLink className="h-4 w-4" />
-                Manage customers...
+                Manage sites...
               </div>
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Show selected customer details */}
-      {selectedCustomer && (
+      {/* Show selected site details */}
+      {selectedSite && (
         <div className="mt-3 p-3 bg-slate-50 rounded-lg border text-sm">
-          <div className="font-medium">{selectedCustomer.name}</div>
-          {(selectedCustomer.city || selectedCustomer.state) && (
+          <div className="font-medium">{selectedSite.name}</div>
+          {(selectedSite.city || selectedSite.state) && (
             <div className="flex items-center gap-1 text-muted-foreground mt-1">
               <MapPin className="h-3 w-3" />
-              {[selectedCustomer.city, selectedCustomer.state].filter(Boolean).join(', ')}
+              {[selectedSite.city, selectedSite.state].filter(Boolean).join(', ')}
             </div>
           )}
-          {selectedCustomer.unique_id && (
+          {selectedSite.unique_id && (
             <div className="mt-2 flex items-center gap-2">
               <code className="text-xs bg-white px-2 py-1 rounded border font-mono flex-1 truncate">
-                {selectedCustomer.unique_id}
+                {selectedSite.unique_id}
               </code>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="h-7 w-7 p-0 flex-shrink-0"
-                onClick={() => handleCopyUUID(selectedCustomer.unique_id!)}
+                onClick={() => handleCopyUUID(selectedSite.unique_id!)}
                 title="Copy UUID"
               >
                 {copied ? (

@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { CustomerSelector } from '@/components/upload/CustomerSelector';
+import { SiteSelector } from '@/components/upload/SiteSelector';
 import { SessionSelector } from '@/components/upload/SessionSelector';
 import { FileDropzone } from '@/components/upload/FileDropzone';
 import { UploadProgress } from '@/components/upload/UploadProgress';
 import { SessionsList } from '@/components/upload/SessionsList';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer, UploadSession, FileUploadProgress } from '@/types/upload';
+import { Site, UploadSession, FileUploadProgress } from '@/types/upload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -19,7 +19,7 @@ const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
 const Upload = () => {
   const { user } = useAuth();
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
   const [selectedSession, setSelectedSession] = useState<UploadSession | null>(null);
   const [sessionName, setSessionName] = useState('');
@@ -40,7 +40,7 @@ const Upload = () => {
     setUploads(prev => prev.map(u => u.file.name === fileName ? { ...u, ...update } : u));
   }, []);
 
-  const uploadFile = useCallback(async (file: File, customerId: string, sessionId: string): Promise<boolean> => {
+  const uploadFile = useCallback(async (file: File, siteId: string, sessionId: string): Promise<boolean> => {
     const fileName = file.name;
     
     if (cancelledRef.current) {
@@ -65,7 +65,7 @@ const Upload = () => {
           body: JSON.stringify({
             filename: file.name,
             contentType: file.type || 'application/octet-stream',
-            customerId,
+            customerId: siteId,
             sessionId,
           }),
         }
@@ -188,8 +188,8 @@ const Upload = () => {
   }, []);
 
   const handleStartUpload = async () => {
-    if (!selectedCustomer || files.length === 0) {
-      toast.error('Select a customer and add files');
+    if (!selectedSite || files.length === 0) {
+      toast.error('Select a site and add files');
       return;
     }
 
@@ -221,7 +221,7 @@ const Upload = () => {
       const { data: session, error } = await supabase
         .from('upload_sessions')
         .insert({
-          customer_id: selectedCustomer.id,
+          customer_id: selectedSite.id,
           name: defaultName,
           description: sessionDescription || null,
           uploaded_by: user?.id,
@@ -240,14 +240,14 @@ const Upload = () => {
       sessionId = session.id;
     }
 
-    const customerId = selectedCustomer.id;
+    const siteId = selectedSite.id;
 
     for (const file of files) {
       if (cancelledRef.current) {
         break;
       }
 
-      await uploadFile(file, customerId, sessionId);
+      await uploadFile(file, siteId, sessionId);
     }
 
     // Update session statistics
@@ -311,23 +311,23 @@ const Upload = () => {
                   New Upload
                 </CardTitle>
                 <CardDescription>
-                  Select the customer and add PCAP files for upload
+                  Select the site and add PCAP files for upload
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {step === 'select' && (
                   <>
-                    <CustomerSelector
-                      selectedCustomerId={selectedCustomer?.id || null}
-                      onSelectCustomer={setSelectedCustomer}
+                    <SiteSelector
+                      selectedSiteId={selectedSite?.id || null}
+                      onSelectSite={setSelectedSite}
                     />
 
-                    {selectedCustomer && (
+                    {selectedSite && (
                       <>
                         <Separator />
                         
                         <SessionSelector
-                          customerId={selectedCustomer.id}
+                          siteId={selectedSite.id}
                           selectedSessionId={selectedSession?.id || null}
                           onSelectSession={setSelectedSession}
                           newSessionName={sessionName}
@@ -365,8 +365,8 @@ const Upload = () => {
                 {step === 'progress' && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>Customer:</span>
-                      <span className="font-medium text-foreground">{selectedCustomer?.name}</span>
+                      <span>Site:</span>
+                      <span className="font-medium text-foreground">{selectedSite?.name}</span>
                     </div>
                     
                     <UploadProgress 
@@ -424,22 +424,22 @@ const Upload = () => {
                   Previous Uploads
                 </CardTitle>
                 <CardDescription>
-                  {selectedCustomer 
-                    ? `Upload history for ${selectedCustomer.name}`
-                    : 'Select a customer to view history'
+                  {selectedSite 
+                    ? `Upload history for ${selectedSite.name}`
+                    : 'Select a site to view history'
                   }
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {selectedCustomer ? (
+                {selectedSite ? (
                   <SessionsList 
-                    customerId={selectedCustomer.id} 
+                    siteId={selectedSite.id} 
                     refreshTrigger={refreshTrigger}
                     onSessionsChange={triggerRefresh}
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
-                    Select a customer to view previous uploads
+                    Select a site to view previous uploads
                   </div>
                 )}
               </CardContent>

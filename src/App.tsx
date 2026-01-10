@@ -12,7 +12,7 @@ import SiteDetail from "./pages/SiteDetail";
 import EquipmentDetail from "./pages/EquipmentDetail";
 import Variables from "./pages/Variables";
 import Upload from "./pages/Upload";
-import Customers from "./pages/Customers";
+import SitesManagement from "./pages/SitesManagement";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import PendingApproval from "./pages/PendingApproval";
@@ -32,7 +32,8 @@ const AppRoutes = () => {
       <Route path="/sites/:siteId/equipment/:equipmentId" element={<ProtectedRoute><EquipmentDetail /></ProtectedRoute>} />
       <Route path="/variables" element={<ProtectedRoute><Variables /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-      <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+      <Route path="/sites-management" element={<ProtectedRoute><SitesManagement /></ProtectedRoute>} />
+      <Route path="/customers" element={<Navigate to="/sites-management" replace />} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute requireAdmin><UserManagement /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />

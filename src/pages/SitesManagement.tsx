@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer } from '@/types/upload';
+import { Site } from '@/types/upload';
 import { generateUUIDv7, isValidUUID } from '@/utils/uuid';
 import { AddressAutocomplete } from '@/components/maps/AddressAutocomplete';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,7 @@ const siteTypeConfig = {
   subestacao: { label: 'Substation', icon: Building, color: 'bg-slate-100 text-slate-700' },
 };
 
-interface CustomerFormData {
+interface SiteFormData {
   name: string;
   unique_id: string;
   latitude: string;
@@ -81,7 +81,7 @@ interface CustomerFormData {
   description: string;
 }
 
-const emptyFormData: CustomerFormData = {
+const emptyFormData: SiteFormData = {
   name: '',
   unique_id: '',
   latitude: '',
@@ -94,17 +94,17 @@ const emptyFormData: CustomerFormData = {
   description: '',
 };
 
-const Customers = () => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+const SitesManagement = () => {
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [formData, setFormData] = useState<CustomerFormData>(emptyFormData);
+  const [editingSite, setEditingSite] = useState<Site | null>(null);
+  const [formData, setFormData] = useState<SiteFormData>(emptyFormData);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const fetchCustomers = async () => {
+  const fetchSites = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('customers')
@@ -112,20 +112,20 @@ const Customers = () => {
       .order('name');
 
     if (error) {
-      toast.error('Error loading customers');
+      toast.error('Error loading sites');
       console.error(error);
     } else {
-      setCustomers(data || []);
+      setSites(data || []);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchCustomers();
+    fetchSites();
   }, []);
 
   const handleOpenCreate = () => {
-    setEditingCustomer(null);
+    setEditingSite(null);
     setFormData({
       ...emptyFormData,
       unique_id: generateUUIDv7(),
@@ -133,19 +133,19 @@ const Customers = () => {
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (customer: Customer) => {
-    setEditingCustomer(customer);
+  const handleOpenEdit = (site: Site) => {
+    setEditingSite(site);
     setFormData({
-      name: customer.name || '',
-      unique_id: customer.unique_id || '',
-      latitude: customer.latitude?.toString() || '',
-      longitude: customer.longitude?.toString() || '',
-      address: customer.address || '',
-      city: customer.city || '',
-      state: customer.state || '',
-      country: customer.country || '',
-      site_type: customer.site_type || 'fotovoltaica',
-      description: customer.description || '',
+      name: site.name || '',
+      unique_id: site.unique_id || '',
+      latitude: site.latitude?.toString() || '',
+      longitude: site.longitude?.toString() || '',
+      address: site.address || '',
+      city: site.city || '',
+      state: site.state || '',
+      country: site.country || '',
+      site_type: site.site_type || 'fotovoltaica',
+      description: site.description || '',
     });
     setDialogOpen(true);
   };
@@ -174,7 +174,7 @@ const Customers = () => {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error('Customer name is required');
+      toast.error('Site name is required');
       return;
     }
 
@@ -185,7 +185,7 @@ const Customers = () => {
 
     setSaving(true);
 
-    const customerData = {
+    const siteData = {
       name: formData.name.trim(),
       unique_id: formData.unique_id || null,
       latitude: formData.latitude ? parseFloat(formData.latitude) : null,
@@ -198,30 +198,30 @@ const Customers = () => {
       description: formData.description || null,
     };
 
-    if (editingCustomer) {
+    if (editingSite) {
       const { error } = await supabase
         .from('customers')
-        .update(customerData)
-        .eq('id', editingCustomer.id);
+        .update(siteData)
+        .eq('id', editingSite.id);
 
       if (error) {
         if (error.code === '23505') {
-          toast.error('This UUID is already in use by another customer');
+          toast.error('This UUID is already in use by another site');
         } else {
-          toast.error('Error updating customer: ' + error.message);
+          toast.error('Error updating site: ' + error.message);
         }
         setSaving(false);
         return;
       }
 
-      toast.success('Customer updated successfully');
+      toast.success('Site updated successfully');
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { error } = await supabase
         .from('customers')
         .insert({
-          ...customerData,
+          ...siteData,
           created_by: user?.id,
         });
 
@@ -229,42 +229,42 @@ const Customers = () => {
         if (error.code === '23505') {
           toast.error('This UUID is already in use');
         } else {
-          toast.error('Error creating customer: ' + error.message);
+          toast.error('Error creating site: ' + error.message);
         }
         setSaving(false);
         return;
       }
 
-      toast.success('Customer created successfully');
+      toast.success('Site created successfully');
     }
 
     setSaving(false);
     setDialogOpen(false);
-    fetchCustomers();
+    fetchSites();
   };
 
-  const handleDelete = async (customerId: string) => {
-    setDeleting(customerId);
+  const handleDelete = async (siteId: string) => {
+    setDeleting(siteId);
 
-    console.log('Attempting to delete customer:', customerId);
+    console.log('Attempting to delete site:', siteId);
 
     const { error } = await supabase
       .from('customers')
       .delete()
-      .eq('id', customerId);
+      .eq('id', siteId);
 
     if (error) {
       console.error('Delete error:', error);
-      toast.error('Error deleting customer: ' + error.message);
+      toast.error('Error deleting site: ' + error.message);
       setDeleting(null);
       return;
     }
 
-    console.log('Customer deleted successfully');
-    toast.success('Customer deleted successfully');
+    console.log('Site deleted successfully');
+    toast.success('Site deleted successfully');
     
     // Refresh the list from the database to ensure consistency
-    await fetchCustomers();
+    await fetchSites();
     setDeleting(null);
   };
 
@@ -272,14 +272,14 @@ const Customers = () => {
     window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
   };
 
-  const filteredCustomers = customers.filter(customer => {
+  const filteredSites = sites.filter(site => {
     const searchLower = search.toLowerCase();
     return (
-      customer.name.toLowerCase().includes(searchLower) ||
-      customer.city?.toLowerCase().includes(searchLower) ||
-      customer.state?.toLowerCase().includes(searchLower) ||
-      customer.country?.toLowerCase().includes(searchLower) ||
-      customer.unique_id?.toLowerCase().includes(searchLower)
+      site.name.toLowerCase().includes(searchLower) ||
+      site.city?.toLowerCase().includes(searchLower) ||
+      site.state?.toLowerCase().includes(searchLower) ||
+      site.country?.toLowerCase().includes(searchLower) ||
+      site.unique_id?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -288,14 +288,14 @@ const Customers = () => {
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1a2744]">Customers / Sites</h1>
+            <h1 className="text-3xl font-bold text-[#1a2744]">Sites Management</h1>
             <p className="text-muted-foreground mt-1">
-              Manage customer information and site locations worldwide
+              Manage site information and locations worldwide
             </p>
           </div>
           <Button onClick={handleOpenCreate} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
             <Plus className="h-4 w-4 mr-2" />
-            New Customer
+            New Site
           </Button>
         </div>
 
@@ -314,12 +314,12 @@ const Customers = () => {
           </CardContent>
         </Card>
 
-        {/* Customers Table */}
+        {/* Sites Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Registered Customers ({filteredCustomers.length})
+              Registered Sites ({filteredSites.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -327,10 +327,10 @@ const Customers = () => {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
-            ) : filteredCustomers.length === 0 ? (
+            ) : filteredSites.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
                 <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>{search ? 'No customers found' : 'No customers registered yet'}</p>
+                <p>{search ? 'No sites found' : 'No sites registered yet'}</p>
               </div>
             ) : (
               <div className="rounded-md border">
@@ -345,17 +345,17 @@ const Customers = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCustomers.map((customer) => {
-                      const typeConfig = customer.site_type ? siteTypeConfig[customer.site_type as keyof typeof siteTypeConfig] : null;
+                    {filteredSites.map((site) => {
+                      const typeConfig = site.site_type ? siteTypeConfig[site.site_type as keyof typeof siteTypeConfig] : null;
                       const TypeIcon = typeConfig?.icon || Building2;
                       
                       return (
-                        <TableRow key={customer.id}>
+                        <TableRow key={site.id}>
                           <TableCell>
-                            <div className="font-medium">{customer.name}</div>
-                            {customer.description && (
+                            <div className="font-medium">{site.name}</div>
+                            {site.description && (
                               <div className="text-xs text-muted-foreground truncate max-w-xs">
-                                {customer.description}
+                                {site.description}
                               </div>
                             )}
                           </TableCell>
@@ -370,18 +370,18 @@ const Customers = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            {customer.city || customer.state || customer.country ? (
+                            {site.city || site.state || site.country ? (
                               <div className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3 text-muted-foreground" />
                                 <span>
-                                  {[customer.city, customer.state, customer.country].filter(Boolean).join(', ')}
+                                  {[site.city, site.state, site.country].filter(Boolean).join(', ')}
                                 </span>
-                                {customer.latitude && customer.longitude && (
+                                {site.latitude && site.longitude && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 w-6 p-0 ml-1"
-                                    onClick={() => openInGoogleMaps(customer.latitude!, customer.longitude!)}
+                                    onClick={() => openInGoogleMaps(site.latitude!, site.longitude!)}
                                     title="Open in Google Maps"
                                   >
                                     <ExternalLink className="h-3 w-3" />
@@ -393,9 +393,9 @@ const Customers = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            {customer.unique_id ? (
+                            {site.unique_id ? (
                               <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
-                                {customer.unique_id.slice(0, 8)}...
+                                {site.unique_id.slice(0, 8)}...
                               </code>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -406,7 +406,7 @@ const Customers = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleOpenEdit(customer)}
+                                onClick={() => handleOpenEdit(site)}
                                 className="h-8 w-8 p-0"
                               >
                                 <Pencil className="h-4 w-4" />
@@ -417,9 +417,9 @@ const Customers = () => {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                    disabled={deleting === customer.id}
+                                    disabled={deleting === site.id}
                                   >
-                                    {deleting === customer.id ? (
+                                    {deleting === site.id ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <Trash2 className="h-4 w-4" />
@@ -428,15 +428,15 @@ const Customers = () => {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete customer?</AlertDialogTitle>
+                                    <AlertDialogTitle>Delete site?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This will permanently delete "{customer.name}" and all associated data. This action cannot be undone.
+                                      This will permanently delete "{site.name}" and all associated data. This action cannot be undone.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={() => handleDelete(customer.id)}
+                                      onClick={() => handleDelete(site.id)}
                                       className="bg-red-600 hover:bg-red-700"
                                     >
                                       Delete
@@ -461,12 +461,12 @@ const Customers = () => {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingCustomer ? 'Edit Customer' : 'New Customer'}
+                {editingSite ? 'Edit Site' : 'New Site'}
               </DialogTitle>
               <DialogDescription>
-                {editingCustomer 
-                  ? 'Update customer information and site details'
-                  : 'Register a new customer with site information'
+                {editingSite 
+                  ? 'Update site information and details'
+                  : 'Register a new site with location information'
                 }
               </DialogDescription>
             </DialogHeader>
@@ -478,7 +478,7 @@ const Customers = () => {
                 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="name">Customer / Site Name *</Label>
+                    <Label htmlFor="name">Site Name *</Label>
                     <Input
                       id="name"
                       placeholder="E.g.: Northeast Solar Plant I"
@@ -612,7 +612,7 @@ const Customers = () => {
                     Saving...
                   </>
                 ) : (
-                  editingCustomer ? 'Save Changes' : 'Create Customer'
+                  editingSite ? 'Save Changes' : 'Create Site'
                 )}
               </Button>
             </DialogFooter>
@@ -623,4 +623,4 @@ const Customers = () => {
   );
 };
 
-export default Customers;
+export default SitesManagement;

@@ -15,7 +15,7 @@ import { FolderPlus, Clock, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SessionSelectorProps {
-  customerId: string;
+  siteId: string;
   selectedSessionId: string | null;
   onSelectSession: (session: UploadSession | null) => void;
   newSessionName: string;
@@ -28,7 +28,7 @@ interface SessionSelectorProps {
 }
 
 export const SessionSelector = ({
-  customerId,
+  siteId,
   selectedSessionId,
   onSelectSession,
   newSessionName,
@@ -47,7 +47,7 @@ export const SessionSelector = ({
     const { data, error } = await supabase
       .from('upload_sessions')
       .select('*')
-      .eq('customer_id', customerId)
+      .eq('customer_id', siteId)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -65,10 +65,10 @@ export const SessionSelector = ({
   };
 
   useEffect(() => {
-    if (customerId) {
+    if (siteId) {
       fetchSessions();
     }
-  }, [customerId, refreshTrigger]);
+  }, [siteId, refreshTrigger]);
 
   const formatSessionName = (session: UploadSession) => {
     if (session.name) {

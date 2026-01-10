@@ -1,4 +1,4 @@
-export interface Customer {
+export interface Site {
   id: string;
   name: string;
   unique_id: string | null;
@@ -15,9 +15,12 @@ export interface Customer {
   updated_at: string;
 }
 
+// Alias for backward compatibility during transition
+export type Customer = Site;
+
 export interface UploadSession {
   id: string;
-  customer_id: string;
+  customer_id: string; // This references the sites table (customers table in DB)
   name: string | null;
   description: string | null;
   uploaded_by: string | null;
@@ -26,7 +29,7 @@ export interface UploadSession {
   status: 'in_progress' | 'completed' | 'processing' | 'error';
   created_at: string;
   completed_at: string | null;
-  customer?: Customer;
+  site?: Site;
   pcap_files?: PcapFile[];
 }
 
