@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobStepsIndicator } from '@/components/processing/JobStepsIndicator';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,6 +162,9 @@ const PcapProcessing = () => {
   // Cancel dialog
   const [cancellingJob, setCancellingJob] = useState<ProcessingJob | null>(null);
 
+  // Polling interval ref
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Fetch sites
   const fetchSites = async () => {
     const { data, error } = await supabase
@@ -241,43 +244,79 @@ const PcapProcessing = () => {
     }
   }, [selectedSessionId]);
 
-  // Real-time subscription for job updates
+  // Real-time subscription + polling fallback for job updates
   useEffect(() => {
+    // Generate unique channel name to avoid conflicts
+    const channelName = `processing_jobs_page_${Date.now()}`;
+    
     const channel = supabase
-      .channel('processing_jobs_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'processing_jobs',
         },
         (payload) => {
-          console.log('Real-time update:', payload.eventType, payload.new);
-          
-          if (payload.eventType === 'INSERT') {
-            setJobs(prev => [payload.new as ProcessingJob, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setJobs(prev => prev.map(job => 
-              job.id === payload.new.id ? payload.new as ProcessingJob : job
-            ));
-            // Update viewing job if it's the one being updated
-            if (viewingJob?.id === payload.new.id) {
-              setViewingJob(payload.new as ProcessingJob);
+          console.log('[PcapProcessing] INSERT:', payload.new);
+          setJobs(prev => {
+            // Check if job already exists to avoid duplicates
+            if (prev.some(j => j.id === payload.new.id)) {
+              return prev;
             }
-          } else if (payload.eventType === 'DELETE') {
-            setJobs(prev => prev.filter(job => job.id !== payload.old.id));
-          }
+            return [payload.new as ProcessingJob, ...prev];
+          });
         }
       )
-      .subscribe((status) => {
-        console.log('Subscription status:', status);
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'processing_jobs',
+        },
+        (payload) => {
+          console.log('[PcapProcessing] UPDATE:', payload.new);
+          setJobs(prev => prev.map(job => 
+            job.id === payload.new.id ? payload.new as ProcessingJob : job
+          ));
+          // Update viewing job if it's the one being updated
+          setViewingJob(current => 
+            current?.id === payload.new.id ? payload.new as ProcessingJob : current
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'processing_jobs',
+        },
+        (payload) => {
+          console.log('[PcapProcessing] DELETE:', payload.old);
+          setJobs(prev => prev.filter(job => job.id !== payload.old.id));
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('[PcapProcessing] Subscription status:', status, err);
       });
 
+    // Polling fallback - check for updates every 5 seconds
+    // This ensures we catch updates even if realtime fails
+    pollingIntervalRef.current = setInterval(() => {
+      fetchJobs();
+    }, 5000);
+
     return () => {
+      console.log('[PcapProcessing] Cleaning up subscription');
       supabase.removeChannel(channel);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
-  }, [viewingJob?.id]);
+  }, [fetchJobs]);
 
   // Open process dialog with defaults from settings
   const handleOpenProcessDialog = (file: PcapFile) => {
@@ -295,7 +334,7 @@ const PcapProcessing = () => {
     
     setSubmitting(true);
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('processing_jobs')
       .insert({
         pcap_file_id: selectedFile.id,
@@ -309,12 +348,23 @@ const PcapProcessing = () => {
         pcap_size_bytes: selectedFile.size_bytes,
         mbsniffer_interval_batch: parseInt(intervalBatch) || 1000,
         mbsniffer_interval_min: parseInt(intervalMin) || 100,
-      });
+      })
+      .select()
+      .single();
     
     if (error) {
       toast.error('Error creating job: ' + error.message);
     } else {
       toast.success('Processing job created! The agent will pick it up shortly.');
+      // Immediately add the new job to the list
+      if (data) {
+        setJobs(prev => {
+          if (prev.some(j => j.id === data.id)) {
+            return prev;
+          }
+          return [data as ProcessingJob, ...prev];
+        });
+      }
       setProcessDialogOpen(false);
       setActiveTab('jobs');
     }
@@ -351,6 +401,8 @@ const PcapProcessing = () => {
       toast.error('Error deleting job: ' + error.message);
     } else {
       toast.success('Job deleted');
+      // Immediately remove from list
+      setJobs(prev => prev.filter(j => j.id !== jobId));
     }
   };
 
