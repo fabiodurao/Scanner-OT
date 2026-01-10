@@ -49,7 +49,6 @@ serve(async (req: Request) => {
     switch (action) {
       case "claim_job": {
         // Find and claim the next pending job
-        // Use a transaction-like approach: select then update
         const { data: pendingJobs, error: selectError } = await supabase
           .from("processing_jobs")
           .select("*")
@@ -66,7 +65,6 @@ serve(async (req: Request) => {
         }
 
         if (!pendingJobs || pendingJobs.length === 0) {
-          console.log("[agent-jobs] No pending jobs");
           return new Response(
             JSON.stringify({ job: null, message: "No pending jobs" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -80,11 +78,12 @@ serve(async (req: Request) => {
           .from("processing_jobs")
           .update({
             status: "downloading",
+            current_step: "downloading",
             started_at: new Date().toISOString(),
-            output_log: "Job claimed by agent\n",
+            output_log: "Job claimed by agent",
           })
           .eq("id", job.id)
-          .eq("status", "pending") // Ensure it's still pending (optimistic locking)
+          .eq("status", "pending")
           .select()
           .single();
 
@@ -105,11 +104,11 @@ serve(async (req: Request) => {
 
         if (pcapError || !pcapFile) {
           console.error("[agent-jobs] Error fetching PCAP file:", pcapError);
-          // Mark job as error
           await supabase
             .from("processing_jobs")
             .update({
               status: "error",
+              current_step: "error",
               error_message: "PCAP file not found",
               completed_at: new Date().toISOString(),
             })
@@ -141,7 +140,21 @@ serve(async (req: Request) => {
       }
 
       case "update_status": {
-        const { job_id, status, progress, output_log, error_message } = body;
+        const { 
+          job_id, 
+          status, 
+          progress, 
+          current_step,
+          output_log, 
+          error_message,
+          pcap_duration,
+          pcap_packets,
+          pcap_start_time,
+          pcap_end_time,
+          elapsed_seconds,
+          total_duration,
+          processing_time,
+        } = body;
 
         if (!job_id || !status) {
           return new Response(
@@ -164,19 +177,39 @@ serve(async (req: Request) => {
           updateData.progress = Math.min(100, Math.max(0, progress));
         }
 
-        if (output_log !== undefined) {
-          // Append to existing log
-          const { data: currentJob } = await supabase
-            .from("processing_jobs")
-            .select("output_log")
-            .eq("id", job_id)
-            .single();
+        if (current_step !== undefined) {
+          updateData.current_step = current_step;
+        }
 
-          updateData.output_log = (currentJob?.output_log || "") + output_log;
+        if (output_log !== undefined) {
+          updateData.output_log = output_log;
         }
 
         if (error_message !== undefined) {
           updateData.error_message = error_message;
+        }
+
+        // PCAP metadata fields
+        if (pcap_duration !== undefined) {
+          updateData.pcap_duration = pcap_duration;
+        }
+        if (pcap_packets !== undefined) {
+          updateData.pcap_packets = pcap_packets;
+        }
+        if (pcap_start_time !== undefined) {
+          updateData.pcap_start_time = pcap_start_time;
+        }
+        if (pcap_end_time !== undefined) {
+          updateData.pcap_end_time = pcap_end_time;
+        }
+        if (elapsed_seconds !== undefined) {
+          updateData.elapsed_seconds = elapsed_seconds;
+        }
+        if (total_duration !== undefined) {
+          updateData.total_duration = total_duration;
+        }
+        if (processing_time !== undefined) {
+          updateData.processing_time = processing_time;
         }
 
         if (status === "completed" || status === "error" || status === "cancelled") {
@@ -201,7 +234,7 @@ serve(async (req: Request) => {
           );
         }
 
-        console.log("[agent-jobs] Job updated:", job_id, status, progress);
+        console.log("[agent-jobs] Job updated:", job_id, status, progress, current_step);
 
         return new Response(
           JSON.stringify({ job: updatedJob }),
@@ -219,14 +252,19 @@ serve(async (req: Request) => {
           );
         }
 
-        // Get current log and append
+        // Get current log and append (with size limit)
         const { data: currentJob } = await supabase
           .from("processing_jobs")
           .select("output_log")
           .eq("id", job_id)
           .single();
 
-        const newLog = (currentJob?.output_log || "") + log_line + "\n";
+        let newLog = (currentJob?.output_log || "") + log_line + "\n";
+        
+        // Limit log size to last 10KB
+        if (newLog.length > 10000) {
+          newLog = "...[truncated]...\n" + newLog.slice(-9000);
+        }
 
         const { error: updateError } = await supabase
           .from("processing_jobs")
@@ -277,7 +315,6 @@ serve(async (req: Request) => {
       }
 
       case "get_s3_credentials": {
-        // Return S3 credentials for the agent to download files
         const credentials = {
           access_key_id: Deno.env.get("AWS_ACCESS_KEY_ID"),
           secret_access_key: Deno.env.get("AWS_SECRET_ACCESS_KEY"),
@@ -291,8 +328,6 @@ serve(async (req: Request) => {
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-
-        console.log("[agent-jobs] S3 credentials requested");
 
         return new Response(
           JSON.stringify(credentials),

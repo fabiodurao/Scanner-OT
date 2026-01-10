@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { JobStepsIndicator } from '@/components/processing/JobStepsIndicator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -37,28 +38,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Progress } from '@/components/ui/progress';
 import {
   Play,
   Square,
   Loader2,
   FileArchive,
-  CheckCircle,
   XCircle,
-  Clock,
-  Download,
   Cpu,
   Terminal,
   RefreshCw,
@@ -67,6 +56,7 @@ import {
   AlertCircle,
   Settings,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -93,6 +83,7 @@ interface ProcessingJob {
   site_id: string;
   n8n_webhook_url: string | null;
   status: 'pending' | 'downloading' | 'extracting' | 'running' | 'completed' | 'error' | 'cancelled';
+  current_step: string;
   progress: number;
   output_log: string | null;
   error_message: string | null;
@@ -102,6 +93,11 @@ interface ProcessingJob {
   completed_at: string | null;
   pcap_filename: string;
   pcap_size_bytes: number;
+  pcap_duration: number | null;
+  pcap_packets: number | null;
+  elapsed_seconds: number | null;
+  total_duration: number | null;
+  processing_time: number | null;
   mbsniffer_interval_batch?: number;
   mbsniffer_interval_min?: number;
 }
@@ -114,16 +110,6 @@ interface UploadSession {
   total_files: number;
 }
 
-const statusConfig: Record<ProcessingJob['status'], { label: string; icon: typeof Loader2; color: string; bgColor: string }> = {
-  pending: { label: 'Pending', icon: Clock, color: 'text-slate-600', bgColor: 'bg-slate-100' },
-  downloading: { label: 'Downloading', icon: Download, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  extracting: { label: 'Extracting', icon: FileArchive, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  running: { label: 'Processing', icon: Cpu, color: 'text-amber-600', bgColor: 'bg-amber-100' },
-  completed: { label: 'Completed', icon: CheckCircle, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
-  error: { label: 'Error', icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
-  cancelled: { label: 'Cancelled', icon: Square, color: 'text-slate-600', bgColor: 'bg-slate-100' },
-};
-
 const formatFileSize = (bytes: number) => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
   if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
@@ -131,10 +117,17 @@ const formatFileSize = (bytes: number) => {
   return bytes + ' bytes';
 };
 
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}m ${secs}s`;
+};
+
 const PcapProcessing = () => {
   const { user } = useAuth();
   const { settings, loading: loadingSettings } = useUserSettings();
-  const [activeTab, setActiveTab] = useState('start');
+  const [activeTab, setActiveTab] = useState('jobs');
   
   // Sites and files
   const [sites, setSites] = useState<Site[]>([]);
@@ -148,13 +141,14 @@ const PcapProcessing = () => {
   // Jobs
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   
   // Dialog state
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<PcapFile | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [intervalBatch, setIntervalBatch] = useState('60');
-  const [intervalMin, setIntervalMin] = useState('5');
+  const [intervalBatch, setIntervalBatch] = useState('1000');
+  const [intervalMin, setIntervalMin] = useState('100');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -261,7 +255,6 @@ const PcapProcessing = () => {
             setJobs(prev => prev.map(job => 
               job.id === payload.new.id ? payload.new as ProcessingJob : job
             ));
-            // Update viewing job if it's the one being updated
             if (viewingJob?.id === payload.new.id) {
               setViewingJob(payload.new as ProcessingJob);
             }
@@ -280,7 +273,6 @@ const PcapProcessing = () => {
   // Open process dialog with defaults from settings
   const handleOpenProcessDialog = (file: PcapFile) => {
     setSelectedFile(file);
-    // Use settings as defaults
     setWebhookUrl(settings.n8n_webhook_url || '');
     setIntervalBatch(settings.mbsniffer_interval_batch.toString());
     setIntervalMin(settings.mbsniffer_interval_min.toString());
@@ -301,12 +293,13 @@ const PcapProcessing = () => {
         site_id: selectedSiteId,
         n8n_webhook_url: webhookUrl || null,
         status: 'pending',
+        current_step: 'pending',
         progress: 0,
         created_by: user.id,
         pcap_filename: selectedFile.original_filename,
         pcap_size_bytes: selectedFile.size_bytes,
-        mbsniffer_interval_batch: parseInt(intervalBatch) || 60,
-        mbsniffer_interval_min: parseInt(intervalMin) || 5,
+        mbsniffer_interval_batch: parseInt(intervalBatch) || 1000,
+        mbsniffer_interval_min: parseInt(intervalMin) || 100,
       });
     
     if (error) {
@@ -326,7 +319,7 @@ const PcapProcessing = () => {
     
     const { error } = await supabase
       .from('processing_jobs')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', current_step: 'cancelled' })
       .eq('id', cancellingJob.id);
     
     if (error) {
@@ -365,6 +358,42 @@ const PcapProcessing = () => {
     return ['pending', 'downloading', 'extracting', 'running'].includes(status);
   };
 
+  const toggleJobExpanded = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
+  };
+
+  const getStatusBadge = (job: ProcessingJob) => {
+    const statusConfig: Record<string, { label: string; className: string }> = {
+      pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700' },
+      downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700' },
+      extracting: { label: 'Extracting', className: 'bg-purple-100 text-purple-700' },
+      running: { label: 'Processing', className: 'bg-amber-100 text-amber-700' },
+      completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
+      error: { label: 'Error', className: 'bg-red-100 text-red-700' },
+      cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700' },
+    };
+    const config = statusConfig[job.status] || statusConfig.pending;
+    return <Badge className={config.className}>{config.label}</Badge>;
+  };
+
+  // Map status to step for the indicator
+  const getStepFromStatus = (job: ProcessingJob): 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled' => {
+    if (job.current_step) {
+      return job.current_step as 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled';
+    }
+    // Fallback based on status
+    if (job.status === 'running') return 'processing';
+    return job.status as 'pending' | 'downloading' | 'extracting' | 'completed' | 'error' | 'cancelled';
+  };
+
   return (
     <MainLayout>
       <div className="p-8">
@@ -377,10 +406,6 @@ const PcapProcessing = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="start" className="gap-2">
-              <Play className="h-4 w-4" />
-              Start Processing
-            </TabsTrigger>
             <TabsTrigger value="jobs" className="gap-2">
               <Cpu className="h-4 w-4" />
               Jobs
@@ -390,7 +415,187 @@ const PcapProcessing = () => {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="start" className="gap-2">
+              <Play className="h-4 w-4" />
+              New Job
+            </TabsTrigger>
           </TabsList>
+
+          {/* Jobs Tab */}
+          <TabsContent value="jobs">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Cpu className="h-5 w-5" />
+                    Processing Jobs
+                  </CardTitle>
+                  <CardDescription>
+                    Monitor and manage your processing jobs
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchJobs}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loadingJobs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : jobs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
+                    <Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No processing jobs yet</p>
+                    <p className="text-sm">Start by selecting a PCAP file to process</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => setActiveTab('start')}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Create New Job
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {jobs.map(job => {
+                      const isExpanded = expandedJobs.has(job.id);
+                      
+                      return (
+                        <div 
+                          key={job.id} 
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          {/* Job Header */}
+                          <div 
+                            className="p-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
+                            onClick={() => toggleJobExpanded(job.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                )}
+                                <FileArchive className="h-5 w-5 text-slate-500 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">
+                                    {job.pcap_filename}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatFileSize(job.pcap_size_bytes || 0)} • {format(new Date(job.created_at), 'MM/dd HH:mm')}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {getStatusBadge(job)}
+                                <div className="flex items-center gap-1">
+                                  {canCancel(job.status) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCancellingJob(job);
+                                      }}
+                                      className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                                      title="Cancel job"
+                                    >
+                                      <Square className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {!isActiveJob(job.status) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteJob(job.id);
+                                      }}
+                                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      title="Delete job"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Job Details (Expanded) */}
+                          {isExpanded && (
+                            <div className="p-4 border-t bg-white">
+                              {/* Steps Indicator */}
+                              <JobStepsIndicator
+                                currentStep={getStepFromStatus(job)}
+                                progress={job.progress}
+                                elapsedSeconds={job.elapsed_seconds || undefined}
+                                totalDuration={job.total_duration || undefined}
+                                pcapDuration={job.pcap_duration || undefined}
+                                className="mb-4"
+                              />
+                              
+                              {/* Error message */}
+                              {job.error_message && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+                                  <div className="flex gap-2">
+                                    <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                    <div className="text-sm text-red-700">{job.error_message}</div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Job metadata */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                                {job.pcap_duration && (
+                                  <div>
+                                    <span className="text-muted-foreground">PCAP Duration:</span>
+                                    <div className="font-medium">{formatDuration(job.pcap_duration)}</div>
+                                  </div>
+                                )}
+                                {job.pcap_packets && (
+                                  <div>
+                                    <span className="text-muted-foreground">Packets:</span>
+                                    <div className="font-medium">{job.pcap_packets.toLocaleString()}</div>
+                                  </div>
+                                )}
+                                {job.processing_time && (
+                                  <div>
+                                    <span className="text-muted-foreground">Processing Time:</span>
+                                    <div className="font-medium">{formatDuration(parseFloat(job.processing_time.toString()))}</div>
+                                  </div>
+                                )}
+                                {job.n8n_webhook_url && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Webhook:</span>
+                                    <div className="font-mono text-xs truncate">{job.n8n_webhook_url}</div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* View logs button */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setViewingJob(job)}
+                              >
+                                <Terminal className="h-4 w-4 mr-2" />
+                                View Logs
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Start Processing Tab */}
           <TabsContent value="start">
@@ -540,7 +745,7 @@ const PcapProcessing = () => {
                       <div>
                         <div className="font-medium">Configure parameters</div>
                         <div className="text-sm text-muted-foreground">
-                          Set webhook URL and mbsniffer options (defaults from Settings)
+                          Set webhook URL and mbsniffer options
                         </div>
                       </div>
                     </div>
@@ -551,7 +756,7 @@ const PcapProcessing = () => {
                       <div>
                         <div className="font-medium">Agent processes the file</div>
                         <div className="text-sm text-muted-foreground">
-                          Downloads, extracts, and runs mbsniffer
+                          Downloads, extracts, analyzes, and runs mbsniffer
                         </div>
                       </div>
                     </div>
@@ -560,9 +765,9 @@ const PcapProcessing = () => {
                         4
                       </div>
                       <div>
-                        <div className="font-medium">View results</div>
+                        <div className="font-medium">Results sent to webhook</div>
                         <div className="text-sm text-muted-foreground">
-                          Check logs and output in the Jobs tab
+                          Data is sent to your n8n workflow
                         </div>
                       </div>
                     </div>
@@ -579,127 +784,6 @@ const PcapProcessing = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          {/* Jobs Tab */}
-          <TabsContent value="jobs">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Cpu className="h-5 w-5" />
-                    Processing Jobs
-                  </CardTitle>
-                  <CardDescription>
-                    Monitor and manage your processing jobs
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={fetchJobs}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {loadingJobs ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : jobs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
-                    <Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No processing jobs yet</p>
-                    <p className="text-sm">Start by selecting a PCAP file to process</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>File</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Progress</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {jobs.map(job => {
-                          const status = statusConfig[job.status];
-                          const StatusIcon = status.icon;
-                          
-                          return (
-                            <TableRow key={job.id}>
-                              <TableCell>
-                                <div className="font-medium truncate max-w-xs">
-                                  {job.pcap_filename}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {formatFileSize(job.pcap_size_bytes || 0)}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={`${status.bgColor} ${status.color}`}>
-                                  <StatusIcon className={`h-3 w-3 mr-1 ${isActiveJob(job.status) ? 'animate-spin' : ''}`} />
-                                  {status.label}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2 min-w-32">
-                                  <Progress value={job.progress} className="h-2" />
-                                  <span className="text-xs text-muted-foreground w-8">
-                                    {job.progress}%
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm">
-                                  {format(new Date(job.created_at), 'MM/dd HH:mm')}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setViewingJob(job)}
-                                    className="h-8 w-8 p-0"
-                                    title="View logs"
-                                  >
-                                    <Terminal className="h-4 w-4" />
-                                  </Button>
-                                  {canCancel(job.status) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setCancellingJob(job)}
-                                      className="h-8 w-8 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
-                                      title="Cancel job"
-                                    >
-                                      <Square className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {!isActiveJob(job.status) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDeleteJob(job.id)}
-                                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                      title="Delete job"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
 
@@ -755,7 +839,7 @@ const PcapProcessing = () => {
                     <Separator />
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="interval-batch">Interval Batch (seconds)</Label>
+                        <Label htmlFor="interval-batch">Interval Batch (ms)</Label>
                         <Input
                           id="interval-batch"
                           type="number"
@@ -768,7 +852,7 @@ const PcapProcessing = () => {
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="interval-min">Interval Min (seconds)</Label>
+                        <Label htmlFor="interval-min">Interval Min (ms)</Label>
                         <Input
                           id="interval-min"
                           type="number"
@@ -826,15 +910,13 @@ const PcapProcessing = () => {
             
             {viewingJob && (
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Badge className={`${statusConfig[viewingJob.status].bgColor} ${statusConfig[viewingJob.status].color}`}>
-                    {statusConfig[viewingJob.status].label}
-                  </Badge>
-                  <div className="flex items-center gap-2">
-                    <Progress value={viewingJob.progress} className="w-32 h-2" />
-                    <span className="text-sm text-muted-foreground">{viewingJob.progress}%</span>
-                  </div>
-                </div>
+                <JobStepsIndicator
+                  currentStep={getStepFromStatus(viewingJob)}
+                  progress={viewingJob.progress}
+                  elapsedSeconds={viewingJob.elapsed_seconds || undefined}
+                  totalDuration={viewingJob.total_duration || undefined}
+                  pcapDuration={viewingJob.pcap_duration || undefined}
+                />
 
                 {viewingJob.error_message && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -847,7 +929,7 @@ const PcapProcessing = () => {
 
                 <div className="space-y-2">
                   <Label>Output Log</Label>
-                  <ScrollArea className="h-64 w-full rounded-md border bg-slate-900 p-4">
+                  <ScrollArea className="h-48 w-full rounded-md border bg-slate-900 p-4">
                     <pre className="text-sm text-slate-100 font-mono whitespace-pre-wrap">
                       {viewingJob.output_log || 'No output yet...'}
                     </pre>
@@ -871,14 +953,6 @@ const PcapProcessing = () => {
                       {format(new Date(viewingJob.completed_at), 'MM/dd/yyyy HH:mm:ss')}
                     </div>
                   )}
-                  {viewingJob.n8n_webhook_url && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Webhook:</span>{' '}
-                      <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">
-                        {viewingJob.n8n_webhook_url}
-                      </code>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -892,7 +966,7 @@ const PcapProcessing = () => {
               <AlertDialogTitle>Cancel Processing Job?</AlertDialogTitle>
               <AlertDialogDescription>
                 This will send a cancel request to the agent. If the job is currently running, 
-                the mbsniffer process will be terminated (equivalent to Ctrl+C).
+                the mbsniffer process will be terminated.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
