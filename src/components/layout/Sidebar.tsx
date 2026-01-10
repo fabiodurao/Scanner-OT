@@ -32,6 +32,29 @@ const Sidebar = () => {
     navigation.push({ name: 'Users', href: '/users', icon: Users });
   }
 
+  const isActive = (href: string) => {
+    // Exact match for root path
+    if (href === '/') {
+      return location.pathname === '/';
+    }
+    
+    // For /sites-management, only match exactly or with sub-paths
+    if (href === '/sites-management') {
+      return location.pathname === '/sites-management' || 
+             location.pathname.startsWith('/sites-management/');
+    }
+    
+    // For /sites, match exactly or with sub-paths, but NOT /sites-management
+    if (href === '/sites') {
+      return (location.pathname === '/sites' || 
+              location.pathname.startsWith('/sites/')) &&
+             !location.pathname.startsWith('/sites-management');
+    }
+    
+    // For other routes, use startsWith
+    return location.pathname.startsWith(href);
+  };
+
   return (
     <div className="flex h-full w-64 flex-col bg-[hsl(var(--sidebar-background))]">
       <div className="flex h-16 items-center justify-center px-4 border-b border-[hsl(var(--sidebar-border))]">
@@ -43,15 +66,14 @@ const Sidebar = () => {
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const isActive = location.pathname === item.href || 
-            (item.href !== '/' && location.pathname.startsWith(item.href));
+          const active = isActive(item.href);
           return (
             <Link
               key={item.name}
               to={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                isActive
+                active
                   ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
                   : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white'
               )}
