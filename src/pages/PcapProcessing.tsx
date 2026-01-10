@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import {
   Play,
@@ -58,6 +65,8 @@ import {
   Trash2,
   Building2,
   AlertCircle,
+  Settings,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -93,6 +102,8 @@ interface ProcessingJob {
   completed_at: string | null;
   pcap_filename: string;
   pcap_size_bytes: number;
+  mbsniffer_interval_batch?: number;
+  mbsniffer_interval_min?: number;
 }
 
 interface UploadSession {
@@ -122,6 +133,7 @@ const formatFileSize = (bytes: number) => {
 
 const PcapProcessing = () => {
   const { user } = useAuth();
+  const { settings, loading: loadingSettings } = useUserSettings();
   const [activeTab, setActiveTab] = useState('start');
   
   // Sites and files
@@ -141,6 +153,9 @@ const PcapProcessing = () => {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<PcapFile | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [intervalBatch, setIntervalBatch] = useState('1000');
+  const [intervalMin, setIntervalMin] = useState('100');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   // Log viewer
@@ -262,10 +277,14 @@ const PcapProcessing = () => {
     };
   }, [viewingJob?.id]);
 
-  // Open process dialog
+  // Open process dialog with defaults from settings
   const handleOpenProcessDialog = (file: PcapFile) => {
     setSelectedFile(file);
-    setWebhookUrl('');
+    // Use settings as defaults
+    setWebhookUrl(settings.n8n_webhook_url || '');
+    setIntervalBatch(settings.mbsniffer_interval_batch.toString());
+    setIntervalMin(settings.mbsniffer_interval_min.toString());
+    setAdvancedOpen(false);
     setProcessDialogOpen(true);
   };
 
@@ -286,6 +305,8 @@ const PcapProcessing = () => {
         created_by: user.id,
         pcap_filename: selectedFile.original_filename,
         pcap_size_bytes: selectedFile.size_bytes,
+        mbsniffer_interval_batch: parseInt(intervalBatch) || 1000,
+        mbsniffer_interval_min: parseInt(intervalMin) || 100,
       });
     
     if (error) {
@@ -477,6 +498,7 @@ const PcapProcessing = () => {
                                 size="sm"
                                 onClick={() => handleOpenProcessDialog(file)}
                                 className="bg-[#2563EB] hover:bg-[#1d4ed8] flex-shrink-0"
+                                disabled={loadingSettings}
                               >
                                 <Play className="h-4 w-4 mr-1" />
                                 Process
@@ -516,9 +538,9 @@ const PcapProcessing = () => {
                         2
                       </div>
                       <div>
-                        <div className="font-medium">Configure webhook (optional)</div>
+                        <div className="font-medium">Configure parameters</div>
                         <div className="text-sm text-muted-foreground">
-                          Set the n8n webhook URL to receive results
+                          Set webhook URL and mbsniffer options (defaults from Settings)
                         </div>
                       </div>
                     </div>
@@ -683,7 +705,7 @@ const PcapProcessing = () => {
 
         {/* Process Dialog */}
         <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Process PCAP File</DialogTitle>
               <DialogDescription>
@@ -706,7 +728,7 @@ const PcapProcessing = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="webhook">n8n Webhook URL (optional)</Label>
+                  <Label htmlFor="webhook">n8n Webhook URL</Label>
                   <Input
                     id="webhook"
                     placeholder="https://n8n.example.com/webhook/..."
@@ -714,9 +736,53 @@ const PcapProcessing = () => {
                     onChange={(e) => setWebhookUrl(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    If provided, results will be sent to this webhook when processing completes
+                    Results will be sent to this webhook when processing completes
                   </p>
                 </div>
+
+                {/* Advanced Options */}
+                <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-between">
+                      <span className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Advanced Options
+                      </span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-4 space-y-4">
+                    <Separator />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="interval-batch">Interval Batch</Label>
+                        <Input
+                          id="interval-batch"
+                          type="number"
+                          value={intervalBatch}
+                          onChange={(e) => setIntervalBatch(e.target.value)}
+                          min="1"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Packets per batch
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="interval-min">Interval Min (ms)</Label>
+                        <Input
+                          id="interval-min"
+                          type="number"
+                          value={intervalMin}
+                          onChange={(e) => setIntervalMin(e.target.value)}
+                          min="1"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Min interval between batches
+                        </p>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             )}
 
