@@ -35,92 +35,106 @@ interface Suggestion {
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-// Dark theme style for Google Maps
-const darkMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+// Silver theme style for Google Maps
+const silverMapStyle = [
   {
-    featureType: "administrative.locality",
+    elementType: "geometry",
+    stylers: [{ color: "#f5f5f5" }],
+  },
+  {
+    elementType: "labels.icon",
+    stylers: [{ visibility: "off" }],
+  },
+  {
     elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#f5f5f5" }],
+  },
+  {
+    featureType: "administrative.land_parcel",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#bdbdbd" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#eeeeee" }],
   },
   {
     featureType: "poi",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
+    stylers: [{ color: "#757575" }],
   },
   {
     featureType: "poi.park",
     elementType: "geometry",
-    stylers: [{ color: "#263c3f" }],
+    stylers: [{ color: "#e5e5e5" }],
   },
   {
     featureType: "poi.park",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#6b9a76" }],
+    stylers: [{ color: "#9e9e9e" }],
   },
   {
     featureType: "road",
     elementType: "geometry",
-    stylers: [{ color: "#38414e" }],
+    stylers: [{ color: "#ffffff" }],
   },
   {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#212a37" }],
-  },
-  {
-    featureType: "road",
+    featureType: "road.arterial",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#9ca5b3" }],
+    stylers: [{ color: "#757575" }],
   },
   {
     featureType: "road.highway",
     elementType: "geometry",
-    stylers: [{ color: "#746855" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#1f2835" }],
+    stylers: [{ color: "#dadada" }],
   },
   {
     featureType: "road.highway",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#f3d19c" }],
+    stylers: [{ color: "#616161" }],
   },
   {
-    featureType: "transit",
+    featureType: "road.local",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9e9e9e" }],
+  },
+  {
+    featureType: "transit.line",
     elementType: "geometry",
-    stylers: [{ color: "#2f3948" }],
+    stylers: [{ color: "#e5e5e5" }],
   },
   {
     featureType: "transit.station",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
+    elementType: "geometry",
+    stylers: [{ color: "#eeeeee" }],
   },
   {
     featureType: "water",
     elementType: "geometry",
-    stylers: [{ color: "#17263c" }],
+    stylers: [{ color: "#c9c9c9" }],
   },
   {
     featureType: "water",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#515c6d" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.stroke",
-    stylers: [{ color: "#17263c" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels",
-    stylers: [{ visibility: "off" }],
+    stylers: [{ color: "#9e9e9e" }],
   },
 ];
+
+// Custom marker icon SVG in navy blue (#0E182E)
+const createCustomMarkerIcon = () => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+      <path fill="#0E182E" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/>
+      <circle fill="#ffffff" cx="16" cy="16" r="6"/>
+    </svg>
+  `;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+};
 
 export const AddressAutocomplete = ({
   value,
@@ -156,6 +170,25 @@ export const AddressAutocomplete = ({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getGoogle = (): any => (window as any).google;
+
+  // Create marker with custom icon
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createMarker = (position: { lat: number; lng: number }, map: any) => {
+    const google = getGoogle();
+    if (!google) return null;
+
+    return new google.maps.Marker({
+      position,
+      map,
+      draggable: true,
+      animation: google.maps.Animation.DROP,
+      icon: {
+        url: createCustomMarkerIcon(),
+        scaledSize: new google.maps.Size(32, 42),
+        anchor: new google.maps.Point(16, 42),
+      },
+    });
+  };
 
   // Load Google Maps API with English language
   useEffect(() => {
@@ -204,39 +237,35 @@ export const AddressAutocomplete = ({
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: true,
-      styles: darkMapStyle,
+      styles: silverMapStyle,
     });
 
     placesServiceRef.current = new google.maps.places.PlacesService(mapInstanceRef.current);
 
     if (latitude && longitude) {
-      markerRef.current = new google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstanceRef.current,
-        draggable: true,
-        animation: google.maps.Animation.DROP,
-      });
+      markerRef.current = createMarker({ lat, lng }, mapInstanceRef.current);
 
-      markerRef.current.addListener('dragend', () => {
-        const position = markerRef.current?.getPosition();
-        if (position && geocoderRef.current) {
-          onAddressChange({ latitude: position.lat(), longitude: position.lng() });
-          
-          // Use language: 'en' for reverse geocoding
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          geocoderRef.current.geocode(
-            { location: position, language: 'en' }, 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (results: any, status: string) => {
-              if (status === 'OK' && results?.[0]) {
-                const addressData = parseAddressComponents(results[0]);
-                onAddressChange({ address: results[0].formatted_address, ...addressData });
-                setInputValue(results[0].formatted_address);
+      if (markerRef.current) {
+        markerRef.current.addListener('dragend', () => {
+          const position = markerRef.current?.getPosition();
+          if (position && geocoderRef.current) {
+            onAddressChange({ latitude: position.lat(), longitude: position.lng() });
+            
+            // Use language: 'en' for reverse geocoding
+            geocoderRef.current.geocode(
+              { location: position, language: 'en' }, 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (results: any, status: string) => {
+                if (status === 'OK' && results?.[0]) {
+                  const addressData = parseAddressComponents(results[0]);
+                  onAddressChange({ address: results[0].formatted_address, ...addressData });
+                  setInputValue(results[0].formatted_address);
+                }
               }
-            }
-          );
-        }
-      });
+            );
+          }
+        });
+      }
     }
   }, [isApiLoaded]);
 
@@ -256,32 +285,29 @@ export const AddressAutocomplete = ({
     if (markerRef.current) {
       markerRef.current.setPosition(position);
     } else {
-      markerRef.current = new google.maps.Marker({
-        position,
-        map: mapInstanceRef.current,
-        draggable: true,
-        animation: google.maps.Animation.DROP,
-      });
+      markerRef.current = createMarker(position, mapInstanceRef.current);
 
-      markerRef.current.addListener('dragend', () => {
-        const pos = markerRef.current?.getPosition();
-        if (pos && geocoderRef.current) {
-          onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
-          
-          // Use language: 'en' for reverse geocoding
-          geocoderRef.current.geocode(
-            { location: pos, language: 'en' },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (results: any, status: string) => {
-              if (status === 'OK' && results?.[0]) {
-                const addressData = parseAddressComponents(results[0]);
-                onAddressChange({ address: results[0].formatted_address, ...addressData });
-                setInputValue(results[0].formatted_address);
+      if (markerRef.current) {
+        markerRef.current.addListener('dragend', () => {
+          const pos = markerRef.current?.getPosition();
+          if (pos && geocoderRef.current) {
+            onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
+            
+            // Use language: 'en' for reverse geocoding
+            geocoderRef.current.geocode(
+              { location: pos, language: 'en' },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (results: any, status: string) => {
+                if (status === 'OK' && results?.[0]) {
+                  const addressData = parseAddressComponents(results[0]);
+                  onAddressChange({ address: results[0].formatted_address, ...addressData });
+                  setInputValue(results[0].formatted_address);
+                }
               }
-            }
-          );
-        }
-      });
+            );
+          }
+        });
+      }
     }
   }, [latitude, longitude]);
 
@@ -331,7 +357,6 @@ export const AddressAutocomplete = ({
       { 
         input: query, 
         types: ['geocode', 'establishment'],
-        // Note: AutocompleteService uses the language set in the script URL
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (predictions: any[] | null, status: string) => {
@@ -372,7 +397,6 @@ export const AddressAutocomplete = ({
       { 
         placeId: suggestion.placeId, 
         fields: ['formatted_address', 'geometry', 'address_components'],
-        // Note: PlacesService uses the language set in the script URL
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (place: any | null, status: string) => {
@@ -482,7 +506,7 @@ export const AddressAutocomplete = ({
 
       <div className="space-y-2">
         <Label>Location Map</Label>
-        <div ref={mapRef} className={cn('w-full h-48 rounded-lg border bg-slate-800', mapError && 'flex items-center justify-center')}>
+        <div ref={mapRef} className={cn('w-full h-48 rounded-lg border bg-slate-100', mapError && 'flex items-center justify-center')}>
           {mapError && (
             <div className="text-center text-sm text-muted-foreground p-4">
               <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
