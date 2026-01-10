@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer } from '@/types/upload';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -9,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Building2, Loader2, MapPin, ExternalLink, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface CustomerSelectorProps {
   selectedCustomerId: string | null;
@@ -20,6 +22,7 @@ interface CustomerSelectorProps {
 export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: CustomerSelectorProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
   const fetchCustomers = async () => {
@@ -44,6 +47,17 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
     } else {
       const customer = customers.find(c => c.id === value);
       onSelectCustomer(customer || null);
+    }
+  };
+
+  const handleCopyUUID = async (uuid: string) => {
+    try {
+      await navigator.clipboard.writeText(uuid);
+      setCopied(true);
+      toast.success('UUID copied to clipboard');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy UUID');
     }
   };
 
@@ -108,10 +122,24 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
             </div>
           )}
           {selectedCustomer.unique_id && (
-            <div className="mt-1">
-              <code className="text-xs bg-white px-1.5 py-0.5 rounded border font-mono">
+            <div className="mt-2 flex items-center gap-2">
+              <code className="text-xs bg-white px-2 py-1 rounded border font-mono flex-1 truncate">
                 {selectedCustomer.unique_id}
               </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0 flex-shrink-0"
+                onClick={() => handleCopyUUID(selectedCustomer.unique_id!)}
+                title="Copy UUID"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
             </div>
           )}
         </div>

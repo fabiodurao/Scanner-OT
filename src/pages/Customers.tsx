@@ -246,18 +246,25 @@ const Customers = () => {
   const handleDelete = async (customerId: string) => {
     setDeleting(customerId);
 
+    console.log('Attempting to delete customer:', customerId);
+
     const { error } = await supabase
       .from('customers')
       .delete()
       .eq('id', customerId);
 
     if (error) {
+      console.error('Delete error:', error);
       toast.error('Error deleting customer: ' + error.message);
-    } else {
-      toast.success('Customer deleted successfully');
-      setCustomers(prev => prev.filter(c => c.id !== customerId));
+      setDeleting(null);
+      return;
     }
 
+    console.log('Customer deleted successfully');
+    toast.success('Customer deleted successfully');
+    
+    // Refresh the list from the database to ensure consistency
+    await fetchCustomers();
     setDeleting(null);
   };
 
