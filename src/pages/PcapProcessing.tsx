@@ -161,6 +161,9 @@ const PcapProcessing = () => {
   
   // Cancel dialog
   const [cancellingJob, setCancellingJob] = useState<ProcessingJob | null>(null);
+  
+  // Delete dialog
+  const [deletingJob, setDeletingJob] = useState<ProcessingJob | null>(null);
 
   // Polling interval ref
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -303,11 +306,10 @@ const PcapProcessing = () => {
         console.log('[PcapProcessing] Subscription status:', status, err);
       });
 
-    // Polling fallback - check for updates every 5 seconds
-    // This ensures we catch updates even if realtime fails
+    // Polling fallback - check for updates every 3 seconds
     pollingIntervalRef.current = setInterval(() => {
       fetchJobs();
-    }, 5000);
+    }, 3000);
 
     return () => {
       console.log('[PcapProcessing] Cleaning up subscription');
@@ -390,20 +392,24 @@ const PcapProcessing = () => {
     setCancellingJob(null);
   };
 
-  // Delete job
-  const handleDeleteJob = async (jobId: string) => {
+  // Delete job (called after confirmation)
+  const handleConfirmDeleteJob = async () => {
+    if (!deletingJob) return;
+    
     const { error } = await supabase
       .from('processing_jobs')
       .delete()
-      .eq('id', jobId);
+      .eq('id', deletingJob.id);
     
     if (error) {
       toast.error('Error deleting job: ' + error.message);
     } else {
       toast.success('Job deleted');
       // Immediately remove from list
-      setJobs(prev => prev.filter(j => j.id !== jobId));
+      setJobs(prev => prev.filter(j => j.id !== deletingJob.id));
     }
+    
+    setDeletingJob(null);
   };
 
   // Mark stalled job as interrupted
@@ -437,6 +443,11 @@ const PcapProcessing = () => {
     return ['pending', 'downloading', 'extracting', 'running'].includes(status);
   };
 
+  // Check if job is incomplete (completed but progress < 100)
+  const isIncompleteJob = (job: ProcessingJob) => {
+    return job.status === 'completed' && job.progress < 100;
+  };
+
   const toggleJobExpanded = (jobId: string) => {
     setExpandedJobs(prev => {
       const newSet = new Set(prev);
@@ -451,13 +462,13 @@ const PcapProcessing = () => {
 
   const getStatusBadge = (job: ProcessingJob) => {
     const isActive = isActiveJob(job.status);
-    const isIncomplete = job.status === 'completed' && job.progress < 100;
+    const isIncomplete = isIncompleteJob(job);
     
     if (isIncomplete) {
       return (
         <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
           <AlertTriangle className="h-3 w-3 mr-1" />
-          Incomplete ({job.progress}%)
+          Interrupted ({job.progress}%)
         </Badge>
       );
     }
@@ -485,6 +496,11 @@ const PcapProcessing = () => {
 
   // Map status to step for the indicator
   const getStepFromStatus = (job: ProcessingJob): 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled' => {
+    // If job is incomplete, show it as error state in the indicator
+    if (isIncompleteJob(job)) {
+      return 'error';
+    }
+    
     if (job.current_step) {
       return job.current_step as 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled';
     }
@@ -562,7 +578,7 @@ const PcapProcessing = () => {
                     {jobs.map(job => {
                       const isExpanded = expandedJobs.has(job.id);
                       const isActive = isActiveJob(job.status);
-                      const isIncomplete = job.status === 'completed' && job.progress < 100;
+                      const isIncomplete = isIncompleteJob(job);
                       
                       return (
                         <div 
@@ -570,9 +586,9 @@ const PcapProcessing = () => {
                           className={cn(
                             "border rounded-lg overflow-hidden transition-all",
                             isActive && "border-amber-300 shadow-md shadow-amber-100",
-                            isIncomplete && "border-amber-300",
+                            isIncomplete && "border-amber-300 bg-amber-50/50",
                             job.status === 'error' && "border-red-300",
-                            job.status === 'completed' && job.progress === 100 && "border-emerald-200"
+                            job.status === 'completed' && !isIncomplete && "border-emerald-200"
                           )}
                         >
                           {/* Job Header */}
@@ -580,9 +596,9 @@ const PcapProcessing = () => {
                             className={cn(
                               "p-4 cursor-pointer transition-colors",
                               isActive ? "bg-amber-50 hover:bg-amber-100" : "bg-slate-50 hover:bg-slate-100",
-                              isIncomplete && "bg-amber-50",
+                              isIncomplete && "bg-amber-50 hover:bg-amber-100",
                               job.status === 'error' && "bg-red-50 hover:bg-red-100",
-                              job.status === 'completed' && job.progress === 100 && "bg-emerald-50 hover:bg-emerald-100"
+                              job.status === 'completed' && !isIncomplete && "bg-emerald-50 hover:bg-emerald-100"
                             )}
                             onClick={() => toggleJobExpanded(job.id)}
                           >
@@ -598,7 +614,7 @@ const PcapProcessing = () => {
                                 <div className={cn(
                                   "w-3 h-3 rounded-full flex-shrink-0",
                                   isActive && "bg-amber-500 animate-pulse",
-                                  job.status === 'completed' && job.progress === 100 && "bg-emerald-500",
+                                  job.status === 'completed' && !isIncomplete && "bg-emerald-500",
                                   job.status === 'error' && "bg-red-500",
                                   job.status === 'cancelled' && "bg-slate-400",
                                   isIncomplete && "bg-amber-500"
@@ -615,22 +631,14 @@ const PcapProcessing = () => {
                                 </div>
                               </div>
                               
-                              {/* Progress bar in collapsed view */}
+                              {/* Progress bar in collapsed view - show for active OR incomplete jobs */}
                               {!isExpanded && (isActive || isIncomplete) && (
                                 <div className="flex items-center gap-2 w-32 flex-shrink-0">
                                   <Progress 
                                     value={job.progress} 
-                                    className={cn(
-                                      "h-2 flex-1",
-                                      isActive && "bg-amber-200",
-                                      isIncomplete && "bg-amber-200"
-                                    )}
+                                    className="h-2 flex-1 bg-amber-200"
                                   />
-                                  <span className={cn(
-                                    "text-xs font-medium w-10 text-right",
-                                    isActive && "text-amber-700",
-                                    isIncomplete && "text-amber-700"
-                                  )}>
+                                  <span className="text-xs font-medium w-10 text-right text-amber-700">
                                     {job.progress}%
                                   </span>
                                 </div>
@@ -653,7 +661,7 @@ const PcapProcessing = () => {
                                       <Square className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  {/* Mark as interrupted button for stalled jobs */}
+                                  {/* Mark as interrupted button for active jobs */}
                                   {isActive && (
                                     <Button
                                       variant="ghost"
@@ -668,13 +676,14 @@ const PcapProcessing = () => {
                                       <AlertTriangle className="h-4 w-4" />
                                     </Button>
                                   )}
+                                  {/* Delete button - only for non-active jobs */}
                                   {!isActive && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteJob(job.id);
+                                        setDeletingJob(job);
                                       }}
                                       className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                                       title="Delete job"
@@ -711,13 +720,13 @@ const PcapProcessing = () => {
                               )}
                               
                               {/* Incomplete warning */}
-                              {job.status === 'completed' && job.progress < 100 && !job.error_message && (
+                              {isIncomplete && !job.error_message && (
                                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
                                   <div className="flex gap-2">
                                     <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
                                     <div className="text-sm text-amber-700">
-                                      This job was marked as completed but only reached {job.progress}% progress. 
-                                      The agent may have stopped unexpectedly.
+                                      <strong>Job interrupted at {job.progress}%</strong> - The agent may have stopped unexpectedly 
+                                      or the connection was lost during processing.
                                     </div>
                                   </div>
                                 </div>
@@ -1150,6 +1159,28 @@ const PcapProcessing = () => {
                 className="bg-amber-600 hover:bg-amber-700"
               >
                 Cancel Job
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deletingJob} onOpenChange={(open) => !open && setDeletingJob(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Processing Job?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the job record for "{deletingJob?.pcap_filename}". 
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteJob}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Job
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
