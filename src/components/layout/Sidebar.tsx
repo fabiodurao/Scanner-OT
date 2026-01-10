@@ -10,6 +10,7 @@ import {
   Users,
   LogOut,
   Building2,
+  Cpu,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -24,6 +25,7 @@ const Sidebar = () => {
     { name: 'Sites', href: '/sites', icon: Server },
     { name: 'Variables', href: '/variables', icon: Table },
     { name: 'PCAP Upload', href: '/upload', icon: Upload },
+    { name: 'PCAP Processing', href: '/processing', icon: Cpu },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
