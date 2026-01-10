@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -57,9 +58,12 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface Site {
   id: string;
@@ -249,12 +253,15 @@ const PcapProcessing = () => {
           table: 'processing_jobs',
         },
         (payload) => {
+          console.log('Real-time update:', payload.eventType, payload.new);
+          
           if (payload.eventType === 'INSERT') {
             setJobs(prev => [payload.new as ProcessingJob, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             setJobs(prev => prev.map(job => 
               job.id === payload.new.id ? payload.new as ProcessingJob : job
             ));
+            // Update viewing job if it's the one being updated
             if (viewingJob?.id === payload.new.id) {
               setViewingJob(payload.new as ProcessingJob);
             }
@@ -263,7 +270,9 @@ const PcapProcessing = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -345,6 +354,24 @@ const PcapProcessing = () => {
     }
   };
 
+  // Mark stalled job as interrupted
+  const handleMarkInterrupted = async (jobId: string) => {
+    const { error } = await supabase
+      .from('processing_jobs')
+      .update({ 
+        status: 'error', 
+        current_step: 'error',
+        error_message: 'Job interrupted - agent stopped or connection lost'
+      })
+      .eq('id', jobId);
+    
+    if (error) {
+      toast.error('Error updating job: ' + error.message);
+    } else {
+      toast.success('Job marked as interrupted');
+    }
+  };
+
   const formatSessionName = (session: UploadSession) => {
     if (session.name) return session.name;
     return format(new Date(session.created_at), "MM/dd/yyyy 'at' HH:mm");
@@ -371,17 +398,37 @@ const PcapProcessing = () => {
   };
 
   const getStatusBadge = (job: ProcessingJob) => {
-    const statusConfig: Record<string, { label: string; className: string }> = {
-      pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700' },
-      downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700' },
-      extracting: { label: 'Extracting', className: 'bg-purple-100 text-purple-700' },
-      running: { label: 'Processing', className: 'bg-amber-100 text-amber-700' },
-      completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
-      error: { label: 'Error', className: 'bg-red-100 text-red-700' },
-      cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700' },
+    const isActive = isActiveJob(job.status);
+    const isIncomplete = job.status === 'completed' && job.progress < 100;
+    
+    if (isIncomplete) {
+      return (
+        <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Incomplete ({job.progress}%)
+        </Badge>
+      );
+    }
+    
+    const statusConfig: Record<string, { label: string; className: string; icon?: React.ElementType }> = {
+      pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700', icon: Loader2 },
+      downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700 animate-pulse', icon: Loader2 },
+      extracting: { label: 'Extracting', className: 'bg-purple-100 text-purple-700 animate-pulse', icon: Loader2 },
+      running: { label: 'Processing', className: 'bg-amber-100 text-amber-700 animate-pulse', icon: Loader2 },
+      completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
+      error: { label: 'Error', className: 'bg-red-100 text-red-700', icon: XCircle },
+      cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700', icon: Square },
     };
+    
     const config = statusConfig[job.status] || statusConfig.pending;
-    return <Badge className={config.className}>{config.label}</Badge>;
+    const Icon = config.icon;
+    
+    return (
+      <Badge className={cn(config.className, isActive && 'border border-current')}>
+        {Icon && <Icon className={cn("h-3 w-3 mr-1", isActive && job.status !== 'pending' && "animate-spin")} />}
+        {config.label}
+      </Badge>
+    );
   };
 
   // Map status to step for the indicator
@@ -462,26 +509,51 @@ const PcapProcessing = () => {
                   <div className="space-y-3">
                     {jobs.map(job => {
                       const isExpanded = expandedJobs.has(job.id);
+                      const isActive = isActiveJob(job.status);
+                      const isIncomplete = job.status === 'completed' && job.progress < 100;
                       
                       return (
                         <div 
                           key={job.id} 
-                          className="border rounded-lg overflow-hidden"
+                          className={cn(
+                            "border rounded-lg overflow-hidden transition-all",
+                            isActive && "border-amber-300 shadow-md shadow-amber-100",
+                            isIncomplete && "border-amber-300",
+                            job.status === 'error' && "border-red-300",
+                            job.status === 'completed' && job.progress === 100 && "border-emerald-200"
+                          )}
                         >
                           {/* Job Header */}
                           <div 
-                            className="p-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
+                            className={cn(
+                              "p-4 cursor-pointer transition-colors",
+                              isActive ? "bg-amber-50 hover:bg-amber-100" : "bg-slate-50 hover:bg-slate-100",
+                              isIncomplete && "bg-amber-50",
+                              job.status === 'error' && "bg-red-50 hover:bg-red-100",
+                              job.status === 'completed' && job.progress === 100 && "bg-emerald-50 hover:bg-emerald-100"
+                            )}
                             onClick={() => toggleJobExpanded(job.id)}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {isExpanded ? (
                                   <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                 ) : (
                                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                 )}
+                                
+                                {/* Status indicator dot */}
+                                <div className={cn(
+                                  "w-3 h-3 rounded-full flex-shrink-0",
+                                  isActive && "bg-amber-500 animate-pulse",
+                                  job.status === 'completed' && job.progress === 100 && "bg-emerald-500",
+                                  job.status === 'error' && "bg-red-500",
+                                  job.status === 'cancelled' && "bg-slate-400",
+                                  isIncomplete && "bg-amber-500"
+                                )} />
+                                
                                 <FileArchive className="h-5 w-5 text-slate-500 flex-shrink-0" />
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="font-medium truncate">
                                     {job.pcap_filename}
                                   </div>
@@ -490,6 +562,28 @@ const PcapProcessing = () => {
                                   </div>
                                 </div>
                               </div>
+                              
+                              {/* Progress bar in collapsed view */}
+                              {!isExpanded && (isActive || isIncomplete) && (
+                                <div className="flex items-center gap-2 w-32 flex-shrink-0">
+                                  <Progress 
+                                    value={job.progress} 
+                                    className={cn(
+                                      "h-2 flex-1",
+                                      isActive && "bg-amber-200",
+                                      isIncomplete && "bg-amber-200"
+                                    )}
+                                  />
+                                  <span className={cn(
+                                    "text-xs font-medium w-10 text-right",
+                                    isActive && "text-amber-700",
+                                    isIncomplete && "text-amber-700"
+                                  )}>
+                                    {job.progress}%
+                                  </span>
+                                </div>
+                              )}
+                              
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 {getStatusBadge(job)}
                                 <div className="flex items-center gap-1">
@@ -507,7 +601,22 @@ const PcapProcessing = () => {
                                       <Square className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  {!isActiveJob(job.status) && (
+                                  {/* Mark as interrupted button for stalled jobs */}
+                                  {isActive && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkInterrupted(job.id);
+                                      }}
+                                      className="h-8 w-8 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                      title="Mark as interrupted (if agent stopped)"
+                                    >
+                                      <AlertTriangle className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {!isActive && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -545,6 +654,19 @@ const PcapProcessing = () => {
                                   <div className="flex gap-2">
                                     <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
                                     <div className="text-sm text-red-700">{job.error_message}</div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Incomplete warning */}
+                              {job.status === 'completed' && job.progress < 100 && !job.error_message && (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                                  <div className="flex gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                                    <div className="text-sm text-amber-700">
+                                      This job was marked as completed but only reached {job.progress}% progress. 
+                                      The agent may have stopped unexpectedly.
+                                    </div>
                                   </div>
                                 </div>
                               )}
