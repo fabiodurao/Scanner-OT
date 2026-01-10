@@ -63,12 +63,14 @@ export const AddressAutocomplete = ({
   const autocompleteServiceRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const placesServiceRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const geocoderRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getGoogle = (): any => (window as any).google;
 
-  // Load Google Maps API
+  // Load Google Maps API with English language
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
       setMapError('Google Maps API key not configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment.');
@@ -81,7 +83,8 @@ export const AddressAutocomplete = ({
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    // Add language=en to force English results
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=en&region=US`;
     script.async = true;
     script.defer = true;
     
@@ -102,6 +105,7 @@ export const AddressAutocomplete = ({
     if (!isApiLoaded || !mapRef.current || !google) return;
 
     autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+    geocoderRef.current = new google.maps.Geocoder();
 
     const lat = latitude ? parseFloat(latitude) : -14.235;
     const lng = longitude ? parseFloat(longitude) : -51.9253;
@@ -128,18 +132,22 @@ export const AddressAutocomplete = ({
 
       markerRef.current.addListener('dragend', () => {
         const position = markerRef.current?.getPosition();
-        if (position) {
+        if (position && geocoderRef.current) {
           onAddressChange({ latitude: position.lat(), longitude: position.lng() });
           
-          const geocoder = new google.maps.Geocoder();
+          // Use language: 'en' for reverse geocoding
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          geocoder.geocode({ location: position }, (results: any, status: string) => {
-            if (status === 'OK' && results?.[0]) {
-              const addressData = parseAddressComponents(results[0]);
-              onAddressChange({ address: results[0].formatted_address, ...addressData });
-              setInputValue(results[0].formatted_address);
+          geocoderRef.current.geocode(
+            { location: position, language: 'en' }, 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (results: any, status: string) => {
+              if (status === 'OK' && results?.[0]) {
+                const addressData = parseAddressComponents(results[0]);
+                onAddressChange({ address: results[0].formatted_address, ...addressData });
+                setInputValue(results[0].formatted_address);
+              }
             }
-          });
+          );
         }
       });
     }
@@ -170,8 +178,21 @@ export const AddressAutocomplete = ({
 
       markerRef.current.addListener('dragend', () => {
         const pos = markerRef.current?.getPosition();
-        if (pos) {
+        if (pos && geocoderRef.current) {
           onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
+          
+          // Use language: 'en' for reverse geocoding
+          geocoderRef.current.geocode(
+            { location: pos, language: 'en' },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (results: any, status: string) => {
+              if (status === 'OK' && results?.[0]) {
+                const addressData = parseAddressComponents(results[0]);
+                onAddressChange({ address: results[0].formatted_address, ...addressData });
+                setInputValue(results[0].formatted_address);
+              }
+            }
+          );
         }
       });
     }
@@ -220,7 +241,11 @@ export const AddressAutocomplete = ({
 
     setIsLoading(true);
     autocompleteServiceRef.current.getPlacePredictions(
-      { input: query, types: ['geocode', 'establishment'] },
+      { 
+        input: query, 
+        types: ['geocode', 'establishment'],
+        // Note: AutocompleteService uses the language set in the script URL
+      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (predictions: any[] | null, status: string) => {
         setIsLoading(false);
@@ -257,7 +282,11 @@ export const AddressAutocomplete = ({
     setShowSuggestions(false);
 
     placesServiceRef.current.getDetails(
-      { placeId: suggestion.placeId, fields: ['formatted_address', 'geometry', 'address_components'] },
+      { 
+        placeId: suggestion.placeId, 
+        fields: ['formatted_address', 'geometry', 'address_components'],
+        // Note: PlacesService uses the language set in the script URL
+      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (place: any | null, status: string) => {
         setIsLoading(false);
