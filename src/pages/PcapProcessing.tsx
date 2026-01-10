@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -167,6 +166,9 @@ const PcapProcessing = () => {
 
   // Polling interval ref
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Log scroll ref
+  const logScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch sites
   const fetchSites = async () => {
@@ -249,7 +251,6 @@ const PcapProcessing = () => {
 
   // Real-time subscription + polling fallback for job updates
   useEffect(() => {
-    // Generate unique channel name to avoid conflicts
     const channelName = `processing_jobs_page_${Date.now()}`;
     
     const channel = supabase
@@ -264,7 +265,6 @@ const PcapProcessing = () => {
         (payload) => {
           console.log('[PcapProcessing] INSERT:', payload.new);
           setJobs(prev => {
-            // Check if job already exists to avoid duplicates
             if (prev.some(j => j.id === payload.new.id)) {
               return prev;
             }
@@ -284,7 +284,6 @@ const PcapProcessing = () => {
           setJobs(prev => prev.map(job => 
             job.id === payload.new.id ? payload.new as ProcessingJob : job
           ));
-          // Update viewing job if it's the one being updated
           setViewingJob(current => 
             current?.id === payload.new.id ? payload.new as ProcessingJob : current
           );
@@ -306,7 +305,6 @@ const PcapProcessing = () => {
         console.log('[PcapProcessing] Subscription status:', status, err);
       });
 
-    // Polling fallback - check for updates every 3 seconds
     pollingIntervalRef.current = setInterval(() => {
       fetchJobs();
     }, 3000);
@@ -319,6 +317,16 @@ const PcapProcessing = () => {
       }
     };
   }, [fetchJobs]);
+
+  // Auto-scroll logs when viewing job updates
+  useEffect(() => {
+    if (viewingJob && logScrollRef.current) {
+      const scrollArea = logScrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
+      }
+    }
+  }, [viewingJob?.output_log]);
 
   // Open process dialog with defaults from settings
   const handleOpenProcessDialog = (file: PcapFile) => {
@@ -350,6 +358,7 @@ const PcapProcessing = () => {
         pcap_size_bytes: selectedFile.size_bytes,
         mbsniffer_interval_batch: parseInt(intervalBatch) || 1000,
         mbsniffer_interval_min: parseInt(intervalMin) || 100,
+        output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created, waiting for agent...`,
       })
       .select()
       .single();
@@ -358,7 +367,6 @@ const PcapProcessing = () => {
       toast.error('Error creating job: ' + error.message);
     } else {
       toast.success('Processing job created! The agent will pick it up shortly.');
-      // Immediately add the new job to the list
       if (data) {
         setJobs(prev => {
           if (prev.some(j => j.id === data.id)) {
@@ -392,7 +400,7 @@ const PcapProcessing = () => {
     setCancellingJob(null);
   };
 
-  // Delete job (called after confirmation)
+  // Delete job
   const handleConfirmDeleteJob = async () => {
     if (!deletingJob) return;
     
@@ -405,29 +413,10 @@ const PcapProcessing = () => {
       toast.error('Error deleting job: ' + error.message);
     } else {
       toast.success('Job deleted');
-      // Immediately remove from list
       setJobs(prev => prev.filter(j => j.id !== deletingJob.id));
     }
     
     setDeletingJob(null);
-  };
-
-  // Mark stalled job as interrupted
-  const handleMarkInterrupted = async (jobId: string) => {
-    const { error } = await supabase
-      .from('processing_jobs')
-      .update({ 
-        status: 'error', 
-        current_step: 'error',
-        error_message: 'Job interrupted - agent stopped or connection lost'
-      })
-      .eq('id', jobId);
-    
-    if (error) {
-      toast.error('Error updating job: ' + error.message);
-    } else {
-      toast.success('Job marked as interrupted');
-    }
   };
 
   const formatSessionName = (session: UploadSession) => {
@@ -443,9 +432,9 @@ const PcapProcessing = () => {
     return ['pending', 'downloading', 'extracting', 'running'].includes(status);
   };
 
-  // Check if job is incomplete (completed but progress < 100)
-  const isIncompleteJob = (job: ProcessingJob) => {
-    return job.status === 'completed' && job.progress < 100;
+  // Check if job was interrupted (error with progress > 0 and < 100)
+  const isInterruptedJob = (job: ProcessingJob) => {
+    return job.status === 'error' && job.progress > 0 && job.progress < 100;
   };
 
   const toggleJobExpanded = (jobId: string) => {
@@ -460,11 +449,16 @@ const PcapProcessing = () => {
     });
   };
 
+  // Should show progress bar (for active, interrupted, or error jobs with progress)
+  const shouldShowProgress = (job: ProcessingJob) => {
+    return isActiveJob(job.status) || isInterruptedJob(job) || (job.status === 'error' && job.progress > 0);
+  };
+
   const getStatusBadge = (job: ProcessingJob) => {
     const isActive = isActiveJob(job.status);
-    const isIncomplete = isIncompleteJob(job);
+    const isInterrupted = isInterruptedJob(job);
     
-    if (isIncomplete) {
+    if (isInterrupted) {
       return (
         <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
           <AlertTriangle className="h-3 w-3 mr-1" />
@@ -494,19 +488,24 @@ const PcapProcessing = () => {
     );
   };
 
-  // Map status to step for the indicator
   const getStepFromStatus = (job: ProcessingJob): 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled' => {
-    // If job is incomplete, show it as error state in the indicator
-    if (isIncompleteJob(job)) {
+    if (isInterruptedJob(job)) {
       return 'error';
     }
     
     if (job.current_step) {
       return job.current_step as 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled';
     }
-    // Fallback based on status
     if (job.status === 'running') return 'processing';
     return job.status as 'pending' | 'downloading' | 'extracting' | 'completed' | 'error' | 'cancelled';
+  };
+
+  // Get progress bar color based on status
+  const getProgressBarColor = (job: ProcessingJob) => {
+    if (isInterruptedJob(job)) return 'bg-amber-500';
+    if (job.status === 'error') return 'bg-red-500';
+    if (job.status === 'completed') return 'bg-emerald-500';
+    return 'bg-blue-500';
   };
 
   return (
@@ -578,7 +577,8 @@ const PcapProcessing = () => {
                     {jobs.map(job => {
                       const isExpanded = expandedJobs.has(job.id);
                       const isActive = isActiveJob(job.status);
-                      const isIncomplete = isIncompleteJob(job);
+                      const isInterrupted = isInterruptedJob(job);
+                      const showProgress = shouldShowProgress(job);
                       
                       return (
                         <div 
@@ -586,9 +586,9 @@ const PcapProcessing = () => {
                           className={cn(
                             "border rounded-lg overflow-hidden transition-all",
                             isActive && "border-amber-300 shadow-md shadow-amber-100",
-                            isIncomplete && "border-amber-300 bg-amber-50/50",
-                            job.status === 'error' && "border-red-300",
-                            job.status === 'completed' && !isIncomplete && "border-emerald-200"
+                            isInterrupted && "border-amber-300",
+                            job.status === 'error' && !isInterrupted && "border-red-300",
+                            job.status === 'completed' && "border-emerald-200"
                           )}
                         >
                           {/* Job Header */}
@@ -596,9 +596,9 @@ const PcapProcessing = () => {
                             className={cn(
                               "p-4 cursor-pointer transition-colors",
                               isActive ? "bg-amber-50 hover:bg-amber-100" : "bg-slate-50 hover:bg-slate-100",
-                              isIncomplete && "bg-amber-50 hover:bg-amber-100",
-                              job.status === 'error' && "bg-red-50 hover:bg-red-100",
-                              job.status === 'completed' && !isIncomplete && "bg-emerald-50 hover:bg-emerald-100"
+                              isInterrupted && "bg-amber-50 hover:bg-amber-100",
+                              job.status === 'error' && !isInterrupted && "bg-red-50 hover:bg-red-100",
+                              job.status === 'completed' && "bg-emerald-50 hover:bg-emerald-100"
                             )}
                             onClick={() => toggleJobExpanded(job.id)}
                           >
@@ -610,14 +610,13 @@ const PcapProcessing = () => {
                                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                 )}
                                 
-                                {/* Status indicator dot */}
                                 <div className={cn(
                                   "w-3 h-3 rounded-full flex-shrink-0",
                                   isActive && "bg-amber-500 animate-pulse",
-                                  job.status === 'completed' && !isIncomplete && "bg-emerald-500",
+                                  job.status === 'completed' && "bg-emerald-500",
                                   job.status === 'error' && "bg-red-500",
                                   job.status === 'cancelled' && "bg-slate-400",
-                                  isIncomplete && "bg-amber-500"
+                                  isInterrupted && "bg-amber-500"
                                 )} />
                                 
                                 <FileArchive className="h-5 w-5 text-slate-500 flex-shrink-0" />
@@ -631,14 +630,21 @@ const PcapProcessing = () => {
                                 </div>
                               </div>
                               
-                              {/* Progress bar in collapsed view - show for active OR incomplete jobs */}
-                              {!isExpanded && (isActive || isIncomplete) && (
+                              {/* Progress bar in collapsed view */}
+                              {!isExpanded && showProgress && (
                                 <div className="flex items-center gap-2 w-32 flex-shrink-0">
-                                  <Progress 
-                                    value={job.progress} 
-                                    className="h-2 flex-1 bg-amber-200"
-                                  />
-                                  <span className="text-xs font-medium w-10 text-right text-amber-700">
+                                  <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                    <div 
+                                      className={cn("h-full rounded-full transition-all", getProgressBarColor(job))}
+                                      style={{ width: `${job.progress}%` }}
+                                    />
+                                  </div>
+                                  <span className={cn(
+                                    "text-xs font-medium w-10 text-right",
+                                    isActive && "text-amber-700",
+                                    isInterrupted && "text-amber-700",
+                                    job.status === 'error' && !isInterrupted && "text-red-700"
+                                  )}>
                                     {job.progress}%
                                   </span>
                                 </div>
@@ -661,22 +667,6 @@ const PcapProcessing = () => {
                                       <Square className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  {/* Mark as interrupted button for active jobs */}
-                                  {isActive && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMarkInterrupted(job.id);
-                                      }}
-                                      className="h-8 w-8 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                      title="Mark as interrupted (if agent stopped)"
-                                    >
-                                      <AlertTriangle className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {/* Delete button - only for non-active jobs */}
                                   {!isActive && (
                                     <Button
                                       variant="ghost"
@@ -699,6 +689,29 @@ const PcapProcessing = () => {
                           {/* Job Details (Expanded) */}
                           {isExpanded && (
                             <div className="p-4 border-t bg-white">
+                              {/* Progress bar in expanded view */}
+                              {showProgress && (
+                                <div className="mb-4">
+                                  <div className="flex items-center justify-between text-sm mb-1">
+                                    <span className="text-muted-foreground">Progress</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      isActive && "text-amber-700",
+                                      isInterrupted && "text-amber-700",
+                                      job.status === 'error' && !isInterrupted && "text-red-700"
+                                    )}>
+                                      {job.progress}%
+                                    </span>
+                                  </div>
+                                  <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
+                                    <div 
+                                      className={cn("h-full rounded-full transition-all", getProgressBarColor(job))}
+                                      style={{ width: `${job.progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              
                               {/* Steps Indicator */}
                               <JobStepsIndicator
                                 currentStep={getStepFromStatus(job)}
@@ -711,22 +724,21 @@ const PcapProcessing = () => {
                               
                               {/* Error message */}
                               {job.error_message && (
-                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+                                <div className={cn(
+                                  "p-3 border rounded-lg mb-4",
+                                  isInterrupted ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"
+                                )}>
                                   <div className="flex gap-2">
-                                    <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                                    <div className="text-sm text-red-700">{job.error_message}</div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Incomplete warning */}
-                              {isIncomplete && !job.error_message && (
-                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-                                  <div className="flex gap-2">
-                                    <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                                    <div className="text-sm text-amber-700">
-                                      <strong>Job interrupted at {job.progress}%</strong> - The agent may have stopped unexpectedly 
-                                      or the connection was lost during processing.
+                                    {isInterrupted ? (
+                                      <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                                    ) : (
+                                      <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                    )}
+                                    <div className={cn(
+                                      "text-sm",
+                                      isInterrupted ? "text-amber-700" : "text-red-700"
+                                    )}>
+                                      {job.error_message}
                                     </div>
                                   </div>
                                 </div>
@@ -960,7 +972,8 @@ const PcapProcessing = () => {
                     <div className="flex gap-2">
                       <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
                       <div className="text-sm text-amber-800">
-                        <strong>Note:</strong> The processing agent must be running on the EC2 instance for jobs to be executed.
+                        <strong>Note:</strong> The processing agent must be running on the EC2 instance for jobs to be executed. 
+                        The agent can process up to 3 jobs simultaneously.
                       </div>
                     </div>
                   </div>
@@ -1093,6 +1106,22 @@ const PcapProcessing = () => {
             
             {viewingJob && (
               <div className="space-y-4">
+                {/* Progress bar in log viewer */}
+                {shouldShowProgress(viewingJob) && (
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-medium">{viewingJob.progress}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={cn("h-full rounded-full transition-all", getProgressBarColor(viewingJob))}
+                        style={{ width: `${viewingJob.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <JobStepsIndicator
                   currentStep={getStepFromStatus(viewingJob)}
                   progress={viewingJob.progress}
@@ -1102,19 +1131,31 @@ const PcapProcessing = () => {
                 />
 
                 {viewingJob.error_message && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className={cn(
+                    "p-3 border rounded-lg",
+                    isInterruptedJob(viewingJob) ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"
+                  )}>
                     <div className="flex gap-2">
-                      <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      <div className="text-sm text-red-700">{viewingJob.error_message}</div>
+                      {isInterruptedJob(viewingJob) ? (
+                        <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                      )}
+                      <div className={cn(
+                        "text-sm",
+                        isInterruptedJob(viewingJob) ? "text-amber-700" : "text-red-700"
+                      )}>
+                        {viewingJob.error_message}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-2">
                   <Label>Output Log</Label>
-                  <ScrollArea className="h-48 w-full rounded-md border bg-slate-900 p-4">
+                  <ScrollArea ref={logScrollRef} className="h-64 w-full rounded-md border bg-slate-900 p-4">
                     <pre className="text-sm text-slate-100 font-mono whitespace-pre-wrap">
-                      {viewingJob.output_log || 'No output yet...'}
+                      {viewingJob.output_log || 'Waiting for agent to start processing...'}
                     </pre>
                   </ScrollArea>
                 </div>

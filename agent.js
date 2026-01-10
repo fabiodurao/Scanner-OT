@@ -7,6 +7,12 @@ const http = require('http');
 // Load configuration
 const config = require('./config');
 
+// Configuration for parallel processing
+const MAX_CONCURRENT_JOBS = config.MAX_CONCURRENT_JOBS || 3;
+
+// Track active jobs
+const activeJobs = new Map();
+
 // Logging utility
 const log = (level, message, data = null) => {
   const timestamp = new Date().toISOString();
@@ -66,6 +72,20 @@ const agentApi = async (action, data = {}) => {
   return response.data;
 };
 
+// Append log line to job
+const appendJobLog = async (jobId, message) => {
+  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+  const logLine = `[${timestamp}] ${message}`;
+  
+  try {
+    await agentApi('append_log', { job_id: jobId, log_line: logLine });
+  } catch (error) {
+    log('WARN', `Failed to append log: ${error.message}`);
+  }
+  
+  return logLine;
+};
+
 // Update job status with step information
 const updateJobStatus = async (jobId, status, progress, step = null, extraData = {}) => {
   try {
@@ -97,7 +117,7 @@ const checkCancelled = async (jobId) => {
 };
 
 // Download file from S3 using AWS CLI
-const downloadFromS3 = async (s3Key, bucket, destPath, credentials) => {
+const downloadFromS3 = async (s3Key, bucket, destPath, credentials, jobId) => {
   const s3Uri = `s3://${bucket}/${s3Key}`;
   
   const env = {
@@ -107,34 +127,66 @@ const downloadFromS3 = async (s3Key, bucket, destPath, credentials) => {
     AWS_DEFAULT_REGION: credentials.region,
   };
   
+  await appendJobLog(jobId, `Starting download from S3: ${s3Uri}`);
   log('INFO', `Downloading from S3: ${s3Uri}`);
   
+  const startTime = Date.now();
   execSync(`aws s3 cp "${s3Uri}" "${destPath}"`, { env, stdio: 'inherit' });
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  
+  const stats = fs.statSync(destPath);
+  const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+  
+  await appendJobLog(jobId, `Download complete: ${sizeMB} MB in ${duration}s`);
+  log('INFO', `Download complete: ${sizeMB} MB in ${duration}s`);
   
   return destPath;
 };
 
 // Decompress file if needed
-const decompressFile = (filePath) => {
+const decompressFile = async (filePath, jobId) => {
   if (filePath.endsWith('.zst')) {
     const outputPath = filePath.replace('.zst', '');
+    await appendJobLog(jobId, `Decompressing .zst file...`);
     log('INFO', `Decompressing: ${filePath}`);
+    
+    const startTime = Date.now();
     execSync(`zstd -d -f "${filePath}" -o "${outputPath}"`, { stdio: 'inherit' });
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    
     fs.unlinkSync(filePath);
+    
+    const stats = fs.statSync(outputPath);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+    
+    await appendJobLog(jobId, `Decompression complete: ${sizeMB} MB (took ${duration}s)`);
     return outputPath;
   } else if (filePath.endsWith('.gz')) {
     const outputPath = filePath.replace('.gz', '');
+    await appendJobLog(jobId, `Decompressing .gz file...`);
     log('INFO', `Decompressing: ${filePath}`);
+    
+    const startTime = Date.now();
     execSync(`gunzip -f "${filePath}"`, { stdio: 'inherit' });
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    
+    const stats = fs.statSync(outputPath);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+    
+    await appendJobLog(jobId, `Decompression complete: ${sizeMB} MB (took ${duration}s)`);
     return outputPath;
   }
+  
+  await appendJobLog(jobId, `File does not need decompression`);
   return filePath;
 };
 
 // Get PCAP metadata using capinfos
-const getPcapInfo = (pcapPath) => {
+const getPcapInfo = async (pcapPath, jobId) => {
   try {
+    await appendJobLog(jobId, `Analyzing PCAP file with capinfos...`);
     log('INFO', `Analyzing PCAP: ${pcapPath}`);
+    
     const output = execSync(`capinfos -M "${pcapPath}"`, { encoding: 'utf8' });
     
     const lines = output.split('\n');
@@ -145,7 +197,6 @@ const getPcapInfo = (pcapPath) => {
     
     for (const line of lines) {
       if (line.includes('Capture duration:')) {
-        // Format: "Capture duration:    123.456789 seconds"
         const match = line.match(/(\d+\.?\d*)\s*seconds/);
         if (match) {
           duration = parseFloat(match[1]);
@@ -168,17 +219,27 @@ const getPcapInfo = (pcapPath) => {
       }
     }
     
+    const durationStr = duration ? `${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s` : 'unknown';
+    const packetsStr = packets ? packets.toLocaleString() : 'unknown';
+    
+    await appendJobLog(jobId, `PCAP analysis complete:`);
+    await appendJobLog(jobId, `  - Duration: ${durationStr}`);
+    await appendJobLog(jobId, `  - Packets: ${packetsStr}`);
+    if (startTime) await appendJobLog(jobId, `  - Start time: ${startTime}`);
+    if (endTime) await appendJobLog(jobId, `  - End time: ${endTime}`);
+    
     log('INFO', `PCAP info: duration=${duration}s, packets=${packets}`);
     
     return { duration, packets, startTime, endTime };
   } catch (error) {
+    await appendJobLog(jobId, `Warning: Could not analyze PCAP (capinfos failed)`);
     log('WARN', `Failed to get PCAP info: ${error.message}`);
     return { duration: null, packets: null, startTime: null, endTime: null };
   }
 };
 
 // Run mbsniffer with progress tracking
-const runMbsniffer = (pcapPath, job, pcapInfo) => {
+const runMbsniffer = (pcapPath, job, pcapInfo, jobContext) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', pcapPath,
@@ -191,20 +252,36 @@ const runMbsniffer = (pcapPath, job, pcapInfo) => {
       args.push('-endpoint', job.n8n_webhook_url);
     }
     
+    appendJobLog(job.id, `Starting mbsniffer processing...`);
+    appendJobLog(job.id, `  - interval-batch: ${job.mbsniffer_interval_batch || 1000}ms`);
+    appendJobLog(job.id, `  - interval-min: ${job.mbsniffer_interval_min || 100}ms`);
+    if (job.n8n_webhook_url) {
+      appendJobLog(job.id, `  - webhook: ${job.n8n_webhook_url}`);
+    }
+    
     log('INFO', `Running mbsniffer: ${config.MBSNIFFER_PATH} ${args.join(' ')}`);
     
     const mbsniffer = spawn(config.MBSNIFFER_PATH, args);
     
+    // Store process reference for cleanup
+    jobContext.process = mbsniffer;
+    jobContext.processRunning = true;
+    
     const startTime = Date.now();
     const totalDuration = pcapInfo.duration || 300; // Default 5 min if unknown
     let lastProgressUpdate = 0;
+    let lastLoggedProgress = 0;
     
     // Progress update interval (every 2 seconds)
     const progressInterval = setInterval(async () => {
+      if (!jobContext.processRunning) {
+        clearInterval(progressInterval);
+        return;
+      }
+      
       const elapsedSeconds = (Date.now() - startTime) / 1000;
       
       // Estimate progress: processing step is 35-95% (60% range)
-      // Use elapsed time vs estimated total time
       const estimatedProgress = Math.min(elapsedSeconds / totalDuration, 1);
       const progress = Math.floor(35 + (estimatedProgress * 60));
       
@@ -214,12 +291,21 @@ const runMbsniffer = (pcapPath, job, pcapInfo) => {
           elapsed_seconds: Math.floor(elapsedSeconds),
           total_duration: Math.floor(totalDuration),
         });
+        
+        // Log progress every 10%
+        const progressDecile = Math.floor(progress / 10) * 10;
+        if (progressDecile > lastLoggedProgress && progressDecile <= 90) {
+          lastLoggedProgress = progressDecile;
+          await appendJobLog(job.id, `Processing progress: ${progress}% (${Math.floor(elapsedSeconds)}s elapsed)`);
+        }
       }
       
       // Check for cancellation
       const cancelled = await checkCancelled(job.id);
       if (cancelled) {
+        appendJobLog(job.id, `Cancellation requested - stopping mbsniffer...`);
         log('INFO', 'Job cancelled, killing mbsniffer');
+        jobContext.cancelled = true;
         mbsniffer.kill('SIGTERM');
       }
     }, 2000);
@@ -239,48 +325,75 @@ const runMbsniffer = (pcapPath, job, pcapInfo) => {
       }
     });
     
-    mbsniffer.on('close', (code) => {
+    mbsniffer.on('close', async (code, signal) => {
       clearInterval(progressInterval);
+      jobContext.processRunning = false;
+      
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      log('INFO', `mbsniffer exited with code ${code} after ${totalTime}s`);
+      log('INFO', `mbsniffer exited with code ${code}, signal ${signal} after ${totalTime}s`);
       
       if (code === 0) {
+        await appendJobLog(job.id, `mbsniffer completed successfully in ${totalTime}s`);
         resolve({ success: true, processingTime: totalTime });
-      } else if (code === null) {
-        // Killed (cancelled)
+      } else if (jobContext.cancelled) {
+        await appendJobLog(job.id, `mbsniffer cancelled by user after ${totalTime}s`);
         reject(new Error('Job cancelled by user'));
+      } else if (signal) {
+        // Process was killed by a signal (SIGTERM, SIGKILL, etc.)
+        await appendJobLog(job.id, `mbsniffer was terminated by signal ${signal} after ${totalTime}s`);
+        reject(new Error(`Process terminated by signal ${signal}`));
+      } else if (code === null) {
+        // Process was killed
+        await appendJobLog(job.id, `mbsniffer was killed after ${totalTime}s`);
+        reject(new Error('Process was killed'));
       } else {
+        await appendJobLog(job.id, `mbsniffer failed with exit code ${code} after ${totalTime}s`);
         reject(new Error(`mbsniffer exited with code ${code}`));
       }
     });
     
-    mbsniffer.on('error', (error) => {
+    mbsniffer.on('error', async (error) => {
       clearInterval(progressInterval);
+      jobContext.processRunning = false;
+      await appendJobLog(job.id, `mbsniffer error: ${error.message}`);
       reject(error);
     });
-    
-    // Store reference for potential cancellation
-    runMbsniffer.currentProcess = mbsniffer;
   });
 };
 
 // Process a single job
 const processJob = async (job, pcapFile, site, s3Credentials) => {
   const workDir = path.join(config.WORK_DIR, job.id);
+  const jobContext = {
+    process: null,
+    processRunning: false,
+    cancelled: false,
+    lastProgress: 0,
+  };
+  
+  // Register job in active jobs map
+  activeJobs.set(job.id, jobContext);
   
   try {
     // Create work directory
     fs.mkdirSync(workDir, { recursive: true });
     
+    await appendJobLog(job.id, `=== Job started ===`);
+    await appendJobLog(job.id, `File: ${pcapFile.original_filename}`);
+    await appendJobLog(job.id, `Size: ${(pcapFile.size_bytes / 1024 / 1024).toFixed(2)} MB`);
+    await appendJobLog(job.id, `Site: ${site?.name || 'Unknown'}`);
+    await appendJobLog(job.id, `Work directory: ${workDir}`);
+    
     // Step 1: Download (0-20%)
     log('INFO', 'Step 1: Downloading...');
+    await appendJobLog(job.id, `--- Step 1/4: Download ---`);
     await updateJobStatus(job.id, 'downloading', 5, 'downloading');
     
     const downloadPath = path.join(workDir, pcapFile.filename);
-    await downloadFromS3(pcapFile.s3_key, pcapFile.s3_bucket, downloadPath, s3Credentials);
+    await downloadFromS3(pcapFile.s3_key, pcapFile.s3_bucket, downloadPath, s3Credentials, job.id);
     
     await updateJobStatus(job.id, 'downloading', 20, 'downloading');
-    log('INFO', 'Download complete');
+    jobContext.lastProgress = 20;
     
     // Check for cancellation
     if (await checkCancelled(job.id)) {
@@ -289,12 +402,13 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     
     // Step 2: Extract (20-30%)
     log('INFO', 'Step 2: Extracting...');
+    await appendJobLog(job.id, `--- Step 2/4: Extract ---`);
     await updateJobStatus(job.id, 'extracting', 25, 'extracting');
     
-    const pcapPath = decompressFile(downloadPath);
+    const pcapPath = await decompressFile(downloadPath, job.id);
     
     await updateJobStatus(job.id, 'extracting', 30, 'extracting');
-    log('INFO', `Extraction complete: ${pcapPath}`);
+    jobContext.lastProgress = 30;
     
     // Check for cancellation
     if (await checkCancelled(job.id)) {
@@ -303,9 +417,10 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     
     // Step 3: Analyze PCAP (30-35%)
     log('INFO', 'Step 3: Analyzing PCAP...');
+    await appendJobLog(job.id, `--- Step 3/4: Analyze ---`);
     await updateJobStatus(job.id, 'running', 32, 'analyzing');
     
-    const pcapInfo = getPcapInfo(pcapPath);
+    const pcapInfo = await getPcapInfo(pcapPath, job.id);
     
     // Update job with PCAP metadata
     await updateJobStatus(job.id, 'running', 35, 'processing', {
@@ -314,6 +429,7 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
       pcap_start_time: pcapInfo.startTime,
       pcap_end_time: pcapInfo.endTime,
     });
+    jobContext.lastProgress = 35;
     
     // Check for cancellation
     if (await checkCancelled(job.id)) {
@@ -322,12 +438,16 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     
     // Step 4: Run mbsniffer (35-95%)
     log('INFO', 'Step 4: Running mbsniffer...');
-    const result = await runMbsniffer(pcapPath, job, pcapInfo);
+    await appendJobLog(job.id, `--- Step 4/4: Process ---`);
+    const result = await runMbsniffer(pcapPath, job, pcapInfo, jobContext);
     
     // Step 5: Complete (95-100%)
     log('INFO', 'Step 5: Finalizing...');
+    await appendJobLog(job.id, `--- Finalizing ---`);
+    await appendJobLog(job.id, `Total processing time: ${result.processingTime}s`);
+    await appendJobLog(job.id, `=== Job completed successfully ===`);
+    
     await updateJobStatus(job.id, 'completed', 100, 'completed', {
-      output_log: `Processing completed successfully in ${result.processingTime}s`,
       processing_time: result.processingTime,
     });
     
@@ -337,15 +457,34 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     log('ERROR', `Job ${job.id} failed: ${error.message}`);
     
     const isCancelled = error.message.includes('cancelled');
-    await updateJobStatus(
-      job.id,
-      isCancelled ? 'cancelled' : 'error',
-      0,
-      isCancelled ? 'cancelled' : 'error',
-      { error_message: error.message }
-    );
+    const isInterrupted = error.message.includes('terminated') || 
+                          error.message.includes('killed') || 
+                          error.message.includes('signal');
+    
+    if (isCancelled) {
+      await appendJobLog(job.id, `=== Job cancelled ===`);
+      await updateJobStatus(job.id, 'cancelled', jobContext.lastProgress, 'cancelled', {
+        error_message: 'Job cancelled by user',
+      });
+    } else if (isInterrupted) {
+      await appendJobLog(job.id, `=== Job interrupted at ${jobContext.lastProgress}% ===`);
+      await appendJobLog(job.id, `Reason: ${error.message}`);
+      // Mark as error with the progress where it stopped - NOT completed
+      await updateJobStatus(job.id, 'error', jobContext.lastProgress, 'error', {
+        error_message: `Job interrupted at ${jobContext.lastProgress}%: ${error.message}`,
+      });
+    } else {
+      await appendJobLog(job.id, `=== Job failed ===`);
+      await appendJobLog(job.id, `Error: ${error.message}`);
+      await updateJobStatus(job.id, 'error', jobContext.lastProgress, 'error', {
+        error_message: error.message,
+      });
+    }
     
   } finally {
+    // Remove from active jobs
+    activeJobs.delete(job.id);
+    
     // Cleanup work directory
     try {
       fs.rmSync(workDir, { recursive: true, force: true });
@@ -356,8 +495,14 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
   }
 };
 
-// Main polling loop
+// Main polling loop - now supports parallel processing
 const pollForJobs = async () => {
+  // Check if we can take more jobs
+  if (activeJobs.size >= MAX_CONCURRENT_JOBS) {
+    log('DEBUG', `Already running ${activeJobs.size}/${MAX_CONCURRENT_JOBS} jobs, skipping poll`);
+    return;
+  }
+  
   try {
     // Get S3 credentials
     const s3Credentials = await agentApi('get_s3_credentials');
@@ -370,15 +515,42 @@ const pollForJobs = async () => {
     }
     
     const { job, pcap_file, site } = result;
-    log('INFO', `Claimed job: ${job.id}`);
+    log('INFO', `Claimed job: ${job.id} (${activeJobs.size + 1}/${MAX_CONCURRENT_JOBS} active)`);
     log('INFO', `File: ${pcap_file.original_filename} (${(pcap_file.size_bytes / 1024 / 1024).toFixed(1)} MB)`);
     
-    // Process the job
-    await processJob(job, pcap_file, site, s3Credentials);
+    // Process the job in background (don't await)
+    processJob(job, pcap_file, site, s3Credentials).catch(error => {
+      log('ERROR', `Unhandled error in job ${job.id}: ${error.message}`);
+    });
     
   } catch (error) {
     log('ERROR', `Polling error: ${error.message}`);
   }
+};
+
+// Graceful shutdown handler
+const shutdown = async (signal) => {
+  log('INFO', `Received ${signal}, shutting down gracefully...`);
+  
+  // Kill all active processes
+  for (const [jobId, context] of activeJobs) {
+    if (context.process && context.processRunning) {
+      log('INFO', `Terminating job ${jobId}...`);
+      await appendJobLog(jobId, `Agent shutting down - process will be terminated`);
+      context.process.kill('SIGTERM');
+      
+      // Mark job as interrupted with current progress
+      await updateJobStatus(jobId, 'error', context.lastProgress, 'error', {
+        error_message: `Agent shutdown - job interrupted at ${context.lastProgress}%`,
+      });
+    }
+  }
+  
+  // Wait a bit for cleanup
+  setTimeout(() => {
+    log('INFO', 'Shutdown complete');
+    process.exit(0);
+  }, 2000);
 };
 
 // Start the agent
@@ -386,6 +558,7 @@ const main = async () => {
   log('INFO', '========================================');
   log('INFO', '   PCAP Processing Agent Started');
   log('INFO', '========================================');
+  log('INFO', `Max concurrent jobs: ${MAX_CONCURRENT_JOBS}`);
   log('INFO', `Polling interval: ${config.POLL_INTERVAL / 1000}s`);
   log('INFO', `Work directory: ${config.WORK_DIR}`);
   log('INFO', `mbsniffer: ${config.MBSNIFFER_PATH}`);
@@ -418,20 +591,17 @@ const main = async () => {
 };
 
 // Handle graceful shutdown
-process.on('SIGINT', () => {
-  log('INFO', 'Shutting down...');
-  if (runMbsniffer.currentProcess) {
-    runMbsniffer.currentProcess.kill('SIGTERM');
-  }
-  process.exit(0);
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  log('ERROR', `Uncaught exception: ${error.message}`);
+  log('ERROR', error.stack);
 });
 
-process.on('SIGTERM', () => {
-  log('INFO', 'Shutting down...');
-  if (runMbsniffer.currentProcess) {
-    runMbsniffer.currentProcess.kill('SIGTERM');
-  }
-  process.exit(0);
+process.on('unhandledRejection', (reason, promise) => {
+  log('ERROR', `Unhandled rejection at: ${promise}, reason: ${reason}`);
 });
 
 // Run
