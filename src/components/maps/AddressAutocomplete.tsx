@@ -35,6 +35,10 @@ interface Suggestion {
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
+// Default center: London, UK
+const DEFAULT_CENTER = { lat: 51.5074, lng: -0.1278 };
+const DEFAULT_ZOOM = 5;
+
 // Silver theme style for Google Maps
 const silverMapStyle = [
   {
@@ -227,12 +231,13 @@ export const AddressAutocomplete = ({
     autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
     geocoderRef.current = new google.maps.Geocoder();
 
-    const lat = latitude ? parseFloat(latitude) : -14.235;
-    const lng = longitude ? parseFloat(longitude) : -51.9253;
+    const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
+    const lat = hasCoordinates ? parseFloat(latitude) : DEFAULT_CENTER.lat;
+    const lng = hasCoordinates ? parseFloat(longitude) : DEFAULT_CENTER.lng;
     
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: { lat, lng },
-      zoom: latitude && longitude ? 15 : 4,
+      zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -242,7 +247,7 @@ export const AddressAutocomplete = ({
 
     placesServiceRef.current = new google.maps.places.PlacesService(mapInstanceRef.current);
 
-    if (latitude && longitude) {
+    if (hasCoordinates) {
       markerRef.current = createMarker({ lat, lng }, mapInstanceRef.current);
 
       if (markerRef.current) {
@@ -272,7 +277,21 @@ export const AddressAutocomplete = ({
   // Update map when coordinates change
   useEffect(() => {
     const google = getGoogle();
-    if (!mapInstanceRef.current || !latitude || !longitude || !google) return;
+    if (!mapInstanceRef.current || !google) return;
+
+    const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
+    
+    if (!hasCoordinates) {
+      // Reset to London if no coordinates
+      mapInstanceRef.current.setCenter(DEFAULT_CENTER);
+      mapInstanceRef.current.setZoom(DEFAULT_ZOOM);
+      
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+      return;
+    }
 
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
@@ -428,8 +447,8 @@ export const AddressAutocomplete = ({
       markerRef.current = null;
     }
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setCenter({ lat: -14.235, lng: -51.9253 });
-      mapInstanceRef.current.setZoom(4);
+      mapInstanceRef.current.setCenter(DEFAULT_CENTER);
+      mapInstanceRef.current.setZoom(DEFAULT_ZOOM);
     }
   };
 
