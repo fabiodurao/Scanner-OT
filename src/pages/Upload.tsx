@@ -65,7 +65,7 @@ const Upload = () => {
           body: JSON.stringify({
             filename: file.name,
             contentType: file.type || 'application/octet-stream',
-            customerId: siteId,
+            customerId: siteId, // Keep as customerId for S3 path compatibility
             sessionId,
           }),
         }
@@ -221,7 +221,7 @@ const Upload = () => {
       const { data: session, error } = await supabase
         .from('upload_sessions')
         .insert({
-          customer_id: selectedSite.id,
+          site_id: selectedSite.id,
           name: defaultName,
           description: sessionDescription || null,
           uploaded_by: user?.id,

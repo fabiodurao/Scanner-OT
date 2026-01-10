@@ -15,12 +15,9 @@ export interface Site {
   updated_at: string;
 }
 
-// Alias for backward compatibility during transition
-export type Customer = Site;
-
 export interface UploadSession {
   id: string;
-  customer_id: string; // This references the sites table (customers table in DB)
+  site_id: string;
   name: string | null;
   description: string | null;
   uploaded_by: string | null;

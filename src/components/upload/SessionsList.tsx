@@ -71,7 +71,7 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
     const { data, error } = await supabase
       .from('upload_sessions')
       .select('*')
-      .eq('customer_id', siteId)
+      .eq('site_id', siteId)
       .order('created_at', { ascending: false });
 
     if (error) {

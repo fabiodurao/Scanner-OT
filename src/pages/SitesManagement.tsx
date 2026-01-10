@@ -107,7 +107,7 @@ const SitesManagement = () => {
   const fetchSites = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('customers')
+      .from('sites')
       .select('*')
       .order('name');
 
@@ -200,7 +200,7 @@ const SitesManagement = () => {
 
     if (editingSite) {
       const { error } = await supabase
-        .from('customers')
+        .from('sites')
         .update(siteData)
         .eq('id', editingSite.id);
 
@@ -219,7 +219,7 @@ const SitesManagement = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { error } = await supabase
-        .from('customers')
+        .from('sites')
         .insert({
           ...siteData,
           created_by: user?.id,
@@ -249,7 +249,7 @@ const SitesManagement = () => {
     console.log('Attempting to delete site:', siteId);
 
     const { error } = await supabase
-      .from('customers')
+      .from('sites')
       .delete()
       .eq('id', siteId);
 

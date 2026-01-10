@@ -27,7 +27,7 @@ export const SiteSelector = ({ selectedSiteId, onSelectSite }: SiteSelectorProps
 
   const fetchSites = async () => {
     const { data, error } = await supabase
-      .from('customers')
+      .from('sites')
       .select('*')
       .order('name');
 
