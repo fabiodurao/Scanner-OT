@@ -178,7 +178,7 @@ const Settings = () => {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="interval-batch">
-                    Interval Batch
+                    Interval Batch (seconds)
                   </Label>
                   <Input
                     id="interval-batch"
@@ -186,15 +186,15 @@ const Settings = () => {
                     value={formData.mbsniffer_interval_batch}
                     onChange={(e) => setFormData(prev => ({ ...prev, mbsniffer_interval_batch: e.target.value }))}
                     min="1"
-                    placeholder="1000"
+                    placeholder="60"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Number of packets to process in each batch
+                    Time window for grouping packets into batches
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="interval-min">
-                    Interval Min (ms)
+                    Interval Min (seconds)
                   </Label>
                   <Input
                     id="interval-min"
@@ -202,10 +202,10 @@ const Settings = () => {
                     value={formData.mbsniffer_interval_min}
                     onChange={(e) => setFormData(prev => ({ ...prev, mbsniffer_interval_min: e.target.value }))}
                     min="1"
-                    placeholder="100"
+                    placeholder="5"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Minimum interval between batches in milliseconds
+                    Minimum interval between batch outputs
                   </p>
                 </div>
               </div>

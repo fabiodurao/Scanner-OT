@@ -153,8 +153,8 @@ const PcapProcessing = () => {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<PcapFile | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [intervalBatch, setIntervalBatch] = useState('1000');
-  const [intervalMin, setIntervalMin] = useState('100');
+  const [intervalBatch, setIntervalBatch] = useState('60');
+  const [intervalMin, setIntervalMin] = useState('5');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -305,8 +305,8 @@ const PcapProcessing = () => {
         created_by: user.id,
         pcap_filename: selectedFile.original_filename,
         pcap_size_bytes: selectedFile.size_bytes,
-        mbsniffer_interval_batch: parseInt(intervalBatch) || 1000,
-        mbsniffer_interval_min: parseInt(intervalMin) || 100,
+        mbsniffer_interval_batch: parseInt(intervalBatch) || 60,
+        mbsniffer_interval_min: parseInt(intervalMin) || 5,
       });
     
     if (error) {
@@ -755,7 +755,7 @@ const PcapProcessing = () => {
                     <Separator />
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="interval-batch">Interval Batch</Label>
+                        <Label htmlFor="interval-batch">Interval Batch (seconds)</Label>
                         <Input
                           id="interval-batch"
                           type="number"
@@ -764,11 +764,11 @@ const PcapProcessing = () => {
                           min="1"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Packets per batch
+                          Time window for grouping packets
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="interval-min">Interval Min (ms)</Label>
+                        <Label htmlFor="interval-min">Interval Min (seconds)</Label>
                         <Input
                           id="interval-min"
                           type="number"
@@ -777,7 +777,7 @@ const PcapProcessing = () => {
                           min="1"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Min interval between batches
+                          Min interval between outputs
                         </p>
                       </div>
                     </div>
