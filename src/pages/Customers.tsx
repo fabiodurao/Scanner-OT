@@ -3,6 +3,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer } from '@/types/upload';
 import { generateUUIDv7, isValidUUID } from '@/utils/uuid';
+import { AddressAutocomplete } from '@/components/maps/AddressAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,12 +68,6 @@ const siteTypeConfig = {
   subestacao: { label: 'Substation', icon: Building, color: 'bg-slate-100 text-slate-700' },
 };
 
-const brazilianStates = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
-  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
-
 interface CustomerFormData {
   name: string;
   unique_id: string;
@@ -94,7 +89,7 @@ const emptyFormData: CustomerFormData = {
   address: '',
   city: '',
   state: '',
-  country: 'Brasil',
+  country: '',
   site_type: 'fotovoltaica',
   description: '',
 };
@@ -148,7 +143,7 @@ const Customers = () => {
       address: customer.address || '',
       city: customer.city || '',
       state: customer.state || '',
-      country: customer.country || 'Brasil',
+      country: customer.country || '',
       site_type: customer.site_type || 'fotovoltaica',
       description: customer.description || '',
     });
@@ -163,6 +158,18 @@ const Customers = () => {
   const handleCopyUUID = () => {
     navigator.clipboard.writeText(formData.unique_id);
     toast.success('UUID copied to clipboard');
+  };
+
+  const handleAddressChange = (data: Record<string, unknown>) => {
+    setFormData(prev => ({
+      ...prev,
+      address: data.address !== undefined ? String(data.address || '') : prev.address,
+      latitude: data.latitude !== undefined ? String(data.latitude || '') : prev.latitude,
+      longitude: data.longitude !== undefined ? String(data.longitude || '') : prev.longitude,
+      city: data.city !== undefined ? String(data.city || '') : prev.city,
+      state: data.state !== undefined ? String(data.state || '') : prev.state,
+      country: data.country !== undefined ? String(data.country || '') : prev.country,
+    }));
   };
 
   const handleSave = async () => {
@@ -186,7 +193,7 @@ const Customers = () => {
       address: formData.address || null,
       city: formData.city || null,
       state: formData.state || null,
-      country: formData.country || 'Brasil',
+      country: formData.country || null,
       site_type: formData.site_type || null,
       description: formData.description || null,
     };
@@ -264,6 +271,7 @@ const Customers = () => {
       customer.name.toLowerCase().includes(searchLower) ||
       customer.city?.toLowerCase().includes(searchLower) ||
       customer.state?.toLowerCase().includes(searchLower) ||
+      customer.country?.toLowerCase().includes(searchLower) ||
       customer.unique_id?.toLowerCase().includes(searchLower)
     );
   });
@@ -275,7 +283,7 @@ const Customers = () => {
           <div>
             <h1 className="text-3xl font-bold text-[#1a2744]">Customers / Sites</h1>
             <p className="text-muted-foreground mt-1">
-              Manage customer information and site locations
+              Manage customer information and site locations worldwide
             </p>
           </div>
           <Button onClick={handleOpenCreate} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
@@ -290,7 +298,7 @@ const Customers = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, city, state or UUID..."
+                placeholder="Search by name, city, country or UUID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -355,11 +363,11 @@ const Customers = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            {customer.city || customer.state ? (
+                            {customer.city || customer.state || customer.country ? (
                               <div className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3 text-muted-foreground" />
                                 <span>
-                                  {[customer.city, customer.state].filter(Boolean).join(', ')}
+                                  {[customer.city, customer.state, customer.country].filter(Boolean).join(', ')}
                                 </span>
                                 {customer.latitude && customer.longitude && (
                                   <Button
@@ -443,7 +451,7 @@ const Customers = () => {
 
         {/* Create/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingCustomer ? 'Edit Customer' : 'New Customer'}
@@ -459,7 +467,7 @@ const Customers = () => {
             <div className="space-y-6 py-4">
               {/* Basic Info */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Basic Information</h3>
+                <h3 className="text-sm font-medium text-muted-foreground border-b pb-2">Basic Information</h3>
                 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
@@ -524,7 +532,7 @@ const Customers = () => {
 
               {/* Unique ID */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Unique Identifier (UUID v7)</h3>
+                <h3 className="text-sm font-medium text-muted-foreground border-b pb-2">Unique Identifier (UUID v7)</h3>
                 
                 <div className="space-y-2">
                   <Label htmlFor="unique_id">Unique ID</Label>
@@ -570,84 +578,19 @@ const Customers = () => {
                 </div>
               </div>
 
-              {/* Location */}
+              {/* Location with Autocomplete and Map */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
+                <h3 className="text-sm font-medium text-muted-foreground border-b pb-2">Location</h3>
                 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      placeholder="Street, number, neighborhood..."
-                      value={formData.address}
-                      onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      placeholder="E.g.: Petrolina"
-                      value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Select 
-                      value={formData.state} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, state: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brazilianStates.map(state => (
-                          <SelectItem key={state} value={state}>{state}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="latitude">Latitude</Label>
-                    <Input
-                      id="latitude"
-                      type="number"
-                      step="any"
-                      placeholder="-9.389866"
-                      value={formData.latitude}
-                      onChange={(e) => setFormData(prev => ({ ...prev, latitude: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="longitude">Longitude</Label>
-                    <Input
-                      id="longitude"
-                      type="number"
-                      step="any"
-                      placeholder="-40.502782"
-                      value={formData.longitude}
-                      onChange={(e) => setFormData(prev => ({ ...prev, longitude: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {formData.latitude && formData.longitude && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openInGoogleMaps(parseFloat(formData.latitude), parseFloat(formData.longitude))}
-                  >
-                    <MapPin className="h-4 w-4 mr-2" />
-                    View on Google Maps
-                  </Button>
-                )}
+                <AddressAutocomplete
+                  value={formData.address}
+                  latitude={formData.latitude}
+                  longitude={formData.longitude}
+                  city={formData.city}
+                  state={formData.state}
+                  country={formData.country}
+                  onAddressChange={handleAddressChange}
+                />
               </div>
             </div>
 
