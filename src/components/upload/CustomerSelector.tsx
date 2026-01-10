@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer } from '@/types/upload';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -11,16 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Plus, Building2, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Building2, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface CustomerSelectorProps {
   selectedCustomerId: string | null;
@@ -30,9 +20,7 @@ interface CustomerSelectorProps {
 export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: CustomerSelectorProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
 
   const fetchCustomers = async () => {
     const { data, error } = await supabase
@@ -40,10 +28,7 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
       .select('*')
       .order('name');
 
-    if (error) {
-      toast.error('Error loading customers');
-      console.error(error);
-    } else {
+    if (!error) {
       setCustomers(data || []);
     }
     setLoading(false);
@@ -53,46 +38,16 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
     fetchCustomers();
   }, []);
 
-  const handleCreateCustomer = async () => {
-    if (!newCustomerName.trim()) {
-      toast.error('Enter the customer name');
-      return;
-    }
-
-    setCreating(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const { data, error } = await supabase
-      .from('customers')
-      .insert({
-        name: newCustomerName.trim(),
-        created_by: user?.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error('Error creating customer: ' + error.message);
-    } else {
-      toast.success('Customer created successfully!');
-      setCustomers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      onSelectCustomer(data);
-      setNewCustomerName('');
-      setDialogOpen(false);
-    }
-
-    setCreating(false);
-  };
-
   const handleSelectChange = (value: string) => {
-    if (value === 'new') {
-      setDialogOpen(true);
+    if (value === 'manage') {
+      navigate('/customers');
     } else {
       const customer = customers.find(c => c.id === value);
       onSelectCustomer(customer || null);
     }
   };
+
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
   if (loading) {
     return (
@@ -116,57 +71,51 @@ export const CustomerSelector = ({ selectedCustomerId, onSelectCustomer }: Custo
               <SelectItem key={customer.id} value={customer.id}>
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
-                  {customer.name}
+                  <div className="flex flex-col">
+                    <span>{customer.name}</span>
+                    {(customer.city || customer.state) && (
+                      <span className="text-xs text-muted-foreground">
+                        {[customer.city, customer.state].filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </SelectItem>
             ))}
-            <SelectItem value="new" className="text-[#2563EB]">
+            {customers.length === 0 && (
+              <SelectItem value="none" disabled>
+                No customers registered
+              </SelectItem>
+            )}
+            <SelectItem value="manage" className="text-[#2563EB]">
               <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                New customer...
+                <ExternalLink className="h-4 w-4" />
+                Manage customers...
               </div>
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Customer</DialogTitle>
-            <DialogDescription>
-              Register a new customer to associate PCAP files.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer-name">Customer Name</Label>
-              <Input
-                id="customer-name"
-                placeholder="E.g.: Northeast Solar Plant"
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateCustomer()}
-              />
+      {/* Show selected customer details */}
+      {selectedCustomer && (
+        <div className="mt-3 p-3 bg-slate-50 rounded-lg border text-sm">
+          <div className="font-medium">{selectedCustomer.name}</div>
+          {(selectedCustomer.city || selectedCustomer.state) && (
+            <div className="flex items-center gap-1 text-muted-foreground mt-1">
+              <MapPin className="h-3 w-3" />
+              {[selectedCustomer.city, selectedCustomer.state].filter(Boolean).join(', ')}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateCustomer} disabled={creating}>
-              {creating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Customer'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+          {selectedCustomer.unique_id && (
+            <div className="mt-1">
+              <code className="text-xs bg-white px-1.5 py-0.5 rounded border font-mono">
+                {selectedCustomer.unique_id}
+              </code>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

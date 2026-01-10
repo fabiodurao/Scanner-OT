@@ -9,6 +9,7 @@ import {
   Settings,
   Users,
   LogOut,
+  Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -19,6 +20,7 @@ const Sidebar = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Customers', href: '/customers', icon: Building2 },
     { name: 'Sites', href: '/sites', icon: Server },
     { name: 'Variables', href: '/variables', icon: Table },
     { name: 'PCAP Upload', href: '/upload', icon: Upload },

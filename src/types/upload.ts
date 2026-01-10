@@ -1,6 +1,15 @@
 export interface Customer {
   id: string;
   name: string;
+  unique_id: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  site_type: 'eolica' | 'fotovoltaica' | 'hibrida' | 'subestacao' | null;
+  description: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -42,5 +51,5 @@ export interface FileUploadProgress {
   status: 'pending' | 'uploading' | 'completed' | 'error' | 'cancelled';
   error?: string;
   pcapFileId?: string;
-  xhr?: XMLHttpRequest; // Para poder cancelar o upload
+  xhr?: XMLHttpRequest;
 }
