@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ProcessingJobsProvider } from "@/contexts/ProcessingJobsContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index";
@@ -59,15 +60,23 @@ const PendingApprovalRoute = () => {
   return <PendingApproval />;
 };
 
+const AppWithProviders = () => {
+  return (
+    <AuthProvider>
+      <ProcessingJobsProvider>
+        <AppRoutes />
+      </ProcessingJobsProvider>
+    </AuthProvider>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <AppWithProviders />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

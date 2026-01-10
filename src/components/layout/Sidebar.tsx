@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import {
   LayoutDashboard,
   Server,
@@ -154,6 +155,10 @@ const Sidebar = () => {
           ))}
         </div>
       </nav>
+      
+      {/* Active Jobs Indicator - above user info */}
+      <ActiveJobsIndicator />
+      
       <div className="border-t border-[hsl(var(--sidebar-border))] p-4">
         {profile && (
           <div className="mb-3">
