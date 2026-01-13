@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 interface Site { id: string; name: string; unique_id: string | null; }
 interface UploadSession { id: string; site_id: string; name: string | null; created_at: string; total_files: number; }
-interface PcapFile { id: string; session_id: string; original_filename: string; size_bytes: number; upload_status: string; }
+interface PcapFile { id: string; session_id: string; original_filename: string; size_bytes: number; upload_status: string; display_order: number; }
 interface ProcessingJob {
   id: string; pcap_file_id: string; site_id: string; n8n_webhook_url: string | null;
   status: 'pending' | 'downloading' | 'extracting' | 'running' | 'completed' | 'error' | 'cancelled';
@@ -125,7 +125,15 @@ const PcapProcessing = () => {
 
   const fetchSites = async () => { const { data } = await supabase.from('sites').select('id, name, unique_id').order('name'); if (data) setSites(data); };
   const fetchSessions = async (siteId: string) => { const { data } = await supabase.from('upload_sessions').select('id, site_id, name, created_at, total_files').eq('site_id', siteId).eq('status', 'completed').order('created_at', { ascending: false }); if (data) setSessions(data); };
-  const fetchSessionFiles = async (sessionId: string) => { const { data } = await supabase.from('pcap_files').select('id, session_id, original_filename, size_bytes, upload_status').eq('session_id', sessionId).eq('upload_status', 'completed').order('original_filename'); if (data) setSessionFiles(data); };
+  const fetchSessionFiles = async (sessionId: string) => { 
+    const { data } = await supabase
+      .from('pcap_files')
+      .select('id, session_id, original_filename, size_bytes, upload_status, display_order')
+      .eq('session_id', sessionId)
+      .eq('upload_status', 'completed')
+      .order('display_order', { ascending: true }); 
+    if (data) setSessionFiles(data); 
+  };
   const fetchJobs = useCallback(async () => { const { data } = await supabase.from('processing_jobs').select('*').order('created_at', { ascending: false }).limit(100); if (data) setJobs(data as ProcessingJob[]); setLoading(false); }, []);
 
   useEffect(() => { fetchSites(); fetchJobs(); }, [fetchJobs]);
@@ -142,7 +150,14 @@ const PcapProcessing = () => {
   }, [detailJob?.id]);
 
   const handleOpenJobDialog = (file: PcapFile) => { setSelectedFile(file); setWebhookUrl(settings.n8n_webhook_url || ''); setIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); setIntervalMin(settings.mbsniffer_interval_min?.toString() || '5'); setDialogOpen(true); };
-  const handleOpenBatchDialog = () => { setBatchFiles(sessionFiles.map(f => ({ id: f.id, original_filename: f.original_filename, size_bytes: f.size_bytes }))); setBatchWebhookUrl(settings.n8n_webhook_url || ''); setBatchIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); setBatchIntervalMin(settings.mbsniffer_interval_min?.toString() || '5'); setBatchDialogOpen(true); };
+  const handleOpenBatchDialog = () => { 
+    // Use sessionFiles which is already ordered by display_order
+    setBatchFiles(sessionFiles.map(f => ({ id: f.id, original_filename: f.original_filename, size_bytes: f.size_bytes }))); 
+    setBatchWebhookUrl(settings.n8n_webhook_url || ''); 
+    setBatchIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); 
+    setBatchIntervalMin(settings.mbsniffer_interval_min?.toString() || '5'); 
+    setBatchDialogOpen(true); 
+  };
 
   const handleSubmitJob = async () => {
     if (!selectedFile || !selectedSiteId || !user) return;
@@ -469,9 +484,12 @@ const PcapProcessing = () => {
                       ) : (
                         <ScrollArea className="h-64">
                           <div className="space-y-2">
-                            {sessionFiles.map(f => (
+                            {sessionFiles.map((f, index) => (
                               <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100">
                                 <div className="flex items-center gap-3 min-w-0">
+                                  <span className="text-muted-foreground w-6 text-center font-medium text-xs flex-shrink-0">
+                                    #{index + 1}
+                                  </span>
                                   <FileArchive className="h-5 w-5 text-[#2563EB]" />
                                   <div className="min-w-0">
                                     <div className="font-medium truncate text-sm">{f.original_filename}</div>
