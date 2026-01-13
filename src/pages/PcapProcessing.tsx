@@ -59,6 +59,8 @@ import {
   ChevronRight,
   CheckCircle,
   AlertTriangle,
+  Clock,
+  Server,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -112,6 +114,8 @@ interface UploadSession {
   created_at: string;
   total_files: number;
 }
+
+const MAX_CONCURRENT_JOBS = 3;
 
 const formatFileSize = (bytes: number) => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
@@ -169,6 +173,24 @@ const PcapProcessing = () => {
   
   // Log scroll ref
   const logScrollRef = useRef<HTMLDivElement>(null);
+
+  // Calculate queue statistics
+  const activeProcessingJobs = jobs.filter(j => 
+    ['downloading', 'extracting', 'running'].includes(j.status)
+  );
+  const pendingJobs = jobs.filter(j => j.status === 'pending');
+  const processingSlots = activeProcessingJobs.length;
+  const availableSlots = MAX_CONCURRENT_JOBS - processingSlots;
+  const queueLength = pendingJobs.length;
+
+  // Get queue position for a pending job
+  const getQueuePosition = (jobId: string): number => {
+    const sortedPendingJobs = [...pendingJobs].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const position = sortedPendingJobs.findIndex(j => j.id === jobId);
+    return position + 1;
+  };
 
   // Fetch sites
   const fetchSites = async () => {
@@ -467,22 +489,39 @@ const PcapProcessing = () => {
       );
     }
     
-    const statusConfig: Record<string, { label: string; className: string; icon?: React.ElementType }> = {
-      pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700', icon: Loader2 },
-      downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700 animate-pulse', icon: Loader2 },
-      extracting: { label: 'Extracting', className: 'bg-purple-100 text-purple-700 animate-pulse', icon: Loader2 },
-      running: { label: 'Processing', className: 'bg-amber-100 text-amber-700 animate-pulse', icon: Loader2 },
-      completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
-      error: { label: 'Error', className: 'bg-red-100 text-red-700', icon: XCircle },
-      cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700', icon: Square },
+    // Special badge for pending jobs showing queue position
+    if (job.status === 'pending') {
+      const queuePos = getQueuePosition(job.id);
+      return (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-blue-100 text-blue-700 border border-blue-300">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+          {queuePos > 0 && (
+            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+              #{queuePos} in queue
+            </Badge>
+          )}
+        </div>
+      );
+    }
+    
+    const statusConfig: Record<string, { label: string; className: string; icon?: React.ElementType; shouldSpin?: boolean }> = {
+      downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700 animate-pulse', icon: Loader2, shouldSpin: true },
+      extracting: { label: 'Extracting', className: 'bg-purple-100 text-purple-700 animate-pulse', icon: Loader2, shouldSpin: true },
+      running: { label: 'Processing', className: 'bg-amber-100 text-amber-700 animate-pulse', icon: Loader2, shouldSpin: true },
+      completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700', icon: CheckCircle, shouldSpin: false },
+      error: { label: 'Error', className: 'bg-red-100 text-red-700', icon: XCircle, shouldSpin: false },
+      cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700', icon: Square, shouldSpin: false },
     };
     
-    const config = statusConfig[job.status] || statusConfig.pending;
+    const config = statusConfig[job.status] || { label: 'Unknown', className: 'bg-slate-100 text-slate-700' };
     const Icon = config.icon;
     
     return (
       <Badge className={cn(config.className, isActive && 'border border-current')}>
-        {Icon && <Icon className={cn("h-3 w-3 mr-1", isActive && job.status !== 'pending' && "animate-spin")} />}
+        {Icon && <Icon className={cn("h-3 w-3 mr-1", config.shouldSpin && "animate-spin")} />}
         {config.label}
       </Badge>
     );
@@ -506,6 +545,61 @@ const PcapProcessing = () => {
     if (job.status === 'error') return 'bg-red-500';
     if (job.status === 'completed') return 'bg-emerald-500';
     return 'bg-blue-500';
+  };
+
+  // Render Agent Status Card
+  const renderAgentStatusCard = () => {
+    return (
+      <div className="mb-6 p-4 rounded-lg border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-slate-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-100">
+              <Server className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Agent Status</h3>
+              <p className="text-sm text-muted-foreground">
+                {processingSlots === MAX_CONCURRENT_JOBS 
+                  ? 'Full capacity — jobs will queue'
+                  : processingSlots > 0 
+                    ? `${availableSlots} slot${availableSlots !== 1 ? 's' : ''} available`
+                    : 'Agent idle — ready to process'
+                }
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            {/* Processing Slots Visualization */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground mr-2">Slots:</span>
+              {[0, 1, 2].map((index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "w-4 h-4 rounded-full border-2 transition-all",
+                    index < processingSlots
+                      ? "bg-amber-500 border-amber-600 animate-pulse"
+                      : "bg-slate-100 border-slate-300"
+                  )}
+                  title={index < processingSlots ? `Slot ${index + 1}: Active` : `Slot ${index + 1}: Available`}
+                />
+              ))}
+            </div>
+            
+            {/* Queue indicator */}
+            {queueLength > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 rounded-full">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700">
+                  {queueLength} in queue
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -537,6 +631,9 @@ const PcapProcessing = () => {
 
           {/* Jobs Tab */}
           <TabsContent value="jobs">
+            {/* Agent Status Card - Always visible */}
+            {renderAgentStatusCard()}
+            
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -579,13 +676,15 @@ const PcapProcessing = () => {
                       const isActive = isActiveJob(job.status);
                       const isInterrupted = isInterruptedJob(job);
                       const showProgress = shouldShowProgress(job);
+                      const isPending = job.status === 'pending';
                       
                       return (
                         <div 
                           key={job.id} 
                           className={cn(
                             "border rounded-lg overflow-hidden transition-all",
-                            isActive && "border-amber-300 shadow-md shadow-amber-100",
+                            isPending && "border-blue-300 shadow-md shadow-blue-100",
+                            isActive && !isPending && "border-amber-300 shadow-md shadow-amber-100",
                             isInterrupted && "border-amber-300",
                             job.status === 'error' && !isInterrupted && "border-red-300",
                             job.status === 'completed' && "border-emerald-200"
@@ -595,6 +694,7 @@ const PcapProcessing = () => {
                           <div 
                             className={cn(
                               "p-4 cursor-pointer transition-colors",
+                              isPending ? "bg-blue-50 hover:bg-blue-100" : 
                               isActive ? "bg-amber-50 hover:bg-amber-100" : "bg-slate-50 hover:bg-slate-100",
                               isInterrupted && "bg-amber-50 hover:bg-amber-100",
                               job.status === 'error' && !isInterrupted && "bg-red-50 hover:bg-red-100",
@@ -612,7 +712,8 @@ const PcapProcessing = () => {
                                 
                                 <div className={cn(
                                   "w-3 h-3 rounded-full flex-shrink-0",
-                                  isActive && "bg-amber-500 animate-pulse",
+                                  isPending && "bg-blue-500 animate-pulse",
+                                  isActive && !isPending && "bg-amber-500 animate-pulse",
                                   job.status === 'completed' && "bg-emerald-500",
                                   job.status === 'error' && "bg-red-500",
                                   job.status === 'cancelled' && "bg-slate-400",
@@ -631,7 +732,7 @@ const PcapProcessing = () => {
                               </div>
                               
                               {/* Progress bar in collapsed view */}
-                              {!isExpanded && showProgress && (
+                              {!isExpanded && showProgress && !isPending && (
                                 <div className="flex items-center gap-2 w-32 flex-shrink-0">
                                   <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                                     <div 
