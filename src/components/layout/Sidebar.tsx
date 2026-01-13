@@ -126,25 +126,28 @@ const Sidebar = () => {
               <span className="flex-1 text-left">PCAP</span>
             </button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pl-4 space-y-1 mt-1">
-            {pcapNavigation.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                    active
-                      ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
-                      : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white'
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <CollapsibleContent>
+            {/* Highlighted submenu container */}
+            <div className="mt-1 ml-2 mr-1 rounded-lg bg-[hsl(220,50%,18%)] border border-[hsl(220,50%,22%)] p-2 space-y-1">
+              {pcapNavigation.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+                      active
+                        ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
+                        : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(220,50%,24%)] hover:text-white'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
