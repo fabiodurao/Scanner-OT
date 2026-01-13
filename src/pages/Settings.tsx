@@ -21,8 +21,8 @@ const Settings = () => {
     cross_site_learning: false,
     saas_endpoint: 'https://api.cyberenergia.com/v1',
     n8n_webhook_url: '',
-    mbsniffer_interval_batch: '1000',
-    mbsniffer_interval_min: '100',
+    mbsniffer_interval_batch: '60',
+    mbsniffer_interval_min: '5',
   });
 
   // Update form when settings load
@@ -49,8 +49,8 @@ const Settings = () => {
       cross_site_learning: formData.cross_site_learning,
       saas_endpoint: formData.saas_endpoint,
       n8n_webhook_url: formData.n8n_webhook_url || null,
-      mbsniffer_interval_batch: parseInt(formData.mbsniffer_interval_batch) || 1000,
-      mbsniffer_interval_min: parseInt(formData.mbsniffer_interval_min) || 100,
+      mbsniffer_interval_batch: parseInt(formData.mbsniffer_interval_batch) || 60,
+      mbsniffer_interval_min: parseInt(formData.mbsniffer_interval_min) || 5,
     });
 
     if (success) {
