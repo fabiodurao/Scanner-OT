@@ -7,8 +7,6 @@ import { cn } from '@/lib/utils';
 const getStepIcon = (status: string, currentStep: string) => {
   const step = currentStep || status;
   switch (step) {
-    case 'pending':
-      return <Loader2 className="h-3 w-3 animate-spin" />;
     case 'downloading':
       return <Download className="h-3 w-3" />;
     case 'extracting':
@@ -26,8 +24,6 @@ const getStepIcon = (status: string, currentStep: string) => {
 const getStepLabel = (status: string, currentStep: string) => {
   const step = currentStep || status;
   switch (step) {
-    case 'pending':
-      return 'Waiting...';
     case 'downloading':
       return 'Downloading';
     case 'extracting':
@@ -45,7 +41,12 @@ const getStepLabel = (status: string, currentStep: string) => {
 export const ActiveJobsIndicator = () => {
   const { activeJobs, loading } = useProcessingJobs();
 
-  if (loading || activeJobs.length === 0) {
+  // Filter to only show jobs that are actually running (not pending)
+  const runningJobs = activeJobs.filter(job => 
+    ['downloading', 'extracting', 'running'].includes(job.status)
+  );
+
+  if (loading || runningJobs.length === 0) {
     return null;
   }
 
@@ -61,12 +62,12 @@ export const ActiveJobsIndicator = () => {
             <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-400 rounded-full animate-pulse" />
           </div>
           <span className="text-xs font-medium text-amber-400">
-            {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''} running
+            {runningJobs.length} job{runningJobs.length !== 1 ? 's' : ''} running
           </span>
         </div>
         
         <div className="space-y-2 px-1">
-          {activeJobs.slice(0, 3).map(job => (
+          {runningJobs.slice(0, 3).map(job => (
             <div 
               key={job.id} 
               className="p-2 rounded bg-[hsl(var(--sidebar-accent))]/50"
@@ -101,9 +102,9 @@ export const ActiveJobsIndicator = () => {
             </div>
           ))}
           
-          {activeJobs.length > 3 && (
+          {runningJobs.length > 3 && (
             <div className="text-[10px] text-gray-500 text-center py-1">
-              +{activeJobs.length - 3} more job{activeJobs.length - 3 !== 1 ? 's' : ''}
+              +{runningJobs.length - 3} more job{runningJobs.length - 3 !== 1 ? 's' : ''}
             </div>
           )}
         </div>

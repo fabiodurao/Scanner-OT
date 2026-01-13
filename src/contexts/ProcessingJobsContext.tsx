@@ -52,11 +52,16 @@ export const ProcessingJobsProvider = ({ children }: { children: ReactNode }) =>
 
   // Determine polling interval based on job statuses
   const getPollingInterval = useCallback(() => {
-    if (activeJobs.length === 0) return 30000; // 30s when no active jobs
+    // Filter to only running jobs (not pending) for polling decision
+    const runningJobs = activeJobs.filter(job => 
+      ['downloading', 'extracting', 'running'].includes(job.status)
+    );
     
-    const hasEarlyStageJob = activeJobs.some(job => 
-      ['pending', 'downloading', 'extracting'].includes(job.status) ||
-      ['pending', 'downloading', 'extracting', 'analyzing'].includes(job.current_step)
+    if (runningJobs.length === 0) return 30000; // 30s when no running jobs
+    
+    const hasEarlyStageJob = runningJobs.some(job => 
+      ['downloading', 'extracting'].includes(job.status) ||
+      ['downloading', 'extracting', 'analyzing'].includes(job.current_step)
     );
     
     if (hasEarlyStageJob) {
@@ -87,9 +92,13 @@ export const ProcessingJobsProvider = ({ children }: { children: ReactNode }) =>
 
     // Re-setup polling when interval should change
     const checkInterval = setInterval(() => {
+      const runningJobs = activeJobs.filter(job => 
+        ['downloading', 'extracting', 'running'].includes(job.status)
+      );
+      
       const newInterval = getPollingInterval();
-      const currentInterval = activeJobs.length === 0 ? 30000 : 
-        activeJobs.some(j => ['pending', 'downloading', 'extracting'].includes(j.status)) ? 3000 : 15000;
+      const currentInterval = runningJobs.length === 0 ? 30000 : 
+        runningJobs.some(j => ['downloading', 'extracting'].includes(j.status)) ? 3000 : 15000;
       
       if (newInterval !== currentInterval) {
         setupPolling();
