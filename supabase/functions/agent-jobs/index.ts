@@ -48,16 +48,15 @@ serve(async (req: Request) => {
 
     switch (action) {
       case "claim_job": {
-        // Find and claim the next pending job
+        // First, get all pending jobs ordered by creation time
         const { data: pendingJobs, error: selectError } = await supabase
           .from("processing_jobs")
           .select("*")
           .eq("status", "pending")
-          .order("created_at", { ascending: true })
-          .limit(1);
+          .order("created_at", { ascending: true });
 
         if (selectError) {
-          console.error("[agent-jobs] Error selecting job:", selectError);
+          console.error("[agent-jobs] Error selecting jobs:", selectError);
           return new Response(
             JSON.stringify({ error: "Failed to fetch jobs", details: selectError.message }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -71,9 +70,56 @@ serve(async (req: Request) => {
           );
         }
 
-        const job = pendingJobs[0];
+        // Get currently running jobs to check for sequence_group conflicts
+        const { data: runningJobs, error: runningError } = await supabase
+          .from("processing_jobs")
+          .select("id, sequence_group")
+          .in("status", ["downloading", "extracting", "running"]);
 
-        // Claim the job by updating status to 'downloading'
+        if (runningError) {
+          console.error("[agent-jobs] Error fetching running jobs:", runningError);
+        }
+
+        // Get set of sequence_groups that are currently being processed
+        const activeSequenceGroups = new Set<string>();
+        if (runningJobs) {
+          for (const job of runningJobs) {
+            if (job.sequence_group) {
+              activeSequenceGroups.add(job.sequence_group);
+            }
+          }
+        }
+
+        console.log("[agent-jobs] Active sequence groups:", Array.from(activeSequenceGroups));
+
+        // Find the first eligible job
+        // A job is eligible if:
+        // 1. It has no sequence_group (individual job), OR
+        // 2. Its sequence_group is not currently being processed
+        let eligibleJob = null;
+        for (const job of pendingJobs) {
+          if (!job.sequence_group) {
+            // Individual job - always eligible
+            eligibleJob = job;
+            break;
+          } else if (!activeSequenceGroups.has(job.sequence_group)) {
+            // Sequence job but no other job from this sequence is running
+            eligibleJob = job;
+            break;
+          }
+          // Skip this job - another job from the same sequence is running
+          console.log(`[agent-jobs] Skipping job ${job.id} - sequence_group ${job.sequence_group} is active`);
+        }
+
+        if (!eligibleJob) {
+          console.log("[agent-jobs] No eligible jobs found (all pending jobs are blocked by sequence constraints)");
+          return new Response(
+            JSON.stringify({ job: null, message: "No eligible jobs (sequence constraints)" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Claim the eligible job by updating status to 'downloading'
         const { data: claimedJob, error: updateError } = await supabase
           .from("processing_jobs")
           .update({
@@ -82,7 +128,7 @@ serve(async (req: Request) => {
             started_at: new Date().toISOString(),
             output_log: "Job claimed by agent",
           })
-          .eq("id", job.id)
+          .eq("id", eligibleJob.id)
           .eq("status", "pending")
           .select()
           .single();
@@ -99,7 +145,7 @@ serve(async (req: Request) => {
         const { data: pcapFile, error: pcapError } = await supabase
           .from("pcap_files")
           .select("*")
-          .eq("id", job.pcap_file_id)
+          .eq("id", claimedJob.pcap_file_id)
           .single();
 
         if (pcapError || !pcapFile) {
@@ -112,7 +158,7 @@ serve(async (req: Request) => {
               error_message: "PCAP file not found",
               completed_at: new Date().toISOString(),
             })
-            .eq("id", job.id);
+            .eq("id", claimedJob.id);
 
           return new Response(
             JSON.stringify({ error: "PCAP file not found" }),
@@ -120,14 +166,17 @@ serve(async (req: Request) => {
           );
         }
 
-        // Get site details
+        // Get site details including unique_id
         const { data: site } = await supabase
           .from("sites")
           .select("id, name, unique_id")
-          .eq("id", job.site_id)
+          .eq("id", claimedJob.site_id)
           .single();
 
         console.log("[agent-jobs] Job claimed successfully:", claimedJob.id);
+        if (claimedJob.sequence_group) {
+          console.log("[agent-jobs] Job is part of sequence group:", claimedJob.sequence_group);
+        }
 
         return new Response(
           JSON.stringify({

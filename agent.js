@@ -13,6 +13,9 @@ const MAX_CONCURRENT_JOBS = config.MAX_CONCURRENT_JOBS || 3;
 // Track active jobs
 const activeJobs = new Map();
 
+// Flag to prevent new jobs during shutdown
+let isShuttingDown = false;
+
 // Logging utility
 const log = (level, message, data = null) => {
   const timestamp = new Date().toISOString();
@@ -239,12 +242,12 @@ const getPcapInfo = async (pcapPath, jobId) => {
 };
 
 // Run mbsniffer with progress tracking
-const runMbsniffer = (pcapPath, job, pcapInfo, jobContext) => {
+const runMbsniffer = (pcapPath, job, pcapInfo, jobContext, site) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', pcapPath,
-      '--interval-batch', String(job.mbsniffer_interval_batch || 1000),
-      '--interval-min', String(job.mbsniffer_interval_min || 100),
+      '-interval-batch', String(job.mbsniffer_interval_batch || 60),
+      '-interval-min', String(job.mbsniffer_interval_min || 5),
     ];
     
     // Add endpoint if webhook URL is provided
@@ -252,11 +255,19 @@ const runMbsniffer = (pcapPath, job, pcapInfo, jobContext) => {
       args.push('-endpoint', job.n8n_webhook_url);
     }
     
+    // Add site unique_id if available (the -k parameter)
+    if (site?.unique_id) {
+      args.push('-k', site.unique_id);
+    }
+    
     appendJobLog(job.id, `Starting mbsniffer processing...`);
-    appendJobLog(job.id, `  - interval-batch: ${job.mbsniffer_interval_batch || 1000}ms`);
-    appendJobLog(job.id, `  - interval-min: ${job.mbsniffer_interval_min || 100}ms`);
+    appendJobLog(job.id, `  - interval-batch: ${job.mbsniffer_interval_batch || 60}s`);
+    appendJobLog(job.id, `  - interval-min: ${job.mbsniffer_interval_min || 5}s`);
     if (job.n8n_webhook_url) {
       appendJobLog(job.id, `  - webhook: ${job.n8n_webhook_url}`);
+    }
+    if (site?.unique_id) {
+      appendJobLog(job.id, `  - site key (-k): ${site.unique_id}`);
     }
     
     log('INFO', `Running mbsniffer: ${config.MBSNIFFER_PATH} ${args.join(' ')}`);
@@ -338,6 +349,9 @@ const runMbsniffer = (pcapPath, job, pcapInfo, jobContext) => {
       } else if (jobContext.cancelled) {
         await appendJobLog(job.id, `mbsniffer cancelled by user after ${totalTime}s`);
         reject(new Error('Job cancelled by user'));
+      } else if (jobContext.shuttingDown) {
+        await appendJobLog(job.id, `mbsniffer stopped due to agent shutdown after ${totalTime}s`);
+        reject(new Error('Agent shutdown'));
       } else if (signal) {
         // Process was killed by a signal (SIGTERM, SIGKILL, etc.)
         await appendJobLog(job.id, `mbsniffer was terminated by signal ${signal} after ${totalTime}s`);
@@ -368,6 +382,7 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     process: null,
     processRunning: false,
     cancelled: false,
+    shuttingDown: false,
     lastProgress: 0,
   };
   
@@ -382,6 +397,12 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     await appendJobLog(job.id, `File: ${pcapFile.original_filename}`);
     await appendJobLog(job.id, `Size: ${(pcapFile.size_bytes / 1024 / 1024).toFixed(2)} MB`);
     await appendJobLog(job.id, `Site: ${site?.name || 'Unknown'}`);
+    if (site?.unique_id) {
+      await appendJobLog(job.id, `Site Key: ${site.unique_id}`);
+    }
+    if (job.sequence_group) {
+      await appendJobLog(job.id, `Sequence: #${job.sequence_order} in group ${job.sequence_group.slice(0, 8)}...`);
+    }
     await appendJobLog(job.id, `Work directory: ${workDir}`);
     
     // Step 1: Download (0-20%)
@@ -395,9 +416,9 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     await updateJobStatus(job.id, 'downloading', 20, 'downloading');
     jobContext.lastProgress = 20;
     
-    // Check for cancellation
-    if (await checkCancelled(job.id)) {
-      throw new Error('Job cancelled by user');
+    // Check for cancellation or shutdown
+    if (await checkCancelled(job.id) || isShuttingDown) {
+      throw new Error(isShuttingDown ? 'Agent shutdown' : 'Job cancelled by user');
     }
     
     // Step 2: Extract (20-30%)
@@ -410,9 +431,9 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     await updateJobStatus(job.id, 'extracting', 30, 'extracting');
     jobContext.lastProgress = 30;
     
-    // Check for cancellation
-    if (await checkCancelled(job.id)) {
-      throw new Error('Job cancelled by user');
+    // Check for cancellation or shutdown
+    if (await checkCancelled(job.id) || isShuttingDown) {
+      throw new Error(isShuttingDown ? 'Agent shutdown' : 'Job cancelled by user');
     }
     
     // Step 3: Analyze PCAP (30-35%)
@@ -431,15 +452,15 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     });
     jobContext.lastProgress = 35;
     
-    // Check for cancellation
-    if (await checkCancelled(job.id)) {
-      throw new Error('Job cancelled by user');
+    // Check for cancellation or shutdown
+    if (await checkCancelled(job.id) || isShuttingDown) {
+      throw new Error(isShuttingDown ? 'Agent shutdown' : 'Job cancelled by user');
     }
     
     // Step 4: Run mbsniffer (35-95%)
     log('INFO', 'Step 4: Running mbsniffer...');
     await appendJobLog(job.id, `--- Step 4/4: Process ---`);
-    const result = await runMbsniffer(pcapPath, job, pcapInfo, jobContext);
+    const result = await runMbsniffer(pcapPath, job, pcapInfo, jobContext, site);
     
     // Step 5: Complete (95-100%)
     log('INFO', 'Step 5: Finalizing...');
@@ -457,6 +478,7 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
     log('ERROR', `Job ${job.id} failed: ${error.message}`);
     
     const isCancelled = error.message.includes('cancelled');
+    const isShutdown = error.message.includes('shutdown') || error.message.includes('Agent shutdown');
     const isInterrupted = error.message.includes('terminated') || 
                           error.message.includes('killed') || 
                           error.message.includes('signal');
@@ -466,10 +488,14 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
       await updateJobStatus(job.id, 'cancelled', jobContext.lastProgress, 'cancelled', {
         error_message: 'Job cancelled by user',
       });
+    } else if (isShutdown) {
+      await appendJobLog(job.id, `=== Job interrupted by agent shutdown at ${jobContext.lastProgress}% ===`);
+      await updateJobStatus(job.id, 'error', jobContext.lastProgress, 'error', {
+        error_message: `Agent shutdown - job interrupted at ${jobContext.lastProgress}%`,
+      });
     } else if (isInterrupted) {
       await appendJobLog(job.id, `=== Job interrupted at ${jobContext.lastProgress}% ===`);
       await appendJobLog(job.id, `Reason: ${error.message}`);
-      // Mark as error with the progress where it stopped - NOT completed
       await updateJobStatus(job.id, 'error', jobContext.lastProgress, 'error', {
         error_message: `Job interrupted at ${jobContext.lastProgress}%: ${error.message}`,
       });
@@ -497,6 +523,11 @@ const processJob = async (job, pcapFile, site, s3Credentials) => {
 
 // Main polling loop - now supports parallel processing
 const pollForJobs = async () => {
+  // Don't poll if shutting down
+  if (isShuttingDown) {
+    return;
+  }
+  
   // Check if we can take more jobs
   if (activeJobs.size >= MAX_CONCURRENT_JOBS) {
     log('DEBUG', `Already running ${activeJobs.size}/${MAX_CONCURRENT_JOBS} jobs, skipping poll`);
@@ -517,6 +548,12 @@ const pollForJobs = async () => {
     const { job, pcap_file, site } = result;
     log('INFO', `Claimed job: ${job.id} (${activeJobs.size + 1}/${MAX_CONCURRENT_JOBS} active)`);
     log('INFO', `File: ${pcap_file.original_filename} (${(pcap_file.size_bytes / 1024 / 1024).toFixed(1)} MB)`);
+    if (site?.unique_id) {
+      log('INFO', `Site: ${site.name} (${site.unique_id})`);
+    }
+    if (job.sequence_group) {
+      log('INFO', `Sequence: #${job.sequence_order} in group ${job.sequence_group.slice(0, 8)}...`);
+    }
     
     // Process the job in background (don't await)
     processJob(job, pcap_file, site, s3Credentials).catch(error => {
@@ -528,29 +565,80 @@ const pollForJobs = async () => {
   }
 };
 
-// Graceful shutdown handler
+// Graceful shutdown handler - IMPROVED VERSION
 const shutdown = async (signal) => {
-  log('INFO', `Received ${signal}, shutting down gracefully...`);
+  // Prevent multiple shutdown calls
+  if (isShuttingDown) {
+    log('WARN', 'Shutdown already in progress...');
+    return;
+  }
   
-  // Kill all active processes
+  isShuttingDown = true;
+  log('INFO', `Received ${signal}, shutting down gracefully...`);
+  log('INFO', `Active jobs to terminate: ${activeJobs.size}`);
+  
+  if (activeJobs.size === 0) {
+    log('INFO', 'No active jobs, exiting immediately');
+    process.exit(0);
+  }
+  
+  // Collect all shutdown promises
+  const shutdownPromises = [];
+  
+  // Kill all active processes and update their status
   for (const [jobId, context] of activeJobs) {
+    log('INFO', `Terminating job ${jobId} at ${context.lastProgress}%...`);
+    
+    // Mark context as shutting down
+    context.shuttingDown = true;
+    
+    // Kill the process if running
     if (context.process && context.processRunning) {
-      log('INFO', `Terminating job ${jobId}...`);
-      await appendJobLog(jobId, `Agent shutting down - process will be terminated`);
       context.process.kill('SIGTERM');
-      
-      // Mark job as interrupted with current progress
-      await updateJobStatus(jobId, 'error', context.lastProgress, 'error', {
-        error_message: `Agent shutdown - job interrupted at ${context.lastProgress}%`,
-      });
+    }
+    
+    // Create a promise to update the job status
+    const updatePromise = (async () => {
+      try {
+        await appendJobLog(jobId, `Agent shutdown (${signal}) - terminating job at ${context.lastProgress}%`);
+        await updateJobStatus(jobId, 'error', context.lastProgress, 'error', {
+          error_message: `Agent shutdown (${signal}) - job interrupted at ${context.lastProgress}%`,
+        });
+        log('INFO', `Job ${jobId} status updated to error`);
+      } catch (error) {
+        log('ERROR', `Failed to update job ${jobId} status: ${error.message}`);
+      }
+    })();
+    
+    shutdownPromises.push(updatePromise);
+  }
+  
+  // Wait for all status updates to complete (with timeout)
+  log('INFO', `Waiting for ${shutdownPromises.length} job status updates...`);
+  
+  try {
+    await Promise.race([
+      Promise.all(shutdownPromises),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+    ]);
+    log('INFO', 'All job statuses updated successfully');
+  } catch (error) {
+    log('WARN', `Some job status updates may have failed: ${error.message}`);
+  }
+  
+  // Clean up work directories
+  for (const [jobId] of activeJobs) {
+    const workDir = path.join(config.WORK_DIR, jobId);
+    try {
+      fs.rmSync(workDir, { recursive: true, force: true });
+      log('DEBUG', `Cleaned up work directory: ${workDir}`);
+    } catch (e) {
+      log('WARN', `Failed to cleanup work directory ${workDir}: ${e.message}`);
     }
   }
   
-  // Wait a bit for cleanup
-  setTimeout(() => {
-    log('INFO', 'Shutdown complete');
-    process.exit(0);
-  }, 2000);
+  log('INFO', 'Shutdown complete');
+  process.exit(0);
 };
 
 // Start the agent

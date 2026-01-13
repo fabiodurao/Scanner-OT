@@ -61,6 +61,8 @@ import {
   AlertTriangle,
   Clock,
   Server,
+  ListOrdered,
+  Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -69,6 +71,7 @@ import { cn } from '@/lib/utils';
 interface Site {
   id: string;
   name: string;
+  unique_id: string | null;
 }
 
 interface PcapFile {
@@ -105,6 +108,8 @@ interface ProcessingJob {
   processing_time: number | null;
   mbsniffer_interval_batch?: number;
   mbsniffer_interval_min?: number;
+  sequence_group?: string | null;
+  sequence_order?: number | null;
 }
 
 interface UploadSession {
@@ -131,6 +136,15 @@ const formatDuration = (seconds: number): string => {
   return `${mins}m ${secs}s`;
 };
 
+// Generate UUID v4
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 const PcapProcessing = () => {
   const { user } = useAuth();
   const { settings, loading: loadingSettings } = useUserSettings();
@@ -150,7 +164,7 @@ const PcapProcessing = () => {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   
-  // Dialog state
+  // Single file dialog state
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<PcapFile | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -158,6 +172,14 @@ const PcapProcessing = () => {
   const [intervalMin, setIntervalMin] = useState('5');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Batch processing dialog state
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchWebhookUrl, setBatchWebhookUrl] = useState('');
+  const [batchIntervalBatch, setBatchIntervalBatch] = useState('60');
+  const [batchIntervalMin, setBatchIntervalMin] = useState('5');
+  const [batchAdvancedOpen, setBatchAdvancedOpen] = useState(false);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
   
   // Log viewer
   const [viewingJob, setViewingJob] = useState<ProcessingJob | null>(null);
@@ -196,7 +218,7 @@ const PcapProcessing = () => {
   const fetchSites = async () => {
     const { data, error } = await supabase
       .from('sites')
-      .select('id, name')
+      .select('id, name, unique_id')
       .order('name');
     
     if (!error && data) {
@@ -360,7 +382,16 @@ const PcapProcessing = () => {
     setProcessDialogOpen(true);
   };
 
-  // Submit new job
+  // Open batch process dialog
+  const handleOpenBatchDialog = () => {
+    setBatchWebhookUrl(settings.n8n_webhook_url || '');
+    setBatchIntervalBatch(settings.mbsniffer_interval_batch.toString());
+    setBatchIntervalMin(settings.mbsniffer_interval_min.toString());
+    setBatchAdvancedOpen(false);
+    setBatchDialogOpen(true);
+  };
+
+  // Submit single job
   const handleSubmitJob = async () => {
     if (!selectedFile || !selectedSiteId || !user) return;
     
@@ -381,6 +412,8 @@ const PcapProcessing = () => {
         mbsniffer_interval_batch: parseInt(intervalBatch) || 60,
         mbsniffer_interval_min: parseInt(intervalMin) || 5,
         output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created, waiting for agent...`,
+        sequence_group: null, // Individual job - no sequence group
+        sequence_order: null,
       })
       .select()
       .single();
@@ -402,6 +435,60 @@ const PcapProcessing = () => {
     }
     
     setSubmitting(false);
+  };
+
+  // Submit batch jobs (all files in session)
+  const handleSubmitBatchJobs = async () => {
+    if (!selectedSiteId || !user || pcapFiles.length === 0) return;
+    
+    setBatchSubmitting(true);
+    
+    // Generate a unique sequence_group for this batch
+    const sequenceGroup = generateUUID();
+    
+    // Sort files by name to ensure consistent order
+    const sortedFiles = [...pcapFiles].sort((a, b) => 
+      a.original_filename.localeCompare(b.original_filename)
+    );
+    
+    const jobsToInsert = sortedFiles.map((file, index) => ({
+      pcap_file_id: file.id,
+      site_id: selectedSiteId,
+      n8n_webhook_url: batchWebhookUrl || null,
+      status: 'pending',
+      current_step: 'pending',
+      progress: 0,
+      created_by: user.id,
+      pcap_filename: file.original_filename,
+      pcap_size_bytes: file.size_bytes,
+      mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60,
+      mbsniffer_interval_min: parseInt(batchIntervalMin) || 5,
+      output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${sortedFiles.length} in sequence), waiting for agent...`,
+      sequence_group: sequenceGroup,
+      sequence_order: index + 1,
+    }));
+    
+    const { data, error } = await supabase
+      .from('processing_jobs')
+      .insert(jobsToInsert)
+      .select();
+    
+    if (error) {
+      toast.error('Error creating batch jobs: ' + error.message);
+    } else {
+      toast.success(`${sortedFiles.length} jobs created! They will be processed sequentially.`);
+      if (data) {
+        setJobs(prev => {
+          const existingIds = new Set(prev.map(j => j.id));
+          const newJobs = data.filter(j => !existingIds.has(j.id)) as ProcessingJob[];
+          return [...newJobs, ...prev];
+        });
+      }
+      setBatchDialogOpen(false);
+      setActiveTab('jobs');
+    }
+    
+    setBatchSubmitting(false);
   };
 
   // Cancel job
@@ -547,6 +634,9 @@ const PcapProcessing = () => {
     return 'bg-blue-500';
   };
 
+  // Get selected site info
+  const selectedSite = sites.find(s => s.id === selectedSiteId);
+
   // Render Agent Status Card
   const renderAgentStatusCard = () => {
     return (
@@ -677,6 +767,7 @@ const PcapProcessing = () => {
                       const isInterrupted = isInterruptedJob(job);
                       const showProgress = shouldShowProgress(job);
                       const isPending = job.status === 'pending';
+                      const isSequential = !!job.sequence_group;
                       
                       return (
                         <div 
@@ -722,8 +813,14 @@ const PcapProcessing = () => {
                                 
                                 <FileArchive className="h-5 w-5 text-slate-500 flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-medium truncate">
+                                  <div className="font-medium truncate flex items-center gap-2">
                                     {job.pcap_filename}
+                                    {isSequential && (
+                                      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-600 border-purple-200">
+                                        <ListOrdered className="h-3 w-3 mr-1" />
+                                        #{job.sequence_order}
+                                      </Badge>
+                                    )}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
                                     {formatFileSize(job.pcap_size_bytes || 0)} • {format(new Date(job.created_at), 'MM/dd HH:mm')}
@@ -822,6 +919,21 @@ const PcapProcessing = () => {
                                 pcapDuration={job.pcap_duration || undefined}
                                 className="mb-4"
                               />
+                              
+                              {/* Sequence info */}
+                              {isSequential && (
+                                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg mb-4">
+                                  <div className="flex items-center gap-2 text-sm text-purple-700">
+                                    <ListOrdered className="h-4 w-4" />
+                                    <span>
+                                      Part of sequential batch • Position #{job.sequence_order}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-purple-600 mt-1">
+                                    This job will only start after previous jobs in the sequence complete.
+                                  </p>
+                                </div>
+                              )}
                               
                               {/* Error message */}
                               {job.error_message && (
@@ -924,12 +1036,22 @@ const PcapProcessing = () => {
                           <SelectItem key={site.id} value={site.id}>
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
-                              {site.name}
+                              <span>{site.name}</span>
+                              {site.unique_id && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({site.unique_id.slice(0, 8)}...)
+                                </span>
+                              )}
                             </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {selectedSite && !selectedSite.unique_id && (
+                      <p className="text-xs text-amber-600">
+                        ⚠️ This site has no Unique ID configured. The -k parameter won't be sent to mbsniffer.
+                      </p>
+                    )}
                   </div>
 
                   {/* Session selector */}
@@ -968,7 +1090,21 @@ const PcapProcessing = () => {
                   {/* Files list */}
                   {selectedSessionId && (
                     <div className="space-y-2">
-                      <Label>Available Files</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Available Files ({pcapFiles.length})</Label>
+                        {pcapFiles.length > 1 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleOpenBatchDialog}
+                            disabled={loadingSettings}
+                            className="gap-2"
+                          >
+                            <Layers className="h-4 w-4" />
+                            Process All ({pcapFiles.length})
+                          </Button>
+                        )}
+                      </div>
                       {loadingFiles ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin" />
@@ -1069,7 +1205,20 @@ const PcapProcessing = () => {
                     </div>
                   </div>
 
-                  <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <Separator />
+
+                  {/* Batch processing info */}
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex gap-2">
+                      <Layers className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                      <div className="text-sm text-purple-800">
+                        <strong>Process All:</strong> When you click "Process All", all files in the session will be queued for sequential processing. 
+                        They will use only <strong>1 slot</strong> at a time, leaving the other 2 slots free for other sites.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex gap-2">
                       <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
                       <div className="text-sm text-amber-800">
@@ -1084,7 +1233,7 @@ const PcapProcessing = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Process Dialog */}
+        {/* Single File Process Dialog */}
         <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
@@ -1107,6 +1256,17 @@ const PcapProcessing = () => {
                     </div>
                   </div>
                 </div>
+
+                {selectedSite?.unique_id && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm text-blue-700">
+                      <strong>Site Key:</strong> {selectedSite.unique_id}
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      This will be sent to mbsniffer via the -k parameter
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="webhook">n8n Webhook URL</Label>
@@ -1185,6 +1345,141 @@ const PcapProcessing = () => {
                   <>
                     <Play className="h-4 w-4 mr-2" />
                     Start Processing
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Batch Process Dialog */}
+        <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Process All Session Files
+              </DialogTitle>
+              <DialogDescription>
+                Process all {pcapFiles.length} files sequentially (one at a time)
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <ListOrdered className="h-5 w-5 text-purple-600" />
+                  <span className="font-medium text-purple-800">Sequential Processing</span>
+                </div>
+                <p className="text-sm text-purple-700">
+                  All {pcapFiles.length} files will be processed one after another, using only <strong>1 slot</strong>. 
+                  This leaves 2 slots available for other sites.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-lg max-h-40 overflow-y-auto">
+                <div className="text-sm font-medium mb-2">Files to process:</div>
+                <div className="space-y-1">
+                  {[...pcapFiles].sort((a, b) => a.original_filename.localeCompare(b.original_filename)).map((file, index) => (
+                    <div key={file.id} className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground w-6">#{index + 1}</span>
+                      <FileArchive className="h-4 w-4 text-slate-400" />
+                      <span className="truncate">{file.original_filename}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatFileSize(file.size_bytes)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedSite?.unique_id && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-700">
+                    <strong>Site Key:</strong> {selectedSite.unique_id}
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be sent to mbsniffer via the -k parameter for all jobs
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="batch-webhook">n8n Webhook URL</Label>
+                <Input
+                  id="batch-webhook"
+                  placeholder="https://n8n.example.com/webhook/..."
+                  value={batchWebhookUrl}
+                  onChange={(e) => setBatchWebhookUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Results from each file will be sent to this webhook
+                </p>
+              </div>
+
+              {/* Advanced Options */}
+              <Collapsible open={batchAdvancedOpen} onOpenChange={setBatchAdvancedOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Advanced Options
+                    </span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${batchAdvancedOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4 space-y-4">
+                  <Separator />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="batch-interval-batch">Interval Batch (s)</Label>
+                      <Input
+                        id="batch-interval-batch"
+                        type="number"
+                        value={batchIntervalBatch}
+                        onChange={(e) => setBatchIntervalBatch(e.target.value)}
+                        min="1"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Time window for grouping packets
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="batch-interval-min">Interval Min (s)</Label>
+                      <Input
+                        id="batch-interval-min"
+                        type="number"
+                        value={batchIntervalMin}
+                        onChange={(e) => setBatchIntervalMin(e.target.value)}
+                        min="1"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Min interval between outputs
+                      </p>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setBatchDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmitBatchJobs} 
+                disabled={batchSubmitting}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {batchSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating {pcapFiles.length} jobs...
+                  </>
+                ) : (
+                  <>
+                    <Layers className="h-4 w-4 mr-2" />
+                    Process All ({pcapFiles.length} files)
                   </>
                 )}
               </Button>
