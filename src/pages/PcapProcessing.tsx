@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Cpu, Play, Loader2, CheckCircle, XCircle, Clock, FileArchive, Building2, RefreshCw, Trash2, Eye, StopCircle, Layers, ChevronDown, ChevronRight } from 'lucide-react';
+import { Cpu, Play, Loader2, CheckCircle, XCircle, Clock, FileArchive, Building2, RefreshCw, Trash2, Eye, StopCircle, Layers, ChevronDown, ChevronRight, Terminal, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -91,7 +91,6 @@ const PcapProcessing = () => {
   const groupJobs = useCallback((jobsList: ProcessingJob[]): JobGroup[] => {
     const groups = new Map<string, ProcessingJob[]>();
     const individualJobs: ProcessingJob[] = [];
-    
     jobsList.forEach(job => {
       if (job.sequence_group) {
         const existing = groups.get(job.sequence_group) || [];
@@ -101,9 +100,7 @@ const PcapProcessing = () => {
         individualJobs.push(job);
       }
     });
-    
     const result: JobGroup[] = [];
-    
     groups.forEach((groupJobs, groupId) => {
       groupJobs.sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0));
       const activeJob = groupJobs.find(j => isRunningStatus(j.status)) || null;
@@ -111,16 +108,9 @@ const PcapProcessing = () => {
       const completedJobs = groupJobs.filter(j => ['completed', 'error', 'cancelled'].includes(j.status));
       result.push({ id: groupId, isSequence: true, jobs: groupJobs, activeJob, pendingJobs, completedJobs });
     });
-    
     individualJobs.forEach(job => {
-      result.push({
-        id: job.id, isSequence: false, jobs: [job],
-        activeJob: isRunningStatus(job.status) ? job : null,
-        pendingJobs: job.status === 'pending' ? [job] : [],
-        completedJobs: ['completed', 'error', 'cancelled'].includes(job.status) ? [job] : [],
-      });
+      result.push({ id: job.id, isSequence: false, jobs: [job], activeJob: isRunningStatus(job.status) ? job : null, pendingJobs: job.status === 'pending' ? [job] : [], completedJobs: ['completed', 'error', 'cancelled'].includes(job.status) ? [job] : [] });
     });
-    
     result.sort((a, b) => {
       if (a.activeJob && !b.activeJob) return -1;
       if (!a.activeJob && b.activeJob) return 1;
@@ -128,7 +118,6 @@ const PcapProcessing = () => {
       if (a.pendingJobs.length === 0 && b.pendingJobs.length > 0) return 1;
       return Math.max(...b.jobs.map(j => new Date(j.created_at).getTime())) - Math.max(...a.jobs.map(j => new Date(j.created_at).getTime()));
     });
-    
     return result;
   }, []);
 
@@ -159,7 +148,7 @@ const PcapProcessing = () => {
     if (!selectedFile || !selectedSiteId || !user) return;
     setSubmitting(true);
     const { error } = await supabase.from('processing_jobs').insert({ pcap_file_id: selectedFile.id, site_id: selectedSiteId, n8n_webhook_url: webhookUrl || null, status: 'pending', current_step: 'pending', progress: 0, created_by: user.id, pcap_filename: selectedFile.original_filename, pcap_size_bytes: selectedFile.size_bytes, mbsniffer_interval_batch: parseInt(intervalBatch) || 60, mbsniffer_interval_min: parseInt(intervalMin) || 5, output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created, waiting for agent...` });
-    if (error) toast.error('Error creating job: ' + error.message); else { toast.success('Job created!'); setDialogOpen(false); setActiveTab('jobs'); }
+    if (error) toast.error('Error: ' + error.message); else { toast.success('Job created!'); setDialogOpen(false); setActiveTab('jobs'); }
     setSubmitting(false);
   };
 
@@ -167,53 +156,39 @@ const PcapProcessing = () => {
     if (!selectedSiteId || !user || batchFiles.length === 0) return;
     setBatchSubmitting(true);
     const sequenceGroup = generateUUID();
-    const jobsToInsert = batchFiles.map((file, index) => ({ pcap_file_id: file.id, site_id: selectedSiteId, n8n_webhook_url: batchWebhookUrl || null, status: 'pending', current_step: 'pending', progress: 0, created_by: user.id, pcap_filename: file.original_filename, pcap_size_bytes: file.size_bytes, mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60, mbsniffer_interval_min: parseInt(batchIntervalMin) || 5, output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${batchFiles.length}), waiting...`, sequence_group: sequenceGroup, sequence_order: index + 1 }));
+    const jobsToInsert = batchFiles.map((file, index) => ({ pcap_file_id: file.id, site_id: selectedSiteId, n8n_webhook_url: batchWebhookUrl || null, status: 'pending', current_step: 'pending', progress: 0, created_by: user.id, pcap_filename: file.original_filename, pcap_size_bytes: file.size_bytes, mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60, mbsniffer_interval_min: parseInt(batchIntervalMin) || 5, output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job ${index + 1}/${batchFiles.length}`, sequence_group: sequenceGroup, sequence_order: index + 1 }));
     const { error } = await supabase.from('processing_jobs').insert(jobsToInsert);
-    if (error) toast.error('Error creating batch jobs: ' + error.message); else { toast.success(`${batchFiles.length} jobs created!`); setBatchDialogOpen(false); setActiveTab('jobs'); }
+    if (error) toast.error('Error: ' + error.message); else { toast.success(`${batchFiles.length} jobs created!`); setBatchDialogOpen(false); setActiveTab('jobs'); }
     setBatchSubmitting(false);
   };
 
-  const handleCancelJob = async (jobId: string) => { const { error } = await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).eq('id', jobId); if (error) toast.error('Error cancelling job'); else toast.success('Job cancelled'); };
-  const handleDeleteJob = async (jobId: string) => { const { error } = await supabase.from('processing_jobs').delete().eq('id', jobId); if (error) toast.error('Error deleting job'); else { toast.success('Job deleted'); if (detailJob?.id === jobId) setDetailJob(null); } };
-  
-  const handleCancelSequence = async (groupId: string) => {
-    const group = jobGroups.find(g => g.id === groupId);
-    if (!group) return;
-    const idsToCancel = [...group.pendingJobs.map(j => j.id), ...(group.activeJob ? [group.activeJob.id] : [])];
-    const { error } = await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).in('id', idsToCancel);
-    if (error) toast.error('Error cancelling sequence'); else toast.success(`${idsToCancel.length} jobs cancelled`);
-  };
-
-  const toggleGroupExpanded = (groupId: string) => { setExpandedGroups(prev => { const newSet = new Set(prev); if (newSet.has(groupId)) newSet.delete(groupId); else newSet.add(groupId); return newSet; }); };
+  const handleCancelJob = async (jobId: string) => { await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).eq('id', jobId); toast.success('Job cancelled'); };
+  const handleDeleteJob = async (jobId: string) => { await supabase.from('processing_jobs').delete().eq('id', jobId); toast.success('Job deleted'); if (detailJob?.id === jobId) setDetailJob(null); };
+  const handleCancelSequence = async (groupId: string) => { const group = jobGroups.find(g => g.id === groupId); if (!group) return; const ids = [...group.pendingJobs.map(j => j.id), ...(group.activeJob ? [group.activeJob.id] : [])]; await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).in('id', ids); toast.success(`${ids.length} jobs cancelled`); };
+  const toggleGroupExpanded = (groupId: string) => { setExpandedGroups(prev => { const s = new Set(prev); if (s.has(groupId)) s.delete(groupId); else s.add(groupId); return s; }); };
   const formatSessionName = (session: UploadSession) => session.name || format(new Date(session.created_at), "MM/dd/yyyy 'at' HH:mm");
 
-  const renderJobRow = (job: ProcessingJob, showSequenceNumber: boolean = false) => {
+  const renderJobRow = (job: ProcessingJob, showSeq = false) => {
     const status = statusConfig[job.status] || statusConfig.error;
     const StatusIcon = status.icon;
     const isActive = isActiveStatus(job.status);
     const isRunning = isRunningStatus(job.status);
-    
     return (
-      <div key={job.id} className={cn("p-3 rounded-lg border transition-all", isRunning && "bg-amber-50 border-amber-200 shadow-sm", job.status === 'pending' && "bg-slate-50 border-slate-200", job.status === 'completed' && "bg-emerald-50/50 border-emerald-200", job.status === 'error' && "bg-red-50/50 border-red-200", job.status === 'cancelled' && "bg-gray-50 border-gray-200")}>
+      <div key={job.id} className={cn("p-3 rounded-lg border", isRunning && "bg-amber-50 border-amber-200 shadow-sm", job.status === 'pending' && "bg-slate-50", job.status === 'completed' && "bg-emerald-50/50", job.status === 'error' && "bg-red-50/50", job.status === 'cancelled' && "bg-gray-50")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <FileArchive className={cn("h-4 w-4 flex-shrink-0", isRunning ? "text-amber-600" : "text-slate-400")} />
+            <FileArchive className={cn("h-4 w-4", isRunning ? "text-amber-600" : "text-slate-400")} />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className={cn("font-medium truncate text-sm", isRunning && "text-amber-900")}>{job.pcap_filename}</span>
-                {showSequenceNumber && job.sequence_order && <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">#{job.sequence_order}</Badge>}
-              </div>
+              <div className="flex items-center gap-2"><span className={cn("font-medium truncate text-sm", isRunning && "text-amber-900")}>{job.pcap_filename}</span>{showSeq && job.sequence_order && <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">#{job.sequence_order}</Badge>}</div>
               <div className="text-xs text-muted-foreground">{job.pcap_size_bytes && formatFileSize(job.pcap_size_bytes)} • {format(new Date(job.created_at), 'MM/dd HH:mm')}</div>
             </div>
           </div>
           {isRunning && <div className="flex items-center gap-2 w-32"><Progress value={job.progress} className="h-2 flex-1" /><span className="text-xs font-medium text-amber-700 w-8 text-right">{job.progress}%</span></div>}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
             <Badge className={cn(status.color, "text-xs")}><StatusIcon className={cn("h-3 w-3 mr-1", isActive && "animate-spin")} />{status.label}</Badge>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailJob(job)} title="View details"><Eye className="h-3.5 w-3.5" /></Button>
-              {isActive && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-500 hover:text-amber-700" title="Cancel"><StopCircle className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel job?</AlertDialogTitle><AlertDialogDescription>This will stop processing.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep Running</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelJob(job.id)} className="bg-amber-600 hover:bg-amber-700">Cancel Job</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
-              {!isActive && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500 hover:text-red-700" title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete job?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the job.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteJob(job.id)} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
-            </div>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailJob(job)}><Eye className="h-3.5 w-3.5" /></Button>
+            {isActive && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-500"><StopCircle className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>No</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelJob(job.id)} className="bg-amber-600">Yes</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
+            {!isActive && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>No</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteJob(job.id)} className="bg-red-600">Yes</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
           </div>
         </div>
         {isRunning && <div className="mt-3 pt-3 border-t border-amber-200"><JobStepsIndicator currentStep={job.current_step as 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled'} progress={job.progress} elapsedSeconds={job.elapsed_seconds || undefined} totalDuration={job.total_duration || undefined} pcapDuration={job.pcap_duration || undefined} /></div>}
@@ -223,46 +198,31 @@ const PcapProcessing = () => {
   };
 
   const renderJobGroup = (group: JobGroup) => {
-    if (!group.isSequence) return renderJobRow(group.jobs[0], false);
-    
+    if (!group.isSequence) return renderJobRow(group.jobs[0]);
     const isExpanded = expandedGroups.has(group.id);
-    const totalJobs = group.jobs.length;
-    const completedCount = group.completedJobs.length;
-    const pendingCount = group.pendingJobs.length;
-    const hasActive = group.activeJob !== null;
-    const allCompleted = completedCount === totalJobs;
-    const hasErrors = group.jobs.some(j => j.status === 'error');
-    
+    const total = group.jobs.length, completed = group.completedJobs.length, pending = group.pendingJobs.length, hasActive = !!group.activeJob, allDone = completed === total, hasErr = group.jobs.some(j => j.status === 'error');
     return (
-      <div key={group.id} className={cn("border rounded-lg overflow-hidden", hasActive && "border-amber-300 shadow-md", !hasActive && pendingCount > 0 && "border-blue-200", allCompleted && !hasErrors && "border-emerald-200", hasErrors && "border-red-200")}>
-        <div className={cn("p-3 cursor-pointer transition-colors", hasActive && "bg-amber-50 hover:bg-amber-100", !hasActive && pendingCount > 0 && "bg-blue-50 hover:bg-blue-100", allCompleted && !hasErrors && "bg-emerald-50 hover:bg-emerald-100", hasErrors && "bg-red-50 hover:bg-red-100")} onClick={() => toggleGroupExpanded(group.id)}>
+      <div key={group.id} className={cn("border rounded-lg overflow-hidden", hasActive && "border-amber-300 shadow-md", !hasActive && pending > 0 && "border-blue-200", allDone && !hasErr && "border-emerald-200", hasErr && "border-red-200")}>
+        <div className={cn("p-3 cursor-pointer", hasActive && "bg-amber-50 hover:bg-amber-100", !hasActive && pending > 0 && "bg-blue-50 hover:bg-blue-100", allDone && !hasErr && "bg-emerald-50 hover:bg-emerald-100", hasErr && "bg-red-50 hover:bg-red-100")} onClick={() => toggleGroupExpanded(group.id)}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               <Layers className={cn("h-5 w-5", hasActive ? "text-amber-600" : "text-purple-600")} />
-              <div>
-                <div className="font-medium text-sm flex items-center gap-2">Batch Processing<Badge variant="outline" className="text-xs">{totalJobs} files</Badge></div>
-                <div className="text-xs text-muted-foreground">{completedCount} completed • {pendingCount} pending{hasActive && " • 1 running"}</div>
-              </div>
+              <div><div className="font-medium text-sm flex items-center gap-2">Batch<Badge variant="outline" className="text-xs">{total} files</Badge></div><div className="text-xs text-muted-foreground">{completed} done • {pending} pending{hasActive && " • 1 running"}</div></div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 w-24"><Progress value={(completedCount / totalJobs) * 100} className={cn("h-2 flex-1", hasErrors && "[&>div]:bg-red-500")} /><span className="text-xs text-muted-foreground w-12 text-right">{completedCount}/{totalJobs}</span></div>
-              {(hasActive || pendingCount > 0) && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-amber-500 hover:text-amber-700" onClick={(e) => e.stopPropagation()}><StopCircle className="h-4 w-4 mr-1" />Cancel All</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel all remaining jobs?</AlertDialogTitle><AlertDialogDescription>This will cancel {pendingCount + (hasActive ? 1 : 0)} job(s).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep Running</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelSequence(group.id)} className="bg-amber-600 hover:bg-amber-700">Cancel All</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
+              <div className="flex items-center gap-2 w-24"><Progress value={(completed / total) * 100} className={cn("h-2", hasErr && "[&>div]:bg-red-500")} /><span className="text-xs text-muted-foreground w-12 text-right">{completed}/{total}</span></div>
+              {(hasActive || pending > 0) && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-amber-500" onClick={e => e.stopPropagation()}><StopCircle className="h-4 w-4 mr-1" />Cancel All</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel all?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>No</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelSequence(group.id)} className="bg-amber-600">Yes</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
             </div>
           </div>
         </div>
-        {group.activeJob && <div className="px-3 pb-3 bg-amber-50"><div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Currently Processing</div>{renderJobRow(group.activeJob, true)}</div>}
-        <Collapsible open={isExpanded}>
-          <CollapsibleContent>
-            <div className="px-3 pb-3 space-y-3">
-              {group.pendingJobs.length > 0 && <div><div className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1"><Clock className="h-3 w-3" />Queue ({group.pendingJobs.length})</div><div className="space-y-2">{group.pendingJobs.map(job => renderJobRow(job, true))}</div></div>}
-              {group.completedJobs.length > 0 && <div><div className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Completed ({group.completedJobs.length})</div><div className="space-y-2">{group.completedJobs.map(job => renderJobRow(job, true))}</div></div>}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        {group.activeJob && <div className="px-3 pb-3 bg-amber-50"><div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Running</div>{renderJobRow(group.activeJob, true)}</div>}
+        <Collapsible open={isExpanded}><CollapsibleContent><div className="px-3 pb-3 space-y-3">{group.pendingJobs.length > 0 && <div><div className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1"><Clock className="h-3 w-3" />Queue ({group.pendingJobs.length})</div><div className="space-y-2">{group.pendingJobs.map(j => renderJobRow(j, true))}</div></div>}{group.completedJobs.length > 0 && <div><div className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Done ({group.completedJobs.length})</div><div className="space-y-2">{group.completedJobs.map(j => renderJobRow(j, true))}</div></div>}</div></CollapsibleContent></Collapsible>
       </div>
     );
   };
+
+  const steps = [{ n: 1, t: 'Select a PCAP file', d: 'Choose from uploaded files' }, { n: 2, t: 'Configure parameters', d: 'Set webhook URL and options' }, { n: 3, t: 'Agent processes', d: 'Downloads, extracts, runs mbsniffer' }, { n: 4, t: 'Results sent', d: 'Data sent to n8n workflow' }];
 
   return (
     <MainLayout>
@@ -271,23 +231,18 @@ const PcapProcessing = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6"><TabsTrigger value="jobs"><Cpu className="h-4 w-4 mr-2" />Jobs ({jobs.filter(j => isActiveStatus(j.status)).length} active)</TabsTrigger><TabsTrigger value="create"><Play className="h-4 w-4 mr-2" />New Job</TabsTrigger></TabsList>
           <TabsContent value="jobs">
-            <Card>
-              <CardHeader><div className="flex items-center justify-between"><div><CardTitle>Processing Jobs</CardTitle><CardDescription>Monitor and manage jobs</CardDescription></div><Button variant="outline" size="sm" onClick={fetchJobs}><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button></div></CardHeader>
-              <CardContent>
-                {loading ? <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : jobGroups.length === 0 ? <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed"><Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No jobs yet</p><Button variant="outline" className="mt-4" onClick={() => setActiveTab('create')}><Play className="h-4 w-4 mr-2" />Create New Job</Button></div> : <ScrollArea className="h-[600px]"><div className="space-y-3">{jobGroups.map(group => renderJobGroup(group))}</div></ScrollArea>}
-              </CardContent>
-            </Card>
+            <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Processing Jobs</CardTitle><CardDescription>Monitor jobs</CardDescription></div><Button variant="outline" size="sm" onClick={fetchJobs}><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button></div></CardHeader><CardContent>{loading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : jobGroups.length === 0 ? <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed"><Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No jobs</p><Button variant="outline" className="mt-4" onClick={() => setActiveTab('create')}><Play className="h-4 w-4 mr-2" />New Job</Button></div> : <ScrollArea className="h-[600px]"><div className="space-y-3">{jobGroups.map(g => renderJobGroup(g))}</div></ScrollArea>}</CardContent></Card>
           </TabsContent>
           <TabsContent value="create">
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card><CardHeader><CardTitle>Select Files</CardTitle><CardDescription>Choose a site and session</CardDescription></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label>Site</Label><Select value={selectedSiteId || ''} onValueChange={setSelectedSiteId}><SelectTrigger><SelectValue placeholder="Select a site..." /></SelectTrigger><SelectContent>{sites.map(site => <SelectItem key={site.id} value={site.id}><div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground" />{site.name}</div></SelectItem>)}</SelectContent></Select></div>{selectedSiteId && <div className="space-y-2"><Label>Upload Session</Label><Select value={selectedSessionId || ''} onValueChange={setSelectedSessionId}><SelectTrigger><SelectValue placeholder="Select a session..." /></SelectTrigger><SelectContent>{sessions.map(session => <SelectItem key={session.id} value={session.id}><div className="flex flex-col"><span>{formatSessionName(session)}</span><span className="text-xs text-muted-foreground">{session.total_files} files</span></div></SelectItem>)}{sessions.length === 0 && <div className="p-2 text-sm text-muted-foreground text-center">No completed sessions</div>}</SelectContent></Select></div>}</CardContent></Card>
-              <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Available Files</CardTitle><CardDescription>{sessionFiles.length} files ready</CardDescription></div>{sessionFiles.length > 1 && <Button onClick={handleOpenBatchDialog} variant="outline" size="sm"><Layers className="h-4 w-4 mr-2" />Process All ({sessionFiles.length})</Button>}</div></CardHeader><CardContent>{sessionFiles.length === 0 ? <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed"><FileArchive className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>Select a session to see files</p></div> : <ScrollArea className="h-80"><div className="space-y-2">{sessionFiles.map(file => <div key={file.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100"><div className="flex items-center gap-3 min-w-0"><FileArchive className="h-5 w-5 text-slate-400 flex-shrink-0" /><div className="min-w-0"><div className="font-medium truncate">{file.original_filename}</div><div className="text-xs text-muted-foreground">{formatFileSize(file.size_bytes)}</div></div></div><Button size="sm" onClick={() => handleOpenJobDialog(file)}><Play className="h-4 w-4 mr-1" />Process</Button></div>)}</div></ScrollArea>}</CardContent></Card>
+              <Card><CardHeader><CardTitle className="flex items-center gap-2"><FileArchive className="h-5 w-5" />Select PCAP File</CardTitle><CardDescription>Choose site and session</CardDescription></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label>Site</Label><Select value={selectedSiteId || ''} onValueChange={setSelectedSiteId}><SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger><SelectContent>{sites.map(s => <SelectItem key={s.id} value={s.id}><div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground" />{s.name}</div></SelectItem>)}</SelectContent></Select></div>{selectedSiteId && <div className="space-y-2"><Label>Session</Label><Select value={selectedSessionId || ''} onValueChange={setSelectedSessionId}><SelectTrigger><SelectValue placeholder="Select session..." /></SelectTrigger><SelectContent>{sessions.map(s => <SelectItem key={s.id} value={s.id}><div className="flex flex-col"><span>{formatSessionName(s)}</span><span className="text-xs text-muted-foreground">{s.total_files} files</span></div></SelectItem>)}{sessions.length === 0 && <div className="p-2 text-sm text-muted-foreground text-center">No sessions</div>}</SelectContent></Select></div>}{selectedSessionId && <div className="space-y-2 pt-4 border-t"><div className="flex items-center justify-between"><Label>Files</Label>{sessionFiles.length > 1 && <Button onClick={handleOpenBatchDialog} variant="outline" size="sm"><Layers className="h-4 w-4 mr-2" />All ({sessionFiles.length})</Button>}</div>{sessionFiles.length === 0 ? <div className="text-center py-4 text-muted-foreground text-sm">No files</div> : <ScrollArea className="h-64"><div className="space-y-2">{sessionFiles.map(f => <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100"><div className="flex items-center gap-3 min-w-0"><FileArchive className="h-5 w-5 text-[#2563EB]" /><div className="min-w-0"><div className="font-medium truncate text-sm">{f.original_filename}</div><div className="text-xs text-muted-foreground">{formatFileSize(f.size_bytes)}</div></div></div><Button size="sm" onClick={() => handleOpenJobDialog(f)} className="bg-[#2563EB] hover:bg-[#1d4ed8]"><Play className="h-4 w-4 mr-1" />Process</Button></div>)}</div></ScrollArea>}</div>}</CardContent></Card>
+              <Card><CardHeader><CardTitle className="flex items-center gap-2"><Terminal className="h-5 w-5" />How it Works</CardTitle></CardHeader><CardContent className="space-y-4">{steps.map(s => <div key={s.n} className="flex items-start gap-3"><div className="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-medium">{s.n}</div><div><div className="font-medium text-sm">{s.t}</div><div className="text-xs text-muted-foreground">{s.d}</div></div></div>)}<div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg"><div className="flex items-start gap-2"><AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" /><div className="text-sm text-amber-800"><span className="font-medium">Note:</span> Agent must be running on EC2. Max 3 concurrent jobs.</div></div></div></CardContent></Card>
             </div>
           </TabsContent>
         </Tabs>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent><DialogHeader><DialogTitle>Process PCAP File</DialogTitle><DialogDescription>Configure parameters for {selectedFile?.original_filename}</DialogDescription></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label>n8n Webhook URL (optional)</Label><Input placeholder="https://n8n.example.com/webhook/..." value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Interval Batch (s)</Label><Input type="number" value={intervalBatch} onChange={(e) => setIntervalBatch(e.target.value)} min="1" /></div><div className="space-y-2"><Label>Interval Min (s)</Label><Input type="number" value={intervalMin} onChange={(e) => setIntervalMin(e.target.value)} min="1" /></div></div></div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSubmitJob} disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</> : <><Play className="h-4 w-4 mr-2" />Start Processing</>}</Button></DialogFooter></DialogContent></Dialog>
-        <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Process All Files</DialogTitle><DialogDescription>Create jobs for {batchFiles.length} files. Drag to reorder.</DialogDescription></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label>Processing Order</Label><div className="border rounded-lg p-2 bg-slate-50 max-h-60 overflow-y-auto"><SortableFileList files={batchFiles} onReorder={setBatchFiles} /></div></div><div className="space-y-2"><Label>n8n Webhook URL (optional)</Label><Input placeholder="https://n8n.example.com/webhook/..." value={batchWebhookUrl} onChange={(e) => setBatchWebhookUrl(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Interval Batch (s)</Label><Input type="number" value={batchIntervalBatch} onChange={(e) => setBatchIntervalBatch(e.target.value)} min="1" /></div><div className="space-y-2"><Label>Interval Min (s)</Label><Input type="number" value={batchIntervalMin} onChange={(e) => setBatchIntervalMin(e.target.value)} min="1" /></div></div><div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm"><div className="flex items-start gap-2"><Layers className="h-4 w-4 text-purple-600 mt-0.5" /><div><div className="font-medium text-purple-900">Sequential Processing</div><div className="text-purple-700">Files will be processed one at a time in order.</div></div></div></div></div><DialogFooter><Button variant="outline" onClick={() => setBatchDialogOpen(false)}>Cancel</Button><Button onClick={handleSubmitBatchJobs} disabled={batchSubmitting}>{batchSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</> : <><Layers className="h-4 w-4 mr-2" />Create {batchFiles.length} Jobs</>}</Button></DialogFooter></DialogContent></Dialog>
-        <Dialog open={!!detailJob} onOpenChange={(open) => !open && setDetailJob(null)}><DialogContent className="max-w-3xl max-h-[90vh]"><DialogHeader><DialogTitle>Job Details</DialogTitle><DialogDescription>{detailJob?.pcap_filename}</DialogDescription></DialogHeader>{detailJob && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><div><Label className="text-muted-foreground">Status</Label><div className="mt-1"><Badge className={statusConfig[detailJob.status]?.color}>{statusConfig[detailJob.status]?.label}</Badge></div></div><div><Label className="text-muted-foreground">Progress</Label><div className="mt-1 font-medium">{detailJob.progress}%</div></div>{detailJob.pcap_duration && <div><Label className="text-muted-foreground">PCAP Duration</Label><div className="mt-1 font-medium">{Math.floor(detailJob.pcap_duration / 60)}m {Math.floor(detailJob.pcap_duration % 60)}s</div></div>}{detailJob.pcap_packets && <div><Label className="text-muted-foreground">Packets</Label><div className="mt-1 font-medium">{detailJob.pcap_packets.toLocaleString()}</div></div>}{detailJob.sequence_group && <div><Label className="text-muted-foreground">Sequence</Label><div className="mt-1 font-medium">#{detailJob.sequence_order} in batch</div></div>}</div>{detailJob.output_log && <div><Label className="text-muted-foreground">Output Log</Label><ScrollArea className="h-64 mt-2 border rounded-lg bg-slate-900 p-4"><pre className="text-xs text-slate-100 font-mono whitespace-pre-wrap">{detailJob.output_log}</pre></ScrollArea></div>}</div>}</DialogContent></Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent><DialogHeader><DialogTitle>Process File</DialogTitle><DialogDescription>{selectedFile?.original_filename}</DialogDescription></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label>Webhook URL</Label><Input placeholder="https://..." value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Interval Batch (s)</Label><Input type="number" value={intervalBatch} onChange={e => setIntervalBatch(e.target.value)} min="1" /></div><div className="space-y-2"><Label>Interval Min (s)</Label><Input type="number" value={intervalMin} onChange={e => setIntervalMin(e.target.value)} min="1" /></div></div></div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSubmitJob} disabled={submitting} className="bg-[#2563EB]">{submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}Start</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Process All</DialogTitle><DialogDescription>{batchFiles.length} files. Drag to reorder.</DialogDescription></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label>Order</Label><div className="border rounded-lg p-2 bg-slate-50 max-h-60 overflow-y-auto"><SortableFileList files={batchFiles} onReorder={setBatchFiles} /></div></div><div className="space-y-2"><Label>Webhook URL</Label><Input placeholder="https://..." value={batchWebhookUrl} onChange={e => setBatchWebhookUrl(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Interval Batch (s)</Label><Input type="number" value={batchIntervalBatch} onChange={e => setBatchIntervalBatch(e.target.value)} min="1" /></div><div className="space-y-2"><Label>Interval Min (s)</Label><Input type="number" value={batchIntervalMin} onChange={e => setBatchIntervalMin(e.target.value)} min="1" /></div></div><div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm"><div className="flex items-start gap-2"><Layers className="h-4 w-4 text-purple-600 mt-0.5" /><div><div className="font-medium text-purple-900">Sequential</div><div className="text-purple-700">One at a time.</div></div></div></div></div><DialogFooter><Button variant="outline" onClick={() => setBatchDialogOpen(false)}>Cancel</Button><Button onClick={handleSubmitBatchJobs} disabled={batchSubmitting} className="bg-[#2563EB]">{batchSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Layers className="h-4 w-4 mr-2" />}Create {batchFiles.length}</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={!!detailJob} onOpenChange={o => !o && setDetailJob(null)}><DialogContent className="max-w-3xl max-h-[90vh]"><DialogHeader><DialogTitle>Details</DialogTitle><DialogDescription>{detailJob?.pcap_filename}</DialogDescription></DialogHeader>{detailJob && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><div><Label className="text-muted-foreground">Status</Label><div className="mt-1"><Badge className={statusConfig[detailJob.status]?.color}>{statusConfig[detailJob.status]?.label}</Badge></div></div><div><Label className="text-muted-foreground">Progress</Label><div className="mt-1 font-medium">{detailJob.progress}%</div></div>{detailJob.pcap_duration && <div><Label className="text-muted-foreground">Duration</Label><div className="mt-1 font-medium">{Math.floor(detailJob.pcap_duration / 60)}m {Math.floor(detailJob.pcap_duration % 60)}s</div></div>}{detailJob.pcap_packets && <div><Label className="text-muted-foreground">Packets</Label><div className="mt-1 font-medium">{detailJob.pcap_packets.toLocaleString()}</div></div>}{detailJob.sequence_group && <div><Label className="text-muted-foreground">Sequence</Label><div className="mt-1 font-medium">#{detailJob.sequence_order}</div></div>}</div>{detailJob.output_log && <div><Label className="text-muted-foreground">Log</Label><ScrollArea className="h-64 mt-2 border rounded-lg bg-slate-900 p-4"><pre className="text-xs text-slate-100 font-mono whitespace-pre-wrap">{detailJob.output_log}</pre></ScrollArea></div>}</div>}</DialogContent></Dialog>
       </div>
     </MainLayout>
   );
