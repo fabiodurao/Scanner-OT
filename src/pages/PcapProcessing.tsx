@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobStepsIndicator } from '@/components/processing/JobStepsIndicator';
+import { SortableFileList } from '@/components/processing/SortableFileList';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -63,6 +64,7 @@ import {
   Server,
   ListOrdered,
   Layers,
+  GripVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -175,6 +177,7 @@ const PcapProcessing = () => {
   
   // Batch processing dialog state
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchFiles, setBatchFiles] = useState<PcapFile[]>([]);
   const [batchWebhookUrl, setBatchWebhookUrl] = useState('');
   const [batchIntervalBatch, setBatchIntervalBatch] = useState('60');
   const [batchIntervalMin, setBatchIntervalMin] = useState('5');
@@ -384,11 +387,21 @@ const PcapProcessing = () => {
 
   // Open batch process dialog
   const handleOpenBatchDialog = () => {
+    // Sort files by name initially
+    const sortedFiles = [...pcapFiles].sort((a, b) => 
+      a.original_filename.localeCompare(b.original_filename)
+    );
+    setBatchFiles(sortedFiles);
     setBatchWebhookUrl(settings.n8n_webhook_url || '');
     setBatchIntervalBatch(settings.mbsniffer_interval_batch.toString());
     setBatchIntervalMin(settings.mbsniffer_interval_min.toString());
     setBatchAdvancedOpen(false);
     setBatchDialogOpen(true);
+  };
+
+  // Handle batch files reorder
+  const handleBatchFilesReorder = (newFiles: PcapFile[]) => {
+    setBatchFiles(newFiles);
   };
 
   // Submit single job
@@ -439,19 +452,15 @@ const PcapProcessing = () => {
 
   // Submit batch jobs (all files in session)
   const handleSubmitBatchJobs = async () => {
-    if (!selectedSiteId || !user || pcapFiles.length === 0) return;
+    if (!selectedSiteId || !user || batchFiles.length === 0) return;
     
     setBatchSubmitting(true);
     
     // Generate a unique sequence_group for this batch
     const sequenceGroup = generateUUID();
     
-    // Sort files by name to ensure consistent order
-    const sortedFiles = [...pcapFiles].sort((a, b) => 
-      a.original_filename.localeCompare(b.original_filename)
-    );
-    
-    const jobsToInsert = sortedFiles.map((file, index) => ({
+    // Use the order from batchFiles (which may have been reordered by user)
+    const jobsToInsert = batchFiles.map((file, index) => ({
       pcap_file_id: file.id,
       site_id: selectedSiteId,
       n8n_webhook_url: batchWebhookUrl || null,
@@ -463,7 +472,7 @@ const PcapProcessing = () => {
       pcap_size_bytes: file.size_bytes,
       mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60,
       mbsniffer_interval_min: parseInt(batchIntervalMin) || 5,
-      output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${sortedFiles.length} in sequence), waiting for agent...`,
+      output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${batchFiles.length} in sequence), waiting for agent...`,
       sequence_group: sequenceGroup,
       sequence_order: index + 1,
     }));
@@ -476,7 +485,7 @@ const PcapProcessing = () => {
     if (error) {
       toast.error('Error creating batch jobs: ' + error.message);
     } else {
-      toast.success(`${sortedFiles.length} jobs created! They will be processed sequentially.`);
+      toast.success(`${batchFiles.length} jobs created! They will be processed sequentially.`);
       if (data) {
         setJobs(prev => {
           const existingIds = new Set(prev.map(j => j.id));
@@ -1361,7 +1370,7 @@ const PcapProcessing = () => {
                 Process All Session Files
               </DialogTitle>
               <DialogDescription>
-                Process all {pcapFiles.length} files sequentially (one at a time)
+                Process all {batchFiles.length} files sequentially (one at a time)
               </DialogDescription>
             </DialogHeader>
             
@@ -1372,25 +1381,27 @@ const PcapProcessing = () => {
                   <span className="font-medium text-purple-800">Sequential Processing</span>
                 </div>
                 <p className="text-sm text-purple-700">
-                  All {pcapFiles.length} files will be processed one after another, using only <strong>1 slot</strong>. 
+                  All {batchFiles.length} files will be processed one after another, using only <strong>1 slot</strong>. 
                   This leaves 2 slots available for other sites.
                 </p>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-lg max-h-40 overflow-y-auto">
-                <div className="text-sm font-medium mb-2">Files to process:</div>
-                <div className="space-y-1">
-                  {[...pcapFiles].sort((a, b) => a.original_filename.localeCompare(b.original_filename)).map((file, index) => (
-                    <div key={file.id} className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground w-6">#{index + 1}</span>
-                      <FileArchive className="h-4 w-4 text-slate-400" />
-                      <span className="truncate">{file.original_filename}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {formatFileSize(file.size_bytes)}
-                      </span>
-                    </div>
-                  ))}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    Files to process (drag to reorder)
+                  </Label>
                 </div>
+                <div className="p-3 bg-slate-50 rounded-lg border max-h-48 overflow-y-auto">
+                  <SortableFileList 
+                    files={batchFiles} 
+                    onReorder={handleBatchFilesReorder} 
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Drag files to change the processing order
+                </p>
               </div>
 
               {selectedSite?.unique_id && (
@@ -1474,12 +1485,12 @@ const PcapProcessing = () => {
                 {batchSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating {pcapFiles.length} jobs...
+                    Creating {batchFiles.length} jobs...
                   </>
                 ) : (
                   <>
                     <Layers className="h-4 w-4 mr-2" />
-                    Process All ({pcapFiles.length} files)
+                    Process All ({batchFiles.length} files)
                   </>
                 )}
               </Button>
