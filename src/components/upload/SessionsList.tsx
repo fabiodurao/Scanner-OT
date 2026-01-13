@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { UploadSession, PcapFile } from '@/types/upload';
+import { SortableSessionFiles } from './SortableSessionFiles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2, Download, Pencil } from 'lucide-react';
+import { FileArchive, Calendar, HardDrive, CheckCircle, Clock, AlertCircle, Loader2, Trash2, Pencil, GripVertical } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -107,6 +108,12 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
     if (value) {
       loadSessionFiles(value);
     }
+  };
+
+  const handleReorderFiles = (sessionId: string, newFiles: PcapFile[]) => {
+    setSessionFiles(prev => ({ ...prev, [sessionId]: newFiles }));
+    // Note: This is just visual reordering - we could persist this to the database if needed
+    toast.success('Files reordered');
   };
 
   const deleteFileFromS3 = async (file: PcapFile, showToast: boolean = true): Promise<boolean> => {
@@ -444,89 +451,18 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {files.map((file) => (
-                      <div 
-                        key={file.id} 
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-3"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-mono text-sm truncate" title={file.original_filename}>
-                            {file.original_filename}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span>{formatFileSize(file.size_bytes)}</span>
-                            <Badge 
-                              variant="secondary"
-                              className={
-                                file.upload_status === 'completed' 
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : file.upload_status === 'uploading'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-red-100 text-red-700'
-                              }
-                            >
-                              {file.upload_status === 'completed' ? 'Completed' : 
-                               file.upload_status === 'uploading' ? 'Uploading' : 'Error'}
-                            </Badge>
-                            {file.completed_at && (
-                              <span>{format(new Date(file.completed_at), 'MM/dd/yyyy HH:mm')}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {file.upload_status === 'completed' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadFile(file)}
-                              disabled={downloadingFile === file.id}
-                              className="h-8 w-8 p-0"
-                              title="Download file"
-                            >
-                              {downloadingFile === file.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Download className="h-4 w-4" />
-                              )}
-                            </Button>
-                          )}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={deletingFile === file.id}
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                title="Delete file"
-                              >
-                                {deletingFile === file.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete file?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete "{file.original_filename}" from S3 storage and the database. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteFile(file, session.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <GripVertical className="h-3 w-3" />
+                      <span>Drag to reorder files</span>
+                    </div>
+                    <SortableSessionFiles
+                      files={files}
+                      onReorder={(newFiles) => handleReorderFiles(session.id, newFiles)}
+                      onDownload={handleDownloadFile}
+                      onDelete={(file) => handleDeleteFile(file, session.id)}
+                      downloadingFileId={downloadingFile}
+                      deletingFileId={deletingFile}
+                    />
                   </div>
                 )}
 
