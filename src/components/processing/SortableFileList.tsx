@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -19,14 +18,14 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, FileArchive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface PcapFile {
+export interface SortablePcapFile {
   id: string;
   original_filename: string;
   size_bytes: number;
 }
 
 interface SortableFileItemProps {
-  file: PcapFile;
+  file: SortablePcapFile;
   index: number;
   formatFileSize: (bytes: number) => string;
 }
@@ -77,8 +76,8 @@ const SortableFileItem = ({ file, index, formatFileSize }: SortableFileItemProps
 };
 
 interface SortableFileListProps {
-  files: PcapFile[];
-  onReorder: (files: PcapFile[]) => void;
+  files: SortablePcapFile[];
+  onReorder: (files: SortablePcapFile[]) => void;
 }
 
 const formatFileSize = (bytes: number) => {

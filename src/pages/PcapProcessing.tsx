@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { JobStepsIndicator } from '@/components/processing/JobStepsIndicator';
-import { SortableFileList } from '@/components/processing/SortableFileList';
+import { SortableFileList, SortablePcapFile } from '@/components/processing/SortableFileList';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -177,7 +177,7 @@ const PcapProcessing = () => {
   
   // Batch processing dialog state
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
-  const [batchFiles, setBatchFiles] = useState<PcapFile[]>([]);
+  const [batchFiles, setBatchFiles] = useState<SortablePcapFile[]>([]);
   const [batchWebhookUrl, setBatchWebhookUrl] = useState('');
   const [batchIntervalBatch, setBatchIntervalBatch] = useState('60');
   const [batchIntervalMin, setBatchIntervalMin] = useState('5');
@@ -387,10 +387,10 @@ const PcapProcessing = () => {
 
   // Open batch process dialog
   const handleOpenBatchDialog = () => {
-    // Sort files by name initially
-    const sortedFiles = [...pcapFiles].sort((a, b) => 
-      a.original_filename.localeCompare(b.original_filename)
-    );
+    // Sort files by name initially and convert to SortablePcapFile
+    const sortedFiles: SortablePcapFile[] = [...pcapFiles]
+      .sort((a, b) => a.original_filename.localeCompare(b.original_filename))
+      .map(f => ({ id: f.id, original_filename: f.original_filename, size_bytes: f.size_bytes }));
     setBatchFiles(sortedFiles);
     setBatchWebhookUrl(settings.n8n_webhook_url || '');
     setBatchIntervalBatch(settings.mbsniffer_interval_batch.toString());
@@ -400,7 +400,7 @@ const PcapProcessing = () => {
   };
 
   // Handle batch files reorder
-  const handleBatchFilesReorder = (newFiles: PcapFile[]) => {
+  const handleBatchFilesReorder = (newFiles: SortablePcapFile[]) => {
     setBatchFiles(newFiles);
   };
 
@@ -459,23 +459,26 @@ const PcapProcessing = () => {
     // Generate a unique sequence_group for this batch
     const sequenceGroup = generateUUID();
     
-    // Use the order from batchFiles (which may have been reordered by user)
-    const jobsToInsert = batchFiles.map((file, index) => ({
-      pcap_file_id: file.id,
-      site_id: selectedSiteId,
-      n8n_webhook_url: batchWebhookUrl || null,
-      status: 'pending',
-      current_step: 'pending',
-      progress: 0,
-      created_by: user.id,
-      pcap_filename: file.original_filename,
-      pcap_size_bytes: file.size_bytes,
-      mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60,
-      mbsniffer_interval_min: parseInt(batchIntervalMin) || 5,
-      output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${batchFiles.length} in sequence), waiting for agent...`,
-      sequence_group: sequenceGroup,
-      sequence_order: index + 1,
-    }));
+    // Find full PcapFile data for each batch file (to get pcap_file_id)
+    const jobsToInsert = batchFiles.map((file, index) => {
+      const fullFile = pcapFiles.find(f => f.id === file.id);
+      return {
+        pcap_file_id: file.id,
+        site_id: selectedSiteId,
+        n8n_webhook_url: batchWebhookUrl || null,
+        status: 'pending',
+        current_step: 'pending',
+        progress: 0,
+        created_by: user.id,
+        pcap_filename: file.original_filename,
+        pcap_size_bytes: file.size_bytes,
+        mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60,
+        mbsniffer_interval_min: parseInt(batchIntervalMin) || 5,
+        output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created (${index + 1}/${batchFiles.length} in sequence), waiting for agent...`,
+        sequence_group: sequenceGroup,
+        sequence_order: index + 1,
+      };
+    });
     
     const { data, error } = await supabase
       .from('processing_jobs')
