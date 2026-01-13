@@ -174,7 +174,7 @@ const PcapProcessing = () => {
     const isActive = isActiveStatus(job.status);
     const isRunning = isRunningStatus(job.status);
     return (
-      <div key={job.id} className={cn("p-3 rounded-lg border", isRunning && "bg-amber-50 border-amber-200 shadow-sm", job.status === 'pending' && "bg-slate-50", job.status === 'completed' && "bg-emerald-50/50", job.status === 'error' && "bg-red-50/50", job.status === 'cancelled' && "bg-gray-50")}>
+      <div key={job.id} className={cn("p-3 rounded-lg border bg-white", isRunning && "bg-amber-50/50 border-amber-200 shadow-sm", job.status === 'pending' && "bg-white border-slate-200", job.status === 'completed' && "bg-emerald-50/30 border-emerald-200", job.status === 'error' && "bg-red-50/30 border-red-200", job.status === 'cancelled' && "bg-gray-50/50 border-gray-200")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <FileArchive className={cn("h-4 w-4", isRunning ? "text-amber-600" : "text-slate-400")} />
@@ -217,7 +217,7 @@ const PcapProcessing = () => {
           </div>
         </div>
         {group.activeJob && <div className="px-3 pb-3 bg-amber-50"><div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Running</div>{renderJobRow(group.activeJob, true)}</div>}
-        <Collapsible open={isExpanded}><CollapsibleContent><div className="px-3 pb-3 space-y-3">{group.pendingJobs.length > 0 && <div><div className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1"><Clock className="h-3 w-3" />Queue ({group.pendingJobs.length})</div><div className="space-y-2">{group.pendingJobs.map(j => renderJobRow(j, true))}</div></div>}{group.completedJobs.length > 0 && <div><div className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Done ({group.completedJobs.length})</div><div className="space-y-2">{group.completedJobs.map(j => renderJobRow(j, true))}</div></div>}</div></CollapsibleContent></Collapsible>
+        <Collapsible open={isExpanded}><CollapsibleContent><div className="px-3 pb-3 space-y-3 bg-slate-50/50">{group.pendingJobs.length > 0 && <div><div className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1"><Clock className="h-3 w-3" />Queue ({group.pendingJobs.length})</div><div className="space-y-2">{group.pendingJobs.map(j => renderJobRow(j, true))}</div></div>}{group.completedJobs.length > 0 && <div><div className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Done ({group.completedJobs.length})</div><div className="space-y-2">{group.completedJobs.map(j => renderJobRow(j, true))}</div></div>}</div></CollapsibleContent></Collapsible>
       </div>
     );
   };
