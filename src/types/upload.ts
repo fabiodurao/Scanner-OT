@@ -43,6 +43,7 @@ export interface PcapFile {
   error_message: string | null;
   uploaded_at: string;
   completed_at: string | null;
+  display_order: number;
 }
 
 export interface FileUploadProgress {

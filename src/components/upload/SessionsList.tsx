@@ -59,6 +59,7 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
   
   // Edit session state
   const [editingSession, setEditingSession] = useState<UploadSession | null>(null);
@@ -96,7 +97,7 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
       .from('pcap_files')
       .select('*')
       .eq('session_id', sessionId)
-      .order('original_filename');
+      .order('display_order', { ascending: true });
     
     if (!error && data) {
       setSessionFiles(prev => ({ ...prev, [sessionId]: data }));
@@ -110,10 +111,39 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
     }
   };
 
-  const handleReorderFiles = (sessionId: string, newFiles: PcapFile[]) => {
+  const handleReorderFiles = async (sessionId: string, newFiles: PcapFile[]) => {
+    // Update local state immediately for responsive UI
     setSessionFiles(prev => ({ ...prev, [sessionId]: newFiles }));
-    // Note: This is just visual reordering - we could persist this to the database if needed
-    toast.success('Files reordered');
+    
+    // Persist to database
+    setSavingOrder(true);
+    
+    try {
+      // Update each file's display_order
+      const updates = newFiles.map((file, index) => 
+        supabase
+          .from('pcap_files')
+          .update({ display_order: index + 1 })
+          .eq('id', file.id)
+      );
+      
+      await Promise.all(updates);
+      toast.success('Order saved');
+    } catch (error) {
+      console.error('Error saving file order:', error);
+      toast.error('Error saving order');
+      // Reload files to restore correct order
+      const { data } = await supabase
+        .from('pcap_files')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('display_order', { ascending: true });
+      if (data) {
+        setSessionFiles(prev => ({ ...prev, [sessionId]: data }));
+      }
+    }
+    
+    setSavingOrder(false);
   };
 
   const deleteFileFromS3 = async (file: PcapFile, showToast: boolean = true): Promise<boolean> => {
@@ -451,9 +481,17 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <GripVertical className="h-3 w-3" />
-                      <span>Drag to reorder files</span>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="h-3 w-3" />
+                        <span>Drag to reorder files</span>
+                      </div>
+                      {savingOrder && (
+                        <div className="flex items-center gap-1 text-blue-600">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Saving...</span>
+                        </div>
+                      )}
                     </div>
                     <SortableSessionFiles
                       files={files}
