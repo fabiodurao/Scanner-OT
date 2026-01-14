@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Cpu, Play, Loader2, CheckCircle, XCircle, Clock, FileArchive, Building2, RefreshCw, Trash2, Eye, StopCircle, Layers, ChevronDown, ChevronRight, Terminal, AlertCircle } from 'lucide-react';
+import { Cpu, Play, Loader2, CheckCircle, XCircle, Clock, FileArchive, Building2, RefreshCw, Trash2, Eye, StopCircle, Layers, ChevronDown, ChevronRight, Terminal, AlertCircle, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -53,6 +53,8 @@ const statusConfig: Record<string, { label: string; icon: typeof Loader2; color:
   error: { label: 'Error', icon: XCircle, color: 'bg-red-100 text-red-700' },
   cancelled: { label: 'Cancelled', icon: StopCircle, color: 'bg-gray-100 text-gray-700' },
 };
+
+const MAX_CONCURRENT_JOBS = 3;
 
 const generateUUID = (): string => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
 const isActiveStatus = (status: string) => ['pending', 'downloading', 'extracting', 'running'].includes(status);
@@ -122,6 +124,13 @@ const PcapProcessing = () => {
   }, []);
 
   const jobGroups = groupJobs(jobs);
+  
+  // Calculate agent status metrics
+  const runningJobs = jobs.filter(j => isRunningStatus(j.status));
+  const pendingJobs = jobs.filter(j => j.status === 'pending');
+  const slotsUsed = runningJobs.length;
+  const slotsAvailable = MAX_CONCURRENT_JOBS - slotsUsed;
+  const queueLength = pendingJobs.length;
 
   const fetchSites = async () => { const { data } = await supabase.from('sites').select('id, name, unique_id').order('name'); if (data) setSites(data); };
   const fetchSessions = async (siteId: string) => { const { data } = await supabase.from('upload_sessions').select('id, site_id, name, created_at, total_files').eq('site_id', siteId).eq('status', 'completed').order('created_at', { ascending: false }); if (data) setSessions(data); };
@@ -393,6 +402,94 @@ const PcapProcessing = () => {
           </TabsList>
           
           <TabsContent value="jobs">
+            {/* Agent Status Card */}
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    {/* Agent Status */}
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        slotsUsed > 0 ? "bg-amber-100" : "bg-slate-100"
+                      )}>
+                        <Server className={cn(
+                          "h-5 w-5",
+                          slotsUsed > 0 ? "text-amber-600" : "text-slate-400"
+                        )} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Agent Status</div>
+                        <div className="text-xs text-muted-foreground">
+                          {slotsUsed > 0 ? (
+                            <span className="text-amber-600 font-medium">{slotsUsed} job{slotsUsed !== 1 ? 's' : ''} running</span>
+                          ) : (
+                            <span className="text-slate-500">Idle</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Slots */}
+                    <div className="flex items-center gap-3 pl-6 border-l">
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: MAX_CONCURRENT_JOBS }).map((_, i) => (
+                          <div
+                            key={i}
+                            className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium border-2",
+                              i < slotsUsed
+                                ? "bg-amber-100 border-amber-300 text-amber-700"
+                                : "bg-slate-50 border-slate-200 text-slate-400"
+                            )}
+                          >
+                            {i < slotsUsed ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              i + 1
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Slots</div>
+                        <div className="text-xs text-muted-foreground">
+                          {slotsUsed}/{MAX_CONCURRENT_JOBS} used • {slotsAvailable} available
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Queue */}
+                    <div className="flex items-center gap-3 pl-6 border-l">
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        queueLength > 0 ? "bg-blue-100" : "bg-slate-100"
+                      )}>
+                        <Clock className={cn(
+                          "h-5 w-5",
+                          queueLength > 0 ? "text-blue-600" : "text-slate-400"
+                        )} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Queue</div>
+                        <div className="text-xs text-muted-foreground">
+                          {queueLength > 0 ? (
+                            <span className="text-blue-600 font-medium">{queueLength} job{queueLength !== 1 ? 's' : ''} waiting</span>
+                          ) : (
+                            <span className="text-slate-500">Empty</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button variant="outline" size="sm" onClick={fetchJobs}>
+                    <RefreshCw className="h-4 w-4 mr-2" />Refresh
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -400,9 +497,6 @@ const PcapProcessing = () => {
                     <CardTitle>Processing Jobs</CardTitle>
                     <CardDescription>Monitor jobs</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={fetchJobs}>
-                    <RefreshCw className="h-4 w-4 mr-2" />Refresh
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -527,7 +621,7 @@ const PcapProcessing = () => {
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
                       <div className="text-sm text-amber-800">
-                        <span className="font-medium">Note:</span> Agent must be running on EC2. Max 3 concurrent jobs.
+                        <span className="font-medium">Note:</span> Agent must be running on EC2. Max {MAX_CONCURRENT_JOBS} concurrent jobs.
                       </div>
                     </div>
                   </div>
