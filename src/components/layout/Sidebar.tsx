@@ -5,8 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import {
   LayoutDashboard,
-  Server,
-  Table,
   Upload,
   Settings,
   Users,
@@ -43,12 +41,6 @@ const Sidebar = () => {
     { name: 'Processing', href: '/processing', icon: Cpu },
   ];
 
-  // Legacy navigation (using mock data - can be removed later)
-  const legacyNavigation = [
-    { name: 'Sites (Mock)', href: '/sites', icon: Server },
-    { name: 'Variables (Mock)', href: '/variables', icon: Table },
-  ];
-
   const bottomNavigation = [
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
@@ -66,12 +58,6 @@ const Sidebar = () => {
     if (href === '/sites-management') {
       return location.pathname === '/sites-management' || 
              location.pathname.startsWith('/sites-management/');
-    }
-    
-    if (href === '/sites') {
-      return (location.pathname === '/sites' || 
-              location.pathname.startsWith('/sites/')) &&
-             !location.pathname.startsWith('/sites-management');
     }
     
     return location.pathname.startsWith(href);
@@ -155,23 +141,9 @@ const Sidebar = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Separator */}
-        <div className="py-2">
-          <Separator className="bg-[hsl(var(--sidebar-border))]" />
-        </div>
-
-        {/* Legacy navigation (mock data) - smaller and grayed out */}
-        <div className="space-y-1 opacity-60">
-          <div className="px-3 py-1 text-xs text-gray-500 uppercase tracking-wider">
-            Legacy (Mock Data)
-          </div>
-          {legacyNavigation.map((item) => (
-            <NavLink key={item.name} item={item} />
-          ))}
-        </div>
-
         {/* Bottom navigation */}
-        <div className="pt-2">
+        <div className="pt-4">
+          <Separator className="bg-[hsl(var(--sidebar-border))] mb-4" />
           {bottomNavigation.map((item) => (
             <NavLink key={item.name} item={item} />
           ))}

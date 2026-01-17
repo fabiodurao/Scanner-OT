@@ -27,6 +27,16 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+// Helper function to count unique variables (same logic as in the table)
+const countUniqueVariables = (variables: LearningSample[]): number => {
+  const uniqueKeys = new Set<string>();
+  for (const v of variables) {
+    const key = `${v.SourceIp}-${v.DestinationIp}-${v.Address}-${v.FC}`;
+    uniqueKeys.add(key);
+  }
+  return uniqueKeys.size;
+};
+
 const Discovery = () => {
   const { siteId } = useParams<{ siteId: string }>();
   const { getSiteStats, getSiteEquipment, getVariables } = useDiscoveryData();
@@ -90,6 +100,9 @@ const Discovery = () => {
     if (selectedFC !== 'all' && v.FC?.toString() !== selectedFC) return false;
     return true;
   });
+
+  // Count unique variables after filtering
+  const uniqueVariableCount = countUniqueVariables(filteredVariables);
 
   // Get unique function codes for filter
   const functionCodes = [...new Set(variables.map(v => v.FC).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0));
@@ -232,7 +245,7 @@ const Discovery = () => {
           <TabsList>
             <TabsTrigger value="variables">
               <Variable className="h-4 w-4 mr-2" />
-              Variables ({filteredVariables.length})
+              Variables ({uniqueVariableCount})
             </TabsTrigger>
             <TabsTrigger value="equipment">
               <Server className="h-4 w-4 mr-2" />
