@@ -1,0 +1,327 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { supabase } from '@/integrations/supabase/client';
+import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment } from '@/types/discovery';
+import { Site } from '@/types/upload';
+import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTable';
+import { EquipmentList } from '@/components/discovery/EquipmentList';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  ChevronLeft, 
+  Server, 
+  Variable, 
+  CheckCircle, 
+  Lightbulb,
+  HelpCircle,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Clock,
+  Database,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+const Discovery = () => {
+  const { siteId } = useParams<{ siteId: string }>();
+  const { getSiteStats, getSiteEquipment, getVariables } = useDiscoveryData();
+  
+  const [site, setSite] = useState<Site | null>(null);
+  const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
+  const [equipment, setEquipment] = useState<DiscoveredEquipment[]>([]);
+  const [variables, setVariables] = useState<LearningSample[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Filters
+  const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
+  const [selectedFC, setSelectedFC] = useState<string>('all');
+
+  const loadData = useCallback(async () => {
+    if (!siteId) return;
+    
+    setLoading(true);
+    
+    // Fetch site details
+    const { data: siteData } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('unique_id', siteId)
+      .single();
+    
+    if (siteData) {
+      setSite(siteData);
+    }
+    
+    // Fetch stats
+    const siteStats = await getSiteStats(siteId);
+    setStats(siteStats);
+    
+    // Fetch equipment
+    const siteEquipment = await getSiteEquipment(siteId);
+    setEquipment(siteEquipment);
+    
+    // Fetch variables
+    const siteVariables = await getVariables(siteId);
+    setVariables(siteVariables);
+    
+    setLoading(false);
+  }, [siteId, getSiteStats, getSiteEquipment, getVariables]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  // Filter variables
+  const filteredVariables = variables.filter(v => {
+    if (selectedEquipment !== 'all' && v.DestinationIp !== selectedEquipment) return false;
+    if (selectedFC !== 'all' && v.FC?.toString() !== selectedFC) return false;
+    return true;
+  });
+
+  // Get unique function codes for filter
+  const functionCodes = [...new Set(variables.map(v => v.FC).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0));
+
+  // Get slave equipment (those with variables)
+  const slaveEquipment = equipment.filter(e => e.role === 'slave');
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-[#2563EB] mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading discovery data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="p-8">
+        {/* Header */}
+        <div className="mb-6">
+          <Link
+            to="/"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-4"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Dashboard
+          </Link>
+          
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-[#1a2744]">
+                  {site?.name || `Site ${siteId?.slice(0, 8)}...`}
+                </h1>
+                {!site && (
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                    Unregistered
+                  </Badge>
+                )}
+              </div>
+              {site && (site.city || site.state) && (
+                <div className="flex items-center gap-1 text-muted-foreground mt-1">
+                  <MapPin className="h-4 w-4" />
+                  {[site.city, site.state, site.country].filter(Boolean).join(', ')}
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
+                  {siteId}
+                </code>
+              </div>
+            </div>
+            <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Equipment</CardTitle>
+                <Server className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalEquipment}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Variables</CardTitle>
+                <Variable className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalVariables}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unknown</CardTitle>
+                <HelpCircle className="h-4 w-4 text-slate-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-slate-600">{stats.variablesByState.unknown}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Hypothesis</CardTitle>
+                <Lightbulb className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">{stats.variablesByState.hypothesis}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">
+                  {stats.variablesByState.confirmed + stats.variablesByState.published}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Activity info */}
+        {stats && (
+          <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              <span>{stats.sampleCount.toLocaleString()} samples collected</span>
+            </div>
+            {stats.lastActivity && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Main Content */}
+        <Tabs defaultValue="variables" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="variables">
+              <Variable className="h-4 w-4 mr-2" />
+              Variables ({filteredVariables.length})
+            </TabsTrigger>
+            <TabsTrigger value="equipment">
+              <Server className="h-4 w-4 mr-2" />
+              Equipment ({equipment.length})
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="variables">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Discovered Variables</CardTitle>
+                    <CardDescription>
+                      Modbus registers with type inference scores
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by equipment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Equipment</SelectItem>
+                        {slaveEquipment.map(eq => (
+                          <SelectItem key={eq.ip} value={eq.ip}>
+                            {eq.ip} ({eq.variableCount} vars)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={selectedFC} onValueChange={setSelectedFC}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Function" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All FC</SelectItem>
+                        {functionCodes.map(fc => (
+                          <SelectItem key={fc} value={fc?.toString() || ''}>
+                            FC {fc}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredVariables.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Variable className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No variables found</p>
+                    {variables.length === 0 && (
+                      <p className="text-sm mt-2">
+                        Upload and process a PCAP file to discover variables
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <VariableHeatmapTable variables={filteredVariables} />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="equipment">
+            <Card>
+              <CardHeader>
+                <CardTitle>Discovered Equipment</CardTitle>
+                <CardDescription>
+                  Network devices identified in the OT traffic
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {equipment.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No equipment discovered yet</p>
+                  </div>
+                ) : (
+                  <EquipmentList equipment={equipment} />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Discovery;

@@ -1,43 +1,380 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { StatsOverview } from '@/components/dashboard/StatsOverview';
-import { SiteCard } from '@/components/dashboard/SiteCard';
-import { mockSites, mockEquipment, mockVariables, getSiteStats } from '@/data/mockData';
+import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { SiteDiscoveryStats } from '@/types/discovery';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { 
+  Building2, 
+  Server, 
+  Variable, 
+  CheckCircle, 
+  AlertTriangle,
+  Loader2,
+  MapPin,
+  Activity,
+  Clock,
+  ArrowRight,
+  HelpCircle,
+  RefreshCw
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+const siteTypeConfig: Record<string, { label: string; color: string }> = {
+  eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700' },
+  fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700' },
+  hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700' },
+  subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700' },
+};
 
 const Index = () => {
-  const totalEquipment = mockEquipment.length;
-  const totalVariables = mockVariables.length;
-  const confirmedVariables = mockVariables.filter(
-    v => v.learning_state === 'confirmed' || v.learning_state === 'published'
-  ).length;
+  const { 
+    sites, 
+    sitesLoading, 
+    unknownSites, 
+    unknownSitesLoading,
+    getSiteStats,
+    refreshAll 
+  } = useDiscoveryData();
+  
+  const [siteStats, setSiteStats] = useState<Record<string, SiteDiscoveryStats>>({});
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load stats for all sites
+  useEffect(() => {
+    const loadStats = async () => {
+      if (sites.length === 0) return;
+      
+      setLoadingStats(true);
+      const stats: Record<string, SiteDiscoveryStats> = {};
+      
+      for (const site of sites) {
+        if (site.unique_id) {
+          stats[site.unique_id] = await getSiteStats(site.unique_id);
+        }
+      }
+      
+      setSiteStats(stats);
+      setLoadingStats(false);
+    };
+    
+    loadStats();
+  }, [sites, getSiteStats]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshAll();
+    setRefreshing(false);
+  };
+
+  // Calculate totals
+  const totalEquipment = Object.values(siteStats).reduce((sum, s) => sum + s.totalEquipment, 0);
+  const totalVariables = Object.values(siteStats).reduce((sum, s) => sum + s.totalVariables, 0);
+  const confirmedVariables = Object.values(siteStats).reduce(
+    (sum, s) => sum + s.variablesByState.confirmed + s.variablesByState.published, 0
+  );
+  const hypothesisVariables = Object.values(siteStats).reduce(
+    (sum, s) => sum + s.variablesByState.hypothesis, 0
+  );
+
+  const isLoading = sitesLoading || unknownSitesLoading;
 
   return (
     <MainLayout>
       <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            CyberEnergia OT Scanner Overview
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              CyberEnergia OT Scanner Overview
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        <StatsOverview
-          totalSites={mockSites.length}
-          totalEquipment={totalEquipment}
-          totalVariables={totalVariables}
-          confirmedVariables={confirmedVariables}
-        />
+        {/* Unknown Sites Alert */}
+        {!unknownSitesLoading && unknownSites.length > 0 && (
+          <Card className="mb-6 border-amber-300 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <AlertTriangle className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-900">
+                    {unknownSites.length} Unknown Site{unknownSites.length !== 1 ? 's' : ''} Detected
+                  </h3>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Data is being received from site identifiers that are not registered in the system.
+                    These may be from real-time mbsniffer instances running at client locations.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {unknownSites.slice(0, 3).map(site => (
+                      <Badge key={site.identifier} variant="outline" className="bg-white">
+                        <Activity className="h-3 w-3 mr-1 text-amber-600" />
+                        {site.identifier.slice(0, 8)}... ({site.sampleCount} samples)
+                      </Badge>
+                    ))}
+                    {unknownSites.length > 3 && (
+                      <Badge variant="outline" className="bg-white">
+                        +{unknownSites.length - 3} more
+                      </Badge>
+                    )}
+                  </div>
+                  <Link to="/discovery">
+                    <Button size="sm" className="mt-4 bg-amber-600 hover:bg-amber-700">
+                      Review & Register Sites
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4 text-[#1a2744]">Sites / Plants</h2>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {mockSites.map((site) => (
-              <SiteCard
-                key={site.id}
-                site={site}
-                stats={getSiteStats(site.id)}
-              />
-            ))}
+        {/* Stats Overview */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Active Sites</CardTitle>
+              <div className="p-2 rounded-lg bg-blue-100">
+                <Building2 className="h-4 w-4 text-[#2563EB]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-[#1a2744]">{sites.length}</div>
+                  {unknownSites.length > 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      +{unknownSites.length} pending registration
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Equipment</CardTitle>
+              <div className="p-2 rounded-lg bg-purple-100">
+                <Server className="h-4 w-4 text-purple-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                <div className="text-3xl font-bold text-[#1a2744]">{totalEquipment}</div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Variables</CardTitle>
+              <div className="p-2 rounded-lg bg-slate-100">
+                <Variable className="h-4 w-4 text-slate-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-[#1a2744]">{totalVariables}</div>
+                  {hypothesisVariables > 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      {hypothesisVariables} with hypotheses
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-100">
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-emerald-600">{confirmedVariables}</div>
+                  {totalVariables > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {Math.round((confirmedVariables / totalVariables) * 100)}% of total
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sites Grid */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-[#1a2744]">Registered Sites</h2>
+            <Link to="/sites-management">
+              <Button variant="outline" size="sm">
+                Manage Sites
+              </Button>
+            </Link>
           </div>
+          
+          {sitesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : sites.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="font-medium text-lg mb-2">No Sites Registered</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start by registering your first site to begin monitoring.
+                </p>
+                <Link to="/sites-management">
+                  <Button>
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Add Site
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {sites.map((site) => {
+                const stats = site.unique_id ? siteStats[site.unique_id] : null;
+                const typeConfig = site.site_type ? siteTypeConfig[site.site_type] : null;
+                
+                return (
+                  <Link key={site.id} to={`/discovery/${site.unique_id || site.id}`}>
+                    <Card className="hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer border-slate-200 hover:border-[#2563EB]/30 h-full">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-lg text-[#1a2744]">{site.name}</CardTitle>
+                          {typeConfig && (
+                            <Badge className={typeConfig.color} variant="outline">
+                              {typeConfig.label}
+                            </Badge>
+                          )}
+                        </div>
+                        {(site.city || site.state) && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            {[site.city, site.state].filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        {loadingStats ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : stats ? (
+                          <>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                              <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-slate-100">
+                                  <Server className="h-4 w-4 text-slate-600" />
+                                </div>
+                                <div>
+                                  <div className="text-2xl font-bold text-[#1a2744]">{stats.totalEquipment}</div>
+                                  <div className="text-xs text-muted-foreground">Equipment</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-slate-100">
+                                  <Variable className="h-4 w-4 text-slate-600" />
+                                </div>
+                                <div>
+                                  <div className="text-2xl font-bold text-[#1a2744]">{stats.totalVariables}</div>
+                                  <div className="text-xs text-muted-foreground">Variables</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Learning state progress */}
+                            {stats.totalVariables > 0 && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">Learning Progress</span>
+                                  <span className="font-medium">
+                                    {stats.variablesByState.confirmed + stats.variablesByState.published}/{stats.totalVariables}
+                                  </span>
+                                </div>
+                                <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+                                  <div 
+                                    className="bg-emerald-500" 
+                                    style={{ width: `${(stats.variablesByState.published / stats.totalVariables) * 100}%` }}
+                                    title={`Published: ${stats.variablesByState.published}`}
+                                  />
+                                  <div 
+                                    className="bg-blue-500" 
+                                    style={{ width: `${(stats.variablesByState.confirmed / stats.totalVariables) * 100}%` }}
+                                    title={`Confirmed: ${stats.variablesByState.confirmed}`}
+                                  />
+                                  <div 
+                                    className="bg-amber-400" 
+                                    style={{ width: `${(stats.variablesByState.hypothesis / stats.totalVariables) * 100}%` }}
+                                    title={`Hypothesis: ${stats.variablesByState.hypothesis}`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    Published
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                    Confirmed
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                                    Hypothesis
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {stats.lastActivity && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-3 pt-3 border-t">
+                                <Clock className="h-3 w-3" />
+                                Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground text-sm">
+                            <HelpCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            No data yet
+                            <p className="text-xs mt-1">Upload a PCAP to start discovery</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

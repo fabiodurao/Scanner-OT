@@ -36,13 +36,17 @@ const Sidebar = () => {
   const mainNavigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Sites Management', href: '/sites-management', icon: Building2 },
-    { name: 'Sites', href: '/sites', icon: Server },
-    { name: 'Variables', href: '/variables', icon: Table },
   ];
 
   const pcapNavigation = [
     { name: 'Upload', href: '/upload', icon: Upload },
     { name: 'Processing', href: '/processing', icon: Cpu },
+  ];
+
+  // Legacy navigation (using mock data - can be removed later)
+  const legacyNavigation = [
+    { name: 'Sites (Mock)', href: '/sites', icon: Server },
+    { name: 'Variables (Mock)', href: '/variables', icon: Table },
   ];
 
   const bottomNavigation = [
@@ -151,6 +155,21 @@ const Sidebar = () => {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Separator */}
+        <div className="py-2">
+          <Separator className="bg-[hsl(var(--sidebar-border))]" />
+        </div>
+
+        {/* Legacy navigation (mock data) - smaller and grayed out */}
+        <div className="space-y-1 opacity-60">
+          <div className="px-3 py-1 text-xs text-gray-500 uppercase tracking-wider">
+            Legacy (Mock Data)
+          </div>
+          {legacyNavigation.map((item) => (
+            <NavLink key={item.name} item={item} />
+          ))}
+        </div>
+
         {/* Bottom navigation */}
         <div className="pt-2">
           {bottomNavigation.map((item) => (
@@ -184,7 +203,7 @@ const Sidebar = () => {
           Sign Out
         </Button>
         <div className="text-xs text-gray-500 mt-3">
-          OT Scanner v0.2
+          OT Scanner v0.3
         </div>
       </div>
     </div>
