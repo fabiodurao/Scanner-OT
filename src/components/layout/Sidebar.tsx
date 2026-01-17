@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,14 +30,29 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+// Persist collapsed state in localStorage
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
+
 const Sidebar = () => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   
-  // Check if any PCAP route is active to auto-expand
+  // Initialize from localStorage to persist across navigation
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    return saved === 'true';
+  });
+  
+  // Check if any PCAP route is active
   const isPcapActive = location.pathname === '/upload' || location.pathname === '/processing';
+  
+  // Only auto-open PCAP menu on initial mount if route is active, not on every navigation
   const [pcapOpen, setPcapOpen] = useState(isPcapActive);
+  
+  // Save collapsed state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
+  }, [isCollapsed]);
 
   const mainNavigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -69,6 +84,10 @@ const Sidebar = () => {
     }
     
     return location.pathname.startsWith(href);
+  };
+
+  const handleToggleCollapse = () => {
+    setIsCollapsed(prev => !prev);
   };
 
   const NavLink = ({ item }: { item: { name: string; href: string; icon: React.ElementType } }) => {
@@ -130,7 +149,7 @@ const Sidebar = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={handleToggleCollapse}
               className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
             >
               {isCollapsed ? (
