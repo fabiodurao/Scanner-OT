@@ -16,6 +16,7 @@ import Upload from "./pages/Upload";
 import PcapProcessing from "./pages/PcapProcessing";
 import SitesManagement from "./pages/SitesManagement";
 import Discovery from "./pages/Discovery";
+import UnknownSites from "./pages/UnknownSites";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import PendingApproval from "./pages/PendingApproval";
@@ -37,6 +38,7 @@ const AppRoutes = () => {
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       <Route path="/processing" element={<ProtectedRoute><PcapProcessing /></ProtectedRoute>} />
       <Route path="/sites-management" element={<ProtectedRoute><SitesManagement /></ProtectedRoute>} />
+      <Route path="/discovery" element={<ProtectedRoute><UnknownSites /></ProtectedRoute>} />
       <Route path="/discovery/:siteId" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
       <Route path="/customers" element={<Navigate to="/sites-management" replace />} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
