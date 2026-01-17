@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ChevronDown, ChevronRight, Filter, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VariableHeatmapTableProps {
   variables: LearningSample[];
   allSourceIps?: string[];
+  onFilterBySourceIp?: (ip: string | null) => void;
+  isLoadingFiltered?: boolean;
 }
 
 interface ColumnFilters {
@@ -49,6 +52,8 @@ const dataTypeColumns = [
   { key: 'FLOAT64BE', scoreKey: 'score_float64be', label: 'FLOAT64BE' },
   { key: 'FLOAT64LE', scoreKey: 'score_float64le', label: 'FLOAT64LE' },
 ] as const;
+
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500, 1000];
 
 const getScoreColor = (score: number | null): string => {
   if (score === null || score === undefined) return 'bg-gray-200 text-gray-500';
@@ -200,9 +205,16 @@ const FilterHeader = ({
   );
 };
 
-export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableHeatmapTableProps) => {
+export const VariableHeatmapTable = ({ 
+  variables, 
+  allSourceIps = [],
+  onFilterBySourceIp,
+  isLoadingFiltered = false,
+}: VariableHeatmapTableProps) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<ColumnFilters>(emptyFilters);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(200);
   
   const groupedVariables = useMemo(() => groupVariables(variables), [variables]);
   
@@ -234,12 +246,36 @@ export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableH
     });
   }, [groupedVariables, filters]);
   
+  // Pagination
+  const totalPages = Math.ceil(filteredVariables.length / pageSize);
+  const paginatedVariables = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredVariables.slice(start, start + pageSize);
+  }, [filteredVariables, currentPage, pageSize]);
+  
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [filters, pageSize]);
+  
   const hasActiveFilters = Object.values(filters).some(f => f.length > 0);
   
-  const clearAllFilters = () => setFilters(emptyFilters);
+  const clearAllFilters = () => {
+    setFilters(emptyFilters);
+    setCurrentPage(1);
+    if (onFilterBySourceIp) {
+      onFilterBySourceIp(null);
+    }
+  };
   
   const updateFilter = (key: keyof ColumnFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+    
+    // If filtering by sourceIp and we have a callback, trigger server-side filter
+    if (key === 'sourceIp' && onFilterBySourceIp) {
+      onFilterBySourceIp(value || null);
+    }
   };
   
   const toggleRow = (key: string) => {
@@ -255,6 +291,11 @@ export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableH
   
   const sourceIpsInData = new Set(groupedVariables.map(v => v.SourceIp).filter(Boolean)).size;
   const totalSourceIps = uniqueValues.sourceIps.length;
+
+  // Pagination controls
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <div className="space-y-4">
@@ -295,6 +336,76 @@ export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableH
               Clear all filters
             </Button>
           )}
+        </div>
+      </div>
+      
+      {/* Pagination controls - top */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows per page:</span>
+          <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
+            <SelectTrigger className="w-20 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {filteredVariables.length > 0 ? (
+              <>
+                {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredVariables.length)} of {filteredVariables.length}
+              </>
+            ) : (
+              '0 results'
+            )}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => goToPage(1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm px-2">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage >= totalPages}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
       
@@ -374,14 +485,23 @@ export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableH
               </tr>
             </thead>
             <tbody>
-              {filteredVariables.length === 0 ? (
+              {isLoadingFiltered ? (
+                <tr>
+                  <td colSpan={10 + dataTypeColumns.length} className="text-center py-8 text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Loading filtered data...
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedVariables.length === 0 ? (
                 <tr>
                   <td colSpan={10 + dataTypeColumns.length} className="text-center py-8 text-muted-foreground">
                     No variables match the current filters
                   </td>
                 </tr>
               ) : (
-                filteredVariables.map((variable) => {
+                paginatedVariables.map((variable) => {
                   const rowKey = `${variable.SourceIp}-${variable.DestinationIp}-${variable.Address}-${variable.FC}`;
                   const isExpanded = expandedRows.has(rowKey);
                   const hexLines = formatHex(variable.HEX);
@@ -470,10 +590,55 @@ export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableH
         </div>
       </div>
       
-      <div className="text-xs text-muted-foreground text-center">
-        Showing {filteredVariables.length} unique variables ({uniqueAddresses} addresses) 
-        {hasActiveFilters && ` (filtered from ${groupedVariables.length})`}
-        {' '}from {variables.length} total samples
+      {/* Pagination controls - bottom */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">
+          Showing {paginatedVariables.length} of {filteredVariables.length} unique variables ({uniqueAddresses} addresses) 
+          {hasActiveFilters && ` (filtered from ${groupedVariables.length})`}
+          {' '}from {variables.length} total samples
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => goToPage(1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm px-2">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => goToPage(totalPages)}
+            disabled={currentPage >= totalPages}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

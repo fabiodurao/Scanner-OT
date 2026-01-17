@@ -48,10 +48,14 @@ const Discovery = () => {
   const [allSourceIps, setAllSourceIps] = useState<string[]>([]); // All unique Source IPs from DB
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingFiltered, setLoadingFiltered] = useState(false);
   
   // Filters - now filtering by Source IP (equipment/slave)
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [selectedFC, setSelectedFC] = useState<string>('all');
+  
+  // Track if we're showing filtered data
+  const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!siteId) return;
@@ -101,14 +105,85 @@ const Discovery = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setActiveSourceIpFilter(null);
+    setSelectedEquipment('all');
+    setSelectedFC('all');
     await loadData();
     setRefreshing(false);
   };
 
-  // Filter variables - now by Source IP (equipment/slave)
+  // Handle equipment dropdown filter change
+  const handleEquipmentFilterChange = async (value: string) => {
+    setSelectedEquipment(value);
+    
+    if (value === 'all') {
+      // Reset to default data
+      setActiveSourceIpFilter(null);
+      const siteVariables = await getVariables(siteId!);
+      setVariables(siteVariables);
+    } else {
+      // Fetch data specifically for this Source IP
+      setLoadingFiltered(true);
+      setActiveSourceIpFilter(value);
+      
+      const { data, error } = await supabase
+        .from('learning_samples')
+        .select('*')
+        .eq('Identifier', siteId)
+        .eq('SourceIp', value)
+        .order('time', { ascending: false })
+        .limit(5000); // Higher limit for specific IP
+      
+      if (error) {
+        console.error('Error fetching filtered variables:', error);
+      } else {
+        setVariables((data || []) as LearningSample[]);
+      }
+      
+      setLoadingFiltered(false);
+    }
+  };
+
+  // Handle table's internal Source IP filter (from column filter)
+  const handleTableSourceIpFilter = async (ip: string | null) => {
+    if (!siteId) return;
+    
+    if (!ip) {
+      // Reset to default or current equipment filter
+      if (selectedEquipment === 'all') {
+        setActiveSourceIpFilter(null);
+        const siteVariables = await getVariables(siteId);
+        setVariables(siteVariables);
+      } else {
+        // Keep the equipment dropdown filter
+        handleEquipmentFilterChange(selectedEquipment);
+      }
+      return;
+    }
+    
+    // Fetch data specifically for this Source IP
+    setLoadingFiltered(true);
+    setActiveSourceIpFilter(ip);
+    
+    const { data, error } = await supabase
+      .from('learning_samples')
+      .select('*')
+      .eq('Identifier', siteId)
+      .ilike('SourceIp', `%${ip}%`) // Use ilike for partial match
+      .order('time', { ascending: false })
+      .limit(5000);
+    
+    if (error) {
+      console.error('Error fetching filtered variables:', error);
+    } else {
+      setVariables((data || []) as LearningSample[]);
+    }
+    
+    setLoadingFiltered(false);
+  };
+
+  // Filter variables by FC (client-side since it's fast)
   const filteredVariables = variables.filter(v => {
-    // Filter by Source IP (equipment) - the slave that responds with data
-    if (selectedEquipment !== 'all' && v.SourceIp !== selectedEquipment) return false;
     if (selectedFC !== 'all' && v.FC?.toString() !== selectedFC) return false;
     return true;
   });
@@ -286,10 +361,15 @@ const Discovery = () => {
                     <CardTitle>Discovered Variables</CardTitle>
                     <CardDescription>
                       Modbus registers with type inference scores
+                      {activeSourceIpFilter && (
+                        <span className="ml-2 text-blue-600">
+                          (filtered by: {activeSourceIpFilter})
+                        </span>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+                    <Select value={selectedEquipment} onValueChange={handleEquipmentFilterChange}>
                       <SelectTrigger className="w-56">
                         <SelectValue placeholder="Filter by equipment" />
                       </SelectTrigger>
@@ -320,7 +400,7 @@ const Discovery = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {filteredVariables.length === 0 ? (
+                {filteredVariables.length === 0 && !loadingFiltered ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Variable className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No variables found</p>
@@ -334,6 +414,8 @@ const Discovery = () => {
                   <VariableHeatmapTable 
                     variables={filteredVariables} 
                     allSourceIps={allSourceIps}
+                    onFilterBySourceIp={handleTableSourceIpFilter}
+                    isLoadingFiltered={loadingFiltered}
                   />
                 )}
               </CardContent>
