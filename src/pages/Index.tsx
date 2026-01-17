@@ -112,7 +112,8 @@ const Index = () => {
     setRefreshing(false);
   };
 
-  const handleOpenRegister = (identifier: string) => {
+  const handleOpenRegister = (identifier: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
     setSelectedUnknownId(identifier);
     setFormData({
       name: '',
@@ -123,6 +124,11 @@ const Index = () => {
       country: '',
     });
     setRegisterDialogOpen(true);
+  };
+
+  const handleCardClick = (identifier: string | null, id: string) => {
+    const targetId = identifier || id;
+    navigate(`/discovery/${targetId}`);
   };
 
   const handleRegister = async () => {
@@ -372,11 +378,12 @@ const Index = () => {
                 return (
                   <Card 
                     key={siteCard.id} 
-                    className={`hover:shadow-lg transition-all duration-300 h-full ${
+                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer h-full ${
                       isUnregistered 
                         ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' 
                         : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'
                     }`}
+                    onClick={() => handleCardClick(siteCard.identifier, siteCard.id)}
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
@@ -500,32 +507,19 @@ const Index = () => {
                         </div>
                       )}
                       
-                      {/* Action buttons */}
-                      <div className="mt-4 pt-3 border-t flex gap-2">
-                        {isUnregistered ? (
-                          <>
-                            <Link to={`/discovery/${siteCard.identifier}`} className="flex-1">
-                              <Button variant="outline" size="sm" className="w-full">
-                                View Data
-                              </Button>
-                            </Link>
-                            <Button 
-                              size="sm" 
-                              className="flex-1 bg-[#2563EB] hover:bg-[#1d4ed8]"
-                              onClick={() => handleOpenRegister(siteCard.identifier!)}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Register
-                            </Button>
-                          </>
-                        ) : (
-                          <Link to={`/discovery/${siteCard.identifier || siteCard.id}`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full">
-                              View Details
-                            </Button>
-                          </Link>
-                        )}
-                      </div>
+                      {/* Register button for unregistered sites */}
+                      {isUnregistered && (
+                        <div className="mt-4 pt-3 border-t">
+                          <Button 
+                            size="sm" 
+                            className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
+                            onClick={(e) => handleOpenRegister(siteCard.identifier!, e)}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Register Site
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
