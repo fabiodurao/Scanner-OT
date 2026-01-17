@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { Site } from '@/types/upload';
 import { generateUUIDv7, isValidUUID } from '@/utils/uuid';
 import { AddressAutocomplete } from '@/components/maps/AddressAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -57,9 +59,15 @@ import {
   Zap,
   Building,
   Search,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle,
+  Activity,
+  Server,
+  Variable,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 const siteTypeConfig = {
   eolica: { label: 'Wind', icon: Wind, color: 'bg-blue-100 text-blue-700' },
@@ -95,6 +103,9 @@ const emptyFormData: SiteFormData = {
 };
 
 const SitesManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { unknownSites, unknownSitesLoading, getSiteStats, refreshAll } = useDiscoveryData();
+  
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -103,6 +114,10 @@ const SitesManagement = () => {
   const [formData, setFormData] = useState<SiteFormData>(emptyFormData);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [isUniqueIdLocked, setIsUniqueIdLocked] = useState(false);
+  
+  // Stats for unknown sites
+  const [unknownSiteStats, setUnknownSiteStats] = useState<Record<string, { equipment: number; variables: number; samples: number }>>({});
 
   const fetchSites = async () => {
     setLoading(true);
@@ -120,9 +135,49 @@ const SitesManagement = () => {
     setLoading(false);
   };
 
+  // Load stats for unknown sites
+  useEffect(() => {
+    const loadUnknownStats = async () => {
+      const stats: Record<string, { equipment: number; variables: number; samples: number }> = {};
+      for (const unknown of unknownSites) {
+        const siteStats = await getSiteStats(unknown.identifier);
+        stats[unknown.identifier] = {
+          equipment: siteStats.totalEquipment,
+          variables: siteStats.totalVariables,
+          samples: siteStats.sampleCount,
+        };
+      }
+      setUnknownSiteStats(stats);
+    };
+    
+    if (unknownSites.length > 0) {
+      loadUnknownStats();
+    }
+  }, [unknownSites, getSiteStats]);
+
   useEffect(() => {
     fetchSites();
   }, []);
+
+  // Handle URL params for opening register dialog
+  useEffect(() => {
+    const registerParam = searchParams.get('register');
+    if (registerParam && !dialogOpen) {
+      // Check if it's an unknown site identifier
+      const unknownSite = unknownSites.find(u => u.identifier === registerParam);
+      if (unknownSite) {
+        setEditingSite(null);
+        setFormData({
+          ...emptyFormData,
+          unique_id: registerParam,
+        });
+        setIsUniqueIdLocked(true); // Lock the UUID since it comes from livescan/pcap data
+        setDialogOpen(true);
+        // Clear the URL param
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, unknownSites, dialogOpen, setSearchParams]);
 
   const handleOpenCreate = () => {
     setEditingSite(null);
@@ -130,6 +185,7 @@ const SitesManagement = () => {
       ...emptyFormData,
       unique_id: generateUUIDv7(),
     });
+    setIsUniqueIdLocked(false);
     setDialogOpen(true);
   };
 
@@ -147,12 +203,25 @@ const SitesManagement = () => {
       site_type: site.site_type || 'fotovoltaica',
       description: site.description || '',
     });
+    setIsUniqueIdLocked(false);
+    setDialogOpen(true);
+  };
+
+  const handleOpenRegisterUnknown = (identifier: string) => {
+    setEditingSite(null);
+    setFormData({
+      ...emptyFormData,
+      unique_id: identifier,
+    });
+    setIsUniqueIdLocked(true); // Lock the UUID since it comes from livescan/pcap data
     setDialogOpen(true);
   };
 
   const handleGenerateUUID = () => {
-    setFormData(prev => ({ ...prev, unique_id: generateUUIDv7() }));
-    toast.success('New UUID v7 generated');
+    if (!isUniqueIdLocked) {
+      setFormData(prev => ({ ...prev, unique_id: generateUUIDv7() }));
+      toast.success('New UUID v7 generated');
+    }
   };
 
   const handleCopyUUID = () => {
@@ -240,7 +309,9 @@ const SitesManagement = () => {
 
     setSaving(false);
     setDialogOpen(false);
+    setIsUniqueIdLocked(false);
     fetchSites();
+    refreshAll(); // Refresh unknown sites list
   };
 
   const handleDelete = async (siteId: string) => {
@@ -299,6 +370,79 @@ const SitesManagement = () => {
           </Button>
         </div>
 
+        {/* Unknown Sites Alert */}
+        {!unknownSitesLoading && unknownSites.length > 0 && (
+          <Card className="mb-6 border-amber-300 bg-amber-50">
+            <CardHeader>
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <AlertTriangle className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-amber-900">
+                    {unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected
+                  </CardTitle>
+                  <CardDescription className="text-amber-700 mt-1">
+                    Data is being received from site identifiers that are not registered. Register them to enable full monitoring.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {unknownSites.map((unknown) => {
+                  const stats = unknownSiteStats[unknown.identifier];
+                  return (
+                    <div 
+                      key={unknown.identifier} 
+                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-200"
+                    >
+                      <div className="flex items-center gap-4">
+                        <Activity className="h-5 w-5 text-amber-500" />
+                        <div>
+                          <code className="text-sm font-mono font-medium">{unknown.identifier}</code>
+                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                            {stats ? (
+                              <>
+                                <span className="flex items-center gap-1">
+                                  <Server className="h-3 w-3" />
+                                  {stats.equipment} equipment
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Variable className="h-3 w-3" />
+                                  {stats.variables} variables
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Activity className="h-3 w-3" />
+                                  {stats.samples.toLocaleString()} samples
+                                </span>
+                              </>
+                            ) : (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatDistanceToNow(new Date(unknown.lastSeen), { addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleOpenRegisterUnknown(unknown.identifier)}
+                        className="bg-[#2563EB] hover:bg-[#1d4ed8]"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Register
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Search */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -314,7 +458,7 @@ const SitesManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Sites Table */}
+        {/* Registered Sites Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -457,15 +601,22 @@ const SitesManagement = () => {
         </Card>
 
         {/* Create/Edit Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setIsUniqueIdLocked(false);
+          }
+        }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingSite ? 'Edit Site' : 'New Site'}
+                {editingSite ? 'Edit Site' : isUniqueIdLocked ? 'Register Site' : 'New Site'}
               </DialogTitle>
               <DialogDescription>
                 {editingSite 
                   ? 'Update site information and details'
+                  : isUniqueIdLocked
+                  ? 'Register this site identifier to enable full monitoring and analysis'
                   : 'Register a new site with location information'
                 }
               </DialogDescription>
@@ -548,8 +699,9 @@ const SitesManagement = () => {
                       id="unique_id"
                       placeholder="019ba81c-7573-7bb3-8f99-c585fd61faa3"
                       value={formData.unique_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, unique_id: e.target.value }))}
+                      onChange={(e) => !isUniqueIdLocked && setFormData(prev => ({ ...prev, unique_id: e.target.value }))}
                       className="font-mono text-sm"
+                      disabled={isUniqueIdLocked}
                     />
                     <Button
                       type="button"
@@ -557,6 +709,7 @@ const SitesManagement = () => {
                       size="icon"
                       onClick={handleGenerateUUID}
                       title="Generate new UUID v7"
+                      disabled={isUniqueIdLocked}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
@@ -571,17 +724,23 @@ const SitesManagement = () => {
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    UUID v7 is time-ordered and globally unique. 
-                    <a 
-                      href="https://www.uuidgenerator.net/version7" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[#2563EB] hover:underline ml-1"
-                    >
-                      Learn more
-                    </a>
-                  </p>
+                  {isUniqueIdLocked ? (
+                    <p className="text-xs text-amber-600">
+                      This UUID was detected from incoming data and cannot be changed.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      UUID v7 is time-ordered and globally unique. 
+                      <a 
+                        href="https://www.uuidgenerator.net/version7" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#2563EB] hover:underline ml-1"
+                      >
+                        Learn more
+                      </a>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -612,7 +771,7 @@ const SitesManagement = () => {
                     Saving...
                   </>
                 ) : (
-                  editingSite ? 'Save Changes' : 'Create Site'
+                  editingSite ? 'Save Changes' : 'Register Site'
                 )}
               </Button>
             </DialogFooter>

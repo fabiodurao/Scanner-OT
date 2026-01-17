@@ -2,30 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { 
   Building2, 
   Server, 
@@ -41,7 +21,6 @@ import {
   Plus,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from 'sonner';
 
 const siteTypeConfig: Record<string, { label: string; color: string }> = {
   eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700' },
@@ -52,7 +31,6 @@ const siteTypeConfig: Record<string, { label: string; color: string }> = {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { 
     sites, 
     sitesLoading, 
@@ -65,19 +43,6 @@ const Index = () => {
   const [siteStats, setSiteStats] = useState<Record<string, SiteDiscoveryStats>>({});
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Register dialog state
-  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
-  const [selectedUnknownId, setSelectedUnknownId] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    site_type: 'fotovoltaica',
-    description: '',
-    city: '',
-    state: '',
-    country: '',
-  });
 
   // Load stats for all sites
   useEffect(() => {
@@ -112,57 +77,15 @@ const Index = () => {
     setRefreshing(false);
   };
 
-  const handleOpenRegister = (identifier: string, e: React.MouseEvent) => {
+  const handleRegisterSite = (identifier: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click navigation
-    setSelectedUnknownId(identifier);
-    setFormData({
-      name: '',
-      site_type: 'fotovoltaica',
-      description: '',
-      city: '',
-      state: '',
-      country: '',
-    });
-    setRegisterDialogOpen(true);
+    // Navigate to Sites Management with the register parameter
+    navigate(`/sites-management?register=${encodeURIComponent(identifier)}`);
   };
 
   const handleCardClick = (identifier: string | null, id: string) => {
     const targetId = identifier || id;
     navigate(`/discovery/${targetId}`);
-  };
-
-  const handleRegister = async () => {
-    if (!selectedUnknownId || !formData.name.trim()) {
-      toast.error('Please enter a site name');
-      return;
-    }
-
-    setRegistering(true);
-
-    const { error } = await supabase.from('sites').insert({
-      name: formData.name.trim(),
-      unique_id: selectedUnknownId,
-      site_type: formData.site_type,
-      description: formData.description || null,
-      city: formData.city || null,
-      state: formData.state || null,
-      country: formData.country || null,
-      created_by: user?.id,
-    });
-
-    if (error) {
-      toast.error('Error registering site: ' + error.message);
-      setRegistering(false);
-      return;
-    }
-
-    toast.success('Site registered successfully!');
-    setRegisterDialogOpen(false);
-    await refreshAll();
-    setRegistering(false);
-    
-    // Navigate to the new site's discovery page
-    navigate(`/discovery/${selectedUnknownId}`);
   };
 
   // Calculate totals
@@ -513,7 +436,7 @@ const Index = () => {
                           <Button 
                             size="sm" 
                             className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
-                            onClick={(e) => handleOpenRegister(siteCard.identifier!, e)}
+                            onClick={(e) => handleRegisterSite(siteCard.identifier!, e)}
                           >
                             <Plus className="h-4 w-4 mr-1" />
                             Register Site
@@ -527,126 +450,6 @@ const Index = () => {
             </div>
           )}
         </div>
-
-        {/* Register Dialog */}
-        <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Register Site</DialogTitle>
-              <DialogDescription>
-                Register this site identifier to enable full monitoring and analysis.
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedUnknownId && (
-              <div className="space-y-4 py-4">
-                {/* Site identifier info */}
-                <div className="p-3 bg-slate-50 rounded-lg border">
-                  <div className="text-xs text-muted-foreground mb-1">Site Identifier (UUID)</div>
-                  <code className="text-sm font-mono font-medium break-all">{selectedUnknownId}</code>
-                  {siteStats[selectedUnknownId] && (
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span>{siteStats[selectedUnknownId].sampleCount.toLocaleString()} samples</span>
-                      <span>{siteStats[selectedUnknownId].totalEquipment} equipment</span>
-                      <span>{siteStats[selectedUnknownId].totalVariables} variables</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Form fields */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="site-name">Site Name *</Label>
-                    <Input
-                      id="site-name"
-                      placeholder="E.g.: Solar Plant Northeast I"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="site-type">Site Type</Label>
-                    <Select 
-                      value={formData.site_type} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, site_type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fotovoltaica">Solar</SelectItem>
-                        <SelectItem value="eolica">Wind</SelectItem>
-                        <SelectItem value="hibrida">Hybrid</SelectItem>
-                        <SelectItem value="subestacao">Substation</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="city">City</Label>
-                      <Input
-                        id="city"
-                        placeholder="City"
-                        value={formData.city}
-                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="state">State</Label>
-                      <Input
-                        id="state"
-                        placeholder="State"
-                        value={formData.state}
-                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
-                    <Input
-                      id="country"
-                      placeholder="Country"
-                      value={formData.country}
-                      onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Brief description of the site..."
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setRegisterDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleRegister} 
-                disabled={registering || !formData.name.trim()}
-                className="bg-[#2563EB] hover:bg-[#1d4ed8]"
-              >
-                {registering ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
-                Register Site
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </MainLayout>
   );
