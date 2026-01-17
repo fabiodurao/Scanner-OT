@@ -115,6 +115,7 @@ export interface LearningSample {
   time: string | null;
 }
 
+// Equipment discovered from PCAP analysis (stored in discovered_equipment table)
 export interface DiscoveredEquipment {
   ip: string;
   mac: string | null;
@@ -122,6 +123,35 @@ export interface DiscoveredEquipment {
   variableCount: number;
   lastSeen: string;
   protocols: string[];
+  
+  // Enrichment data (for future use)
+  manufacturer?: string | null;
+  model?: string | null;
+  deviceName?: string | null;
+  deviceType?: string | null;
+  firmwareVersion?: string | null;
+}
+
+// Full equipment record from database
+export interface DiscoveredEquipmentRecord {
+  id: string;
+  site_id: string | null;
+  site_identifier: string;
+  ip_address: string;
+  mac_address: string | null;
+  role: 'master' | 'slave' | 'unknown';
+  manufacturer: string | null;
+  model: string | null;
+  device_name: string | null;
+  device_type: string | null;
+  firmware_version: string | null;
+  variable_count: number;
+  sample_count: number;
+  protocols: string[];
+  first_seen_at: string;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SiteDiscoveryStats {

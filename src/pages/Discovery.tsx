@@ -24,8 +24,10 @@ import {
   RefreshCw,
   Clock,
   Database,
+  RefreshCcw,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 // Helper function to count unique variables (same logic as in the table)
 const countUniqueVariables = (variables: LearningSample[]): number => {
@@ -39,15 +41,15 @@ const countUniqueVariables = (variables: LearningSample[]): number => {
 
 const Discovery = () => {
   const { siteId } = useParams<{ siteId: string }>();
-  const { getSiteStats, getSiteEquipment, getVariables } = useDiscoveryData();
+  const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables } = useDiscoveryData();
   
   const [site, setSite] = useState<Site | null>(null);
   const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
   const [equipment, setEquipment] = useState<DiscoveredEquipment[]>([]);
   const [variables, setVariables] = useState<LearningSample[]>([]);
-  const [allSourceIps, setAllSourceIps] = useState<string[]>([]); // All unique Source IPs from DB
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   
   // Filters - now filtering by Source IP (equipment/slave)
@@ -73,24 +75,15 @@ const Discovery = () => {
       setSite(siteData);
     }
     
-    // Fetch stats (no limit)
+    // Fetch stats (uses discovered_equipment table)
     const siteStats = await getSiteStats(siteId);
     setStats(siteStats);
     
-    // Fetch equipment (no limit - gets ALL unique IPs)
+    // Fetch equipment from discovered_equipment table (fast!)
     const siteEquipment = await getSiteEquipment(siteId);
     setEquipment(siteEquipment);
     
-    // Extract all Source IPs from equipment data (slaves only)
-    // This is now the source of truth for all Source IPs
-    const sourceIpsFromEquipment = siteEquipment
-      .filter(e => e.role === 'slave')
-      .map(e => e.ip)
-      .sort();
-    
-    setAllSourceIps(sourceIpsFromEquipment);
-    
-    console.log(`[Discovery] All Source IPs from equipment: ${sourceIpsFromEquipment.length}`, sourceIpsFromEquipment);
+    console.log(`[Discovery] Loaded ${siteEquipment.length} equipment from table`);
     
     // Fetch variables (limited for display)
     const siteVariables = await getVariables(siteId);
@@ -110,6 +103,29 @@ const Discovery = () => {
     setSelectedFC('all');
     await loadData();
     setRefreshing(false);
+  };
+
+  // Sync equipment from learning_samples to discovered_equipment table
+  const handleSyncEquipment = async () => {
+    if (!siteId) return;
+    
+    setSyncing(true);
+    try {
+      const count = await syncSiteEquipment(siteId);
+      toast.success(`Synced ${count} equipment`);
+      
+      // Reload equipment
+      const siteEquipment = await getSiteEquipment(siteId);
+      setEquipment(siteEquipment);
+      
+      // Reload stats
+      const siteStats = await getSiteStats(siteId);
+      setStats(siteStats);
+    } catch (error) {
+      console.error('Error syncing equipment:', error);
+      toast.error('Error syncing equipment');
+    }
+    setSyncing(false);
   };
 
   // Handle equipment dropdown filter change
@@ -197,15 +213,8 @@ const Discovery = () => {
   // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
   
-  // Build equipment options for dropdown using ALL source IPs
-  // This ensures consistency between the dropdown and what's in the database
-  const equipmentOptions = allSourceIps.map(ip => {
-    const eq = slaveEquipment.find(e => e.ip === ip);
-    return {
-      ip,
-      variableCount: eq?.variableCount || 0,
-    };
-  });
+  // All source IPs from equipment table
+  const allSourceIps = slaveEquipment.map(e => e.ip).sort();
 
   if (loading) {
     return (
@@ -257,10 +266,16 @@ const Discovery = () => {
                 </code>
               </div>
             </div>
-            <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleSyncEquipment} disabled={syncing}>
+                <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Sync Equipment
+              </Button>
+              <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -275,7 +290,7 @@ const Discovery = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalEquipment}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {allSourceIps.length} slave devices
+                  {slaveEquipment.length} slave devices
                 </p>
               </CardContent>
             </Card>
@@ -375,9 +390,9 @@ const Discovery = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Equipment ({allSourceIps.length} IPs)</SelectItem>
-                        {equipmentOptions.map(eq => (
+                        {slaveEquipment.map(eq => (
                           <SelectItem key={eq.ip} value={eq.ip}>
-                            {eq.ip} {eq.variableCount > 0 && `(${eq.variableCount} vars)`}
+                            {eq.ip} ({eq.variableCount} vars)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -425,16 +440,28 @@ const Discovery = () => {
           <TabsContent value="equipment">
             <Card>
               <CardHeader>
-                <CardTitle>Discovered Equipment</CardTitle>
-                <CardDescription>
-                  Network devices identified in the OT traffic ({allSourceIps.length} slave devices, {equipment.filter(e => e.role === 'master').length} master devices)
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Discovered Equipment</CardTitle>
+                    <CardDescription>
+                      Network devices identified in the OT traffic ({slaveEquipment.length} slave devices, {equipment.filter(e => e.role === 'master').length} master devices)
+                    </CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleSyncEquipment} disabled={syncing}>
+                    <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    Sync from Samples
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {equipment.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No equipment discovered yet</p>
+                    <Button variant="outline" className="mt-4" onClick={handleSyncEquipment} disabled={syncing}>
+                      <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      Sync Equipment
+                    </Button>
                   </div>
                 ) : (
                   <EquipmentList equipment={equipment} />

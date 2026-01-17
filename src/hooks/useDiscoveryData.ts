@@ -21,8 +21,11 @@ interface UseDiscoveryDataReturn {
   // Stats per site
   getSiteStats: (siteIdentifier: string) => Promise<SiteDiscoveryStats>;
   
-  // Equipment per site
+  // Equipment per site (now from discovered_equipment table)
   getSiteEquipment: (siteIdentifier: string) => Promise<DiscoveredEquipment[]>;
+  
+  // Sync equipment for a site (consolidate from learning_samples)
+  syncSiteEquipment: (siteIdentifier: string) => Promise<number>;
   
   // Variables
   getVariables: (siteIdentifier: string, filters?: VariableFilters) => Promise<LearningSample[]>;
@@ -190,45 +193,69 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     setUnknownSitesLoading(false);
   }, []);
 
-  // Get stats for a specific site - NO LIMIT, fetches all data
+  // Get stats for a specific site - uses discovered_equipment for equipment count
   const getSiteStats = useCallback(async (siteIdentifier: string): Promise<SiteDiscoveryStats> => {
-    // Get ALL samples for this site (no limit)
-    const { data: samples, error } = await supabase
-      .from('learning_samples')
-      .select('SourceIp, DestinationIp, Address, FC, time')
-      .eq('Identifier', siteIdentifier);
+    // Get equipment count from discovered_equipment table (fast!)
+    const { data: equipmentData, error: eqError } = await supabase
+      .from('discovered_equipment')
+      .select('ip_address, role, variable_count, sample_count, last_seen_at')
+      .eq('site_identifier', siteIdentifier);
     
-    if (error) {
-      console.error('Error fetching site stats:', error);
+    if (eqError) {
+      console.error('Error fetching equipment:', eqError);
     }
     
-    if (!samples || samples.length === 0) {
-      return {
-        totalEquipment: 0,
-        totalVariables: 0,
-        variablesByState: { unknown: 0, hypothesis: 0, confirmed: 0, published: 0 },
-        lastActivity: null,
-        sampleCount: 0,
-      };
+    // If no equipment in table, try to sync first
+    if (!equipmentData || equipmentData.length === 0) {
+      console.log(`No equipment found for ${siteIdentifier}, attempting sync...`);
+      await syncSiteEquipment(siteIdentifier);
+      
+      // Retry fetch
+      const { data: retryData } = await supabase
+        .from('discovered_equipment')
+        .select('ip_address, role, variable_count, sample_count, last_seen_at')
+        .eq('site_identifier', siteIdentifier);
+      
+      if (retryData && retryData.length > 0) {
+        return calculateStatsFromEquipment(retryData, siteIdentifier);
+      }
+    } else {
+      return calculateStatsFromEquipment(equipmentData, siteIdentifier);
     }
+    
+    // Fallback: no data
+    return {
+      totalEquipment: 0,
+      totalVariables: 0,
+      variablesByState: { unknown: 0, hypothesis: 0, confirmed: 0, published: 0 },
+      lastActivity: null,
+      sampleCount: 0,
+    };
+  }, []);
+
+  // Helper to calculate stats from equipment data
+  const calculateStatsFromEquipment = async (
+    equipmentData: Array<{ ip_address: string; role: string; variable_count: number; sample_count: number; last_seen_at: string }>,
+    siteIdentifier: string
+  ): Promise<SiteDiscoveryStats> => {
+    // Count slaves (equipment with registers)
+    const slaves = equipmentData.filter(e => e.role === 'slave');
+    const totalEquipment = equipmentData.length;
+    const totalVariables = slaves.reduce((sum, e) => sum + (e.variable_count || 0), 0);
+    const totalSamples = equipmentData.reduce((sum, e) => sum + (e.sample_count || 0), 0);
+    
+    // Get last activity
+    const lastSeenDates = equipmentData
+      .map(e => e.last_seen_at)
+      .filter(Boolean)
+      .sort();
+    const lastActivity = lastSeenDates.length > 0 ? lastSeenDates[lastSeenDates.length - 1] : null;
     
     // Get discovered variables for state counts
     const { data: discoveredVars } = await supabase
       .from('discovered_variables')
       .select('learning_state')
       .eq('site_identifier', siteIdentifier);
-    
-    // Count unique equipment - SourceIp is the equipment (slave) responding
-    const equipmentIps = new Set<string>();
-    samples.forEach(s => {
-      // Only count SourceIp as equipment (the slave that responds with data)
-      if (s.SourceIp) equipmentIps.add(s.SourceIp);
-    });
-    
-    // Count unique variables (source IP (equipment) + address + FC)
-    const uniqueVars = new Set(
-      samples.map(s => `${s.SourceIp}-${s.Address}-${s.FC}`)
-    );
     
     // Count by state
     const stateCount = { unknown: 0, hypothesis: 0, confirmed: 0, published: 0 };
@@ -239,172 +266,92 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       });
     } else {
       // If no discovered_variables yet, all are unknown
-      stateCount.unknown = uniqueVars.size;
+      stateCount.unknown = totalVariables;
     }
     
-    // Get last activity
-    const times = samples
-      .map(s => s.time)
-      .filter((t): t is string => t !== null)
-      .sort();
-    const lastActivity = times.length > 0 ? times[times.length - 1] : null;
-    
     return {
-      totalEquipment: equipmentIps.size,
-      totalVariables: uniqueVars.size,
+      totalEquipment,
+      totalVariables,
       variablesByState: stateCount,
       lastActivity,
-      sampleCount: samples.length,
+      sampleCount: totalSamples,
     };
-  }, []);
+  };
 
-  // Get equipment for a site - fetches ALL unique IPs from database
-  // In Modbus: SourceIp is the equipment (slave) that RESPONDS with register data
-  // DestinationIp is the master/client that ASKS for data
+  // Get equipment for a site - now from discovered_equipment table (fast!)
   const getSiteEquipment = useCallback(async (siteIdentifier: string): Promise<DiscoveredEquipment[]> => {
-    // First, get ALL unique Source IPs and Destination IPs from the database
-    // We need to do this without limit to ensure we get all equipment
-    const { data: allIpData, error: ipError } = await supabase
-      .from('learning_samples')
-      .select('SourceIp, SourceMac, DestinationIp, DestinationMac, Protocol')
-      .eq('Identifier', siteIdentifier);
+    console.log(`[getSiteEquipment] Fetching from discovered_equipment for ${siteIdentifier}`);
     
-    if (ipError || !allIpData) {
-      console.error('Error fetching IPs:', ipError);
+    const { data, error } = await supabase
+      .from('discovered_equipment')
+      .select('*')
+      .eq('site_identifier', siteIdentifier)
+      .order('role', { ascending: false })
+      .order('variable_count', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching equipment:', error);
       return [];
     }
     
-    console.log(`[getSiteEquipment] Fetched ${allIpData.length} samples for ${siteIdentifier}`);
-    
-    // Build equipment map from ALL data
-    const equipmentMap = new Map<string, {
-      mac: string | null;
-      role: 'master' | 'slave' | 'unknown';
-      lastSeen: string;
-      protocols: Set<string>;
-      isSource: boolean; // Track if this IP appears as Source (slave)
-      isDest: boolean;   // Track if this IP appears as Destination (master)
-    }>();
-    
-    for (const sample of allIpData) {
-      // Source IP is the SLAVE (equipment with registers that responds)
-      if (sample.SourceIp) {
-        if (!equipmentMap.has(sample.SourceIp)) {
-          equipmentMap.set(sample.SourceIp, {
-            mac: sample.SourceMac,
-            role: 'slave',
-            lastSeen: new Date().toISOString(),
-            protocols: new Set(),
-            isSource: true,
-            isDest: false,
-          });
-        } else {
-          const entry = equipmentMap.get(sample.SourceIp)!;
-          entry.isSource = true;
-          if (!entry.mac && sample.SourceMac) entry.mac = sample.SourceMac;
-        }
-        const entry = equipmentMap.get(sample.SourceIp)!;
-        if (sample.Protocol) entry.protocols.add(sample.Protocol);
+    // If no data, try to sync first
+    if (!data || data.length === 0) {
+      console.log(`No equipment in table for ${siteIdentifier}, syncing...`);
+      const count = await syncSiteEquipment(siteIdentifier);
+      console.log(`Synced ${count} equipment for ${siteIdentifier}`);
+      
+      // Retry fetch
+      const { data: retryData, error: retryError } = await supabase
+        .from('discovered_equipment')
+        .select('*')
+        .eq('site_identifier', siteIdentifier)
+        .order('role', { ascending: false })
+        .order('variable_count', { ascending: false });
+      
+      if (retryError || !retryData) {
+        return [];
       }
       
-      // Destination IP is the MASTER (SCADA/HMI that asks for data)
-      if (sample.DestinationIp) {
-        if (!equipmentMap.has(sample.DestinationIp)) {
-          equipmentMap.set(sample.DestinationIp, {
-            mac: sample.DestinationMac,
-            role: 'master',
-            lastSeen: new Date().toISOString(),
-            protocols: new Set(),
-            isSource: false,
-            isDest: true,
-          });
-        } else {
-          const entry = equipmentMap.get(sample.DestinationIp)!;
-          entry.isDest = true;
-          if (!entry.mac && sample.DestinationMac) entry.mac = sample.DestinationMac;
-        }
-        const entry = equipmentMap.get(sample.DestinationIp)!;
-        if (sample.Protocol) entry.protocols.add(sample.Protocol);
-      }
+      return mapEquipmentData(retryData);
     }
     
-    // Determine final role based on whether IP appears as source, dest, or both
-    for (const [, data] of equipmentMap) {
-      if (data.isSource && data.isDest) {
-        // Appears as both - likely a gateway or complex device, treat as slave since it has data
-        data.role = 'slave';
-      } else if (data.isSource) {
-        data.role = 'slave';
-      } else if (data.isDest) {
-        data.role = 'master';
-      } else {
-        data.role = 'unknown';
-      }
+    return mapEquipmentData(data);
+  }, []);
+
+  // Helper to map database equipment to DiscoveredEquipment type
+  const mapEquipmentData = (data: Array<{
+    ip_address: string;
+    mac_address: string | null;
+    role: string;
+    variable_count: number;
+    sample_count: number;
+    protocols: string[] | null;
+    last_seen_at: string;
+  }>): DiscoveredEquipment[] => {
+    return data.map(eq => ({
+      ip: eq.ip_address,
+      mac: eq.mac_address,
+      role: eq.role as 'master' | 'slave' | 'unknown',
+      variableCount: eq.variable_count || 0,
+      lastSeen: eq.last_seen_at,
+      protocols: eq.protocols || [],
+    }));
+  };
+
+  // Sync equipment for a site (call the database function)
+  const syncSiteEquipment = useCallback(async (siteIdentifier: string): Promise<number> => {
+    console.log(`[syncSiteEquipment] Syncing equipment for ${siteIdentifier}`);
+    
+    const { data, error } = await supabase
+      .rpc('sync_site_equipment', { p_site_identifier: siteIdentifier });
+    
+    if (error) {
+      console.error('Error syncing equipment:', error);
+      return 0;
     }
     
-    // Now get variable counts for each Source IP (slave)
-    // We need to count unique Address+FC combinations per SourceIp
-    const { data: varData } = await supabase
-      .from('learning_samples')
-      .select('SourceIp, DestinationIp, Address, FC, time')
-      .eq('Identifier', siteIdentifier);
-    
-    // Count variables per source IP
-    const varCountMap = new Map<string, Set<string>>();
-    const lastSeenMap = new Map<string, string>();
-    
-    if (varData) {
-      for (const sample of varData) {
-        if (sample.SourceIp) {
-          if (!varCountMap.has(sample.SourceIp)) {
-            varCountMap.set(sample.SourceIp, new Set());
-          }
-          varCountMap.get(sample.SourceIp)!.add(`${sample.Address}-${sample.FC}`);
-          
-          // Track last seen
-          if (sample.time) {
-            const current = lastSeenMap.get(sample.SourceIp);
-            if (!current || sample.time > current) {
-              lastSeenMap.set(sample.SourceIp, sample.time);
-            }
-          }
-        }
-        
-        // Also track last seen for destination IPs
-        if (sample.DestinationIp && sample.time) {
-          const current = lastSeenMap.get(sample.DestinationIp);
-          if (!current || sample.time > current) {
-            lastSeenMap.set(sample.DestinationIp, sample.time);
-          }
-        }
-      }
-    }
-    
-    // Convert to array
-    const equipment: DiscoveredEquipment[] = [];
-    for (const [ip, data] of equipmentMap) {
-      const varCount = varCountMap.get(ip)?.size || 0;
-      const lastSeen = lastSeenMap.get(ip) || data.lastSeen;
-      
-      equipment.push({
-        ip,
-        mac: data.mac,
-        role: data.role,
-        variableCount: varCount,
-        lastSeen,
-        protocols: Array.from(data.protocols),
-      });
-    }
-    
-    console.log(`[getSiteEquipment] Found ${equipment.length} unique IPs:`, equipment.map(e => ({ ip: e.ip, role: e.role, vars: e.variableCount })));
-    
-    // Sort: slaves first (they have variables), then by variable count
-    equipment.sort((a, b) => {
-      if (a.role !== b.role) return a.role === 'slave' ? -1 : 1;
-      return b.variableCount - a.variableCount;
-    });
-    
-    return equipment;
+    console.log(`[syncSiteEquipment] Synced ${data} equipment for ${siteIdentifier}`);
+    return data || 0;
   }, []);
 
   // Get raw learning samples for a site (with limit for display)
@@ -474,6 +421,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     unknownSitesLoading,
     getSiteStats,
     getSiteEquipment,
+    syncSiteEquipment,
     getVariables,
     getDiscoveredVariables,
     refreshAll,
