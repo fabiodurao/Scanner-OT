@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { LearningSample } from '@/types/discovery';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,26 +36,26 @@ const getScoreColor = (score: number | null): string => {
   const normalizedScore = Math.min(1, Math.max(0, score));
   
   // 20 tones from red (0) to green (1) - vibrant colors
-  if (normalizedScore >= 0.95) return 'bg-[#00B050] text-white';        // Bright green
-  if (normalizedScore >= 0.90) return 'bg-[#17B169] text-white';        // Green
-  if (normalizedScore >= 0.85) return 'bg-[#2DC97A] text-white';        // Light green
-  if (normalizedScore >= 0.80) return 'bg-[#5DD55D] text-black';        // Lime green
-  if (normalizedScore >= 0.75) return 'bg-[#8DE28D] text-black';        // Light lime
-  if (normalizedScore >= 0.70) return 'bg-[#B5E61D] text-black';        // Yellow-green
-  if (normalizedScore >= 0.65) return 'bg-[#D4ED26] text-black';        // Chartreuse
-  if (normalizedScore >= 0.60) return 'bg-[#FFFF00] text-black';        // Yellow
-  if (normalizedScore >= 0.55) return 'bg-[#FFE135] text-black';        // Golden yellow
-  if (normalizedScore >= 0.50) return 'bg-[#FFC000] text-black';        // Orange-yellow
-  if (normalizedScore >= 0.45) return 'bg-[#FFA500] text-black';        // Orange
-  if (normalizedScore >= 0.40) return 'bg-[#FF8C00] text-black';        // Dark orange
-  if (normalizedScore >= 0.35) return 'bg-[#FF7518] text-white';        // Pumpkin
-  if (normalizedScore >= 0.30) return 'bg-[#FF5722] text-white';        // Deep orange
-  if (normalizedScore >= 0.25) return 'bg-[#FF4500] text-white';        // Orange-red
-  if (normalizedScore >= 0.20) return 'bg-[#FF3300] text-white';        // Red-orange
-  if (normalizedScore >= 0.15) return 'bg-[#FF1A1A] text-white';        // Bright red
-  if (normalizedScore >= 0.10) return 'bg-[#FF0000] text-white';        // Red
-  if (normalizedScore >= 0.05) return 'bg-[#E60000] text-white';        // Dark red
-  if (normalizedScore > 0) return 'bg-[#CC0000] text-white';            // Darker red
+  if (normalizedScore >= 0.95) return 'bg-[#00B050] text-white';
+  if (normalizedScore >= 0.90) return 'bg-[#17B169] text-white';
+  if (normalizedScore >= 0.85) return 'bg-[#2DC97A] text-white';
+  if (normalizedScore >= 0.80) return 'bg-[#5DD55D] text-black';
+  if (normalizedScore >= 0.75) return 'bg-[#8DE28D] text-black';
+  if (normalizedScore >= 0.70) return 'bg-[#B5E61D] text-black';
+  if (normalizedScore >= 0.65) return 'bg-[#D4ED26] text-black';
+  if (normalizedScore >= 0.60) return 'bg-[#FFFF00] text-black';
+  if (normalizedScore >= 0.55) return 'bg-[#FFE135] text-black';
+  if (normalizedScore >= 0.50) return 'bg-[#FFC000] text-black';
+  if (normalizedScore >= 0.45) return 'bg-[#FFA500] text-black';
+  if (normalizedScore >= 0.40) return 'bg-[#FF8C00] text-black';
+  if (normalizedScore >= 0.35) return 'bg-[#FF7518] text-white';
+  if (normalizedScore >= 0.30) return 'bg-[#FF5722] text-white';
+  if (normalizedScore >= 0.25) return 'bg-[#FF4500] text-white';
+  if (normalizedScore >= 0.20) return 'bg-[#FF3300] text-white';
+  if (normalizedScore >= 0.15) return 'bg-[#FF1A1A] text-white';
+  if (normalizedScore >= 0.10) return 'bg-[#FF0000] text-white';
+  if (normalizedScore >= 0.05) return 'bg-[#E60000] text-white';
+  if (normalizedScore > 0) return 'bg-[#CC0000] text-white';
   return 'bg-gray-200 text-gray-500';
 };
 
@@ -66,18 +64,15 @@ const formatValue = (value: number | null, type: string): string => {
   if (value === null || value === undefined) return '-';
   
   if (type.includes('FLOAT')) {
-    // Check if it's a reasonable float value
     if (!isFinite(value) || Math.abs(value) > 1e15) {
       return 'Invalid';
     }
-    // Show more precision for small values
     if (Math.abs(value) < 0.01 && value !== 0) {
       return value.toExponential(2);
     }
     return value.toFixed(3);
   }
   
-  // For integers, show with thousand separators
   return value.toLocaleString();
 };
 
@@ -87,25 +82,26 @@ const formatScore = (score: number | null): string => {
   return (score * 100).toFixed(0) + '%';
 };
 
-// Format HEX with 4 characters per line
+// Format HEX with 8 characters per line in groups of 2 (e.g., "43 23 36 36")
 const formatHex = (hex: string | null): string[] => {
   if (!hex) return ['-'];
-  // Remove spaces and split into chunks of 4
   const cleanHex = hex.replace(/\s/g, '').toUpperCase();
-  const chunks: string[] = [];
-  for (let i = 0; i < cleanHex.length; i += 4) {
-    chunks.push(cleanHex.slice(i, i + 4));
+  const lines: string[] = [];
+  
+  for (let i = 0; i < cleanHex.length; i += 8) {
+    const chunk = cleanHex.slice(i, i + 8);
+    const formatted = chunk.match(/.{1,2}/g)?.join(' ') || chunk;
+    lines.push(formatted);
   }
-  return chunks.length > 0 ? chunks : ['-'];
+  
+  return lines.length > 0 ? lines : ['-'];
 };
 
-// Group variables by source IP, destination IP, address, and FC - count samples per group
-// Note: In Modbus, SourceIp is the equipment (slave) responding, DestinationIp is the master asking
+// Group variables by source IP, destination IP, address, and FC
 const groupVariables = (variables: LearningSample[]) => {
   const grouped = new Map<string, LearningSample[]>();
   
   for (const v of variables) {
-    // Key by SourceIp (equipment), DestinationIp (master), Address, and FC
     const key = `${v.SourceIp}-${v.DestinationIp}-${v.Address}-${v.FC}`;
     if (!grouped.has(key)) {
       grouped.set(key, []);
@@ -113,10 +109,8 @@ const groupVariables = (variables: LearningSample[]) => {
     grouped.get(key)!.push(v);
   }
   
-  // Return the most recent sample for each group, along with sample count
   const result: Array<LearningSample & { sampleCount: number }> = [];
   for (const [, samples] of grouped) {
-    // Sort by time descending and take the first (most recent)
     samples.sort((a, b) => {
       const timeA = a.time ? new Date(a.time).getTime() : 0;
       const timeB = b.time ? new Date(b.time).getTime() : 0;
@@ -125,7 +119,6 @@ const groupVariables = (variables: LearningSample[]) => {
     result.push({ ...samples[0], sampleCount: samples.length });
   }
   
-  // Sort by source IP (equipment), then destination IP (master), then address
   result.sort((a, b) => {
     if (a.SourceIp !== b.SourceIp) {
       return (a.SourceIp || '').localeCompare(b.SourceIp || '');
@@ -156,7 +149,6 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
     });
   };
 
-  // Calculate total unique addresses (by equipment + address)
   const uniqueAddresses = new Set(groupedVariables.map(v => `${v.SourceIp}-${v.Address}`)).size;
 
   return (
@@ -190,40 +182,42 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
         </div>
       </div>
       
-      <ScrollArea className="w-full">
-        <div className="min-w-[1800px]">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead className="w-10"></TableHead>
-                <TableHead className="w-28">Source IP</TableHead>
-                <TableHead className="w-28">Destination IP</TableHead>
-                <TableHead className="w-16">Unit</TableHead>
-                <TableHead className="w-20">Address</TableHead>
-                <TableHead className="w-12">FC</TableHead>
-                <TableHead className="w-16">Samples</TableHead>
-                <TableHead className="w-20">Best Type</TableHead>
-                <TableHead className="w-16">HEX</TableHead>
+      {/* Table with sticky header */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="max-h-[600px] overflow-auto">
+          <table className="w-full min-w-[2000px]">
+            <thead className="sticky top-0 z-10 bg-slate-50 border-b">
+              <tr>
+                <th className="w-10 px-2 py-3 text-left text-xs font-medium text-muted-foreground"></th>
+                <th className="w-28 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Source IP</th>
+                <th className="w-28 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Destination IP</th>
+                <th className="w-16 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Unit</th>
+                <th className="w-20 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Address</th>
+                <th className="w-12 px-2 py-3 text-left text-xs font-medium text-muted-foreground">FC</th>
+                <th className="w-20 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Protocol</th>
+                <th className="w-16 px-2 py-3 text-center text-xs font-medium text-muted-foreground">Samples</th>
+                <th className="w-20 px-2 py-3 text-left text-xs font-medium text-muted-foreground">Best Type</th>
+                <th className="w-24 px-2 py-3 text-left text-xs font-medium text-muted-foreground">HEX</th>
                 {dataTypeColumns.map(col => (
-                  <TableHead key={col.key} className="w-24 text-center text-xs">
+                  <th key={col.key} className="w-24 px-1 py-3 text-center text-xs font-medium text-muted-foreground">
                     {col.label}
-                  </TableHead>
+                  </th>
                 ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+              </tr>
+            </thead>
+            <tbody>
               {groupedVariables.map((variable) => {
                 const rowKey = `${variable.SourceIp}-${variable.DestinationIp}-${variable.Address}-${variable.FC}`;
                 const isExpanded = expandedRows.has(rowKey);
-                const hexChunks = formatHex(variable.HEX);
+                const hexLines = formatHex(variable.HEX);
                 
                 return (
-                  <TableRow 
+                  <tr 
                     key={rowKey} 
-                    className="hover:bg-slate-50 cursor-pointer"
+                    className="hover:bg-slate-50 cursor-pointer border-b"
                     onClick={() => toggleRow(rowKey)}
                   >
-                    <TableCell className="p-2">
+                    <td className="px-2 py-2">
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4" />
@@ -231,30 +225,39 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </Button>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    </td>
+                    <td className="px-2 py-2 font-mono text-xs">
                       {variable.SourceIp || '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    </td>
+                    <td className="px-2 py-2 font-mono text-xs">
                       {variable.DestinationIp || '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
+                    </td>
+                    <td className="px-2 py-2 font-mono text-sm">
                       {variable.unid_Id ?? '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm font-medium">
+                    </td>
+                    <td className="px-2 py-2 font-mono text-sm font-medium">
                       {variable.Address}
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-2 py-2">
                       <Badge variant="outline" className="font-mono text-xs">
                         {variable.FC}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </td>
+                    <td className="px-2 py-2">
+                      {variable.Protocol ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {variable.Protocol}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-center">
                       <Badge variant="secondary" className="font-mono text-xs">
                         {variable.sampleCount}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-2 py-2">
                       {variable['Best Type'] ? (
                         <Badge className="bg-blue-100 text-blue-700 text-xs">
                           {variable['Best Type']}
@@ -262,32 +265,32 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
-                    </TableCell>
-                    <TableCell className="font-mono text-[10px] leading-tight">
+                    </td>
+                    <td className="px-2 py-2 font-mono text-[10px] leading-tight">
                       <div className="flex flex-col">
-                        {hexChunks.map((chunk, i) => (
-                          <span key={i}>{chunk}</span>
+                        {hexLines.map((line, i) => (
+                          <span key={i} className="whitespace-nowrap">{line}</span>
                         ))}
                       </div>
-                    </TableCell>
+                    </td>
                     {dataTypeColumns.map(col => {
                       const score = variable[col.scoreKey as keyof LearningSample] as number | null;
                       const value = variable[col.key as keyof LearningSample] as number | null;
                       
                       return (
-                        <TableCell key={col.key} className="p-1">
+                        <td key={col.key} className="px-1 py-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div 
                                 className={cn(
-                                  "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[36px]",
+                                  "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[44px]",
                                   getScoreColor(score)
                                 )}
                               >
-                                <span className="text-[10px] font-semibold">
+                                <span className="text-[10px] font-semibold leading-tight">
                                   {formatValue(value, col.key)}
                                 </span>
-                                <span className="text-[9px] opacity-80">
+                                <span className="text-[9px] mt-0.5 px-1.5 py-0.5 rounded bg-black/10 backdrop-blur-sm">
                                   {formatScore(score)}
                                 </span>
                               </div>
@@ -300,17 +303,16 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                               </div>
                             </TooltipContent>
                           </Tooltip>
-                        </TableCell>
+                        </td>
                       );
                     })}
-                  </TableRow>
+                  </tr>
                 );
               })}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
       
       <div className="text-xs text-muted-foreground text-center">
         Showing {groupedVariables.length} unique variables ({uniqueAddresses} addresses) from {variables.length} total samples
