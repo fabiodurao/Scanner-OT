@@ -38,7 +38,7 @@ const Discovery = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Filters
+  // Filters - now filtering by Source IP (equipment/slave)
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [selectedFC, setSelectedFC] = useState<string>('all');
 
@@ -83,9 +83,10 @@ const Discovery = () => {
     setRefreshing(false);
   };
 
-  // Filter variables
+  // Filter variables - now by Source IP (equipment/slave)
   const filteredVariables = variables.filter(v => {
-    if (selectedEquipment !== 'all' && v.DestinationIp !== selectedEquipment) return false;
+    // Filter by Source IP (equipment) - the slave that responds with data
+    if (selectedEquipment !== 'all' && v.SourceIp !== selectedEquipment) return false;
     if (selectedFC !== 'all' && v.FC?.toString() !== selectedFC) return false;
     return true;
   });
@@ -93,7 +94,7 @@ const Discovery = () => {
   // Get unique function codes for filter
   const functionCodes = [...new Set(variables.map(v => v.FC).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0));
 
-  // Get slave equipment (those with variables)
+  // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
 
   if (loading) {

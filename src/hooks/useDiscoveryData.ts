@@ -142,7 +142,9 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         
         const entry = identifierMap.get(sample.Identifier)!;
         entry.samples.push(sample);
+        // SourceIp is the equipment (slave) responding
         if (sample.SourceIp) entry.sourceIps.add(sample.SourceIp);
+        // DestinationIp is the master asking
         if (sample.DestinationIp) entry.destIps.add(sample.DestinationIp);
       }
       
@@ -157,18 +159,20 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           .filter((t): t is string => t !== null)
           .sort();
         
-        // Count unique variables (by destination IP + source IP combination)
+        // Count unique variables (by source IP (equipment) + address combination would be better, but we don't have address here)
         const uniqueVars = new Set(
-          data.samples.map(s => `${s.DestinationIp}-${s.SourceIp}`)
+          data.samples.map(s => `${s.SourceIp}`)
         );
         
         unknown.push({
           identifier,
           sampleCount: data.samples.length,
-          equipmentCount: data.sourceIps.size + data.destIps.size,
+          // Equipment count is the number of unique source IPs (slaves responding)
+          equipmentCount: data.sourceIps.size,
           variableCount: uniqueVars.size,
           firstSeen: times[0] || new Date().toISOString(),
           lastSeen: times[times.length - 1] || new Date().toISOString(),
+          // Source IPs are the equipment (slaves)
           sourceIps: Array.from(data.sourceIps),
         });
       }
@@ -214,16 +218,16 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       .select('learning_state')
       .eq('site_identifier', siteIdentifier);
     
-    // Count unique equipment (IPs)
+    // Count unique equipment - SourceIp is the equipment (slave) responding
     const equipmentIps = new Set<string>();
     samples.forEach(s => {
+      // Only count SourceIp as equipment (the slave that responds with data)
       if (s.SourceIp) equipmentIps.add(s.SourceIp);
-      if (s.DestinationIp) equipmentIps.add(s.DestinationIp);
     });
     
-    // Count unique variables (destination IP + address + FC)
+    // Count unique variables (source IP (equipment) + address + FC)
     const uniqueVars = new Set(
-      samples.map(s => `${s.DestinationIp}-${s.Address}-${s.FC}`)
+      samples.map(s => `${s.SourceIp}-${s.Address}-${s.FC}`)
     );
     
     // Count by state
@@ -255,6 +259,8 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
   }, []);
 
   // Get equipment for a site
+  // In Modbus: SourceIp is the equipment (slave) that RESPONDS with register data
+  // DestinationIp is the master/client that ASKS for data
   const getSiteEquipment = useCallback(async (siteIdentifier: string): Promise<DiscoveredEquipment[]> => {
     const { data: samples, error } = await supabase
       .from('learning_samples')
@@ -263,7 +269,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     
     if (error || !samples) return [];
     
-    // Group by IP
+    // Group by IP - but now correctly identify roles
     const equipmentMap = new Map<string, {
       mac: string | null;
       role: 'master' | 'slave' | 'unknown';
@@ -273,35 +279,37 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     }>();
     
     for (const sample of samples) {
-      // Source IP (usually master/client)
+      // Source IP is the SLAVE (equipment with registers that responds)
       if (sample.SourceIp) {
         if (!equipmentMap.has(sample.SourceIp)) {
           equipmentMap.set(sample.SourceIp, {
             mac: sample.SourceMac,
-            role: 'master',
+            role: 'slave', // Source is the slave responding
             variables: new Set(),
             lastSeen: sample.time || new Date().toISOString(),
             protocols: new Set(),
           });
         }
         const entry = equipmentMap.get(sample.SourceIp)!;
+        // Variables belong to the source (slave) - the one responding with data
+        entry.variables.add(`${sample.Address}-${sample.FC}`);
         if (sample.time && sample.time > entry.lastSeen) entry.lastSeen = sample.time;
         if (sample.Protocol) entry.protocols.add(sample.Protocol);
       }
       
-      // Destination IP (usually slave/server with registers)
+      // Destination IP is the MASTER (SCADA/HMI that asks for data)
       if (sample.DestinationIp) {
         if (!equipmentMap.has(sample.DestinationIp)) {
           equipmentMap.set(sample.DestinationIp, {
             mac: sample.DestinationMac,
-            role: 'slave',
+            role: 'master', // Destination is the master asking
             variables: new Set(),
             lastSeen: sample.time || new Date().toISOString(),
             protocols: new Set(),
           });
         }
         const entry = equipmentMap.get(sample.DestinationIp)!;
-        entry.variables.add(`${sample.Address}-${sample.FC}`);
+        // Masters don't have variables - they ask for them
         if (sample.time && sample.time > entry.lastSeen) entry.lastSeen = sample.time;
         if (sample.Protocol) entry.protocols.add(sample.Protocol);
       }

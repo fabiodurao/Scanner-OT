@@ -30,35 +30,35 @@ const dataTypeColumns = [
   { key: 'FLOAT64LE', scoreKey: 'score_float64le', label: 'FLOAT64LE' },
 ] as const;
 
-// 20-tone gradient from red to green
+// 20-tone gradient from red to green - vibrant colors like Excel conditional formatting
 const getScoreColor = (score: number | null): string => {
-  if (score === null || score === undefined) return 'bg-slate-100 text-slate-400';
+  if (score === null || score === undefined) return 'bg-gray-200 text-gray-500';
   
   // Normalize score to 0-1 range
   const normalizedScore = Math.min(1, Math.max(0, score));
   
-  // 20 tones from red (0) to green (1)
-  if (normalizedScore >= 0.95) return 'bg-emerald-600 text-white';
-  if (normalizedScore >= 0.90) return 'bg-emerald-500 text-white';
-  if (normalizedScore >= 0.85) return 'bg-emerald-400 text-white';
-  if (normalizedScore >= 0.80) return 'bg-green-500 text-white';
-  if (normalizedScore >= 0.75) return 'bg-green-400 text-green-950';
-  if (normalizedScore >= 0.70) return 'bg-lime-500 text-lime-950';
-  if (normalizedScore >= 0.65) return 'bg-lime-400 text-lime-950';
-  if (normalizedScore >= 0.60) return 'bg-yellow-400 text-yellow-950';
-  if (normalizedScore >= 0.55) return 'bg-yellow-500 text-yellow-950';
-  if (normalizedScore >= 0.50) return 'bg-amber-400 text-amber-950';
-  if (normalizedScore >= 0.45) return 'bg-amber-500 text-amber-950';
-  if (normalizedScore >= 0.40) return 'bg-orange-400 text-orange-950';
-  if (normalizedScore >= 0.35) return 'bg-orange-500 text-white';
-  if (normalizedScore >= 0.30) return 'bg-orange-600 text-white';
-  if (normalizedScore >= 0.25) return 'bg-red-400 text-white';
-  if (normalizedScore >= 0.20) return 'bg-red-500 text-white';
-  if (normalizedScore >= 0.15) return 'bg-red-600 text-white';
-  if (normalizedScore >= 0.10) return 'bg-red-700 text-white';
-  if (normalizedScore >= 0.05) return 'bg-red-800 text-white';
-  if (normalizedScore > 0) return 'bg-red-900 text-white';
-  return 'bg-slate-100 text-slate-400';
+  // 20 tones from red (0) to green (1) - vibrant colors
+  if (normalizedScore >= 0.95) return 'bg-[#00B050] text-white';        // Bright green
+  if (normalizedScore >= 0.90) return 'bg-[#17B169] text-white';        // Green
+  if (normalizedScore >= 0.85) return 'bg-[#2DC97A] text-white';        // Light green
+  if (normalizedScore >= 0.80) return 'bg-[#5DD55D] text-black';        // Lime green
+  if (normalizedScore >= 0.75) return 'bg-[#8DE28D] text-black';        // Light lime
+  if (normalizedScore >= 0.70) return 'bg-[#B5E61D] text-black';        // Yellow-green
+  if (normalizedScore >= 0.65) return 'bg-[#D4ED26] text-black';        // Chartreuse
+  if (normalizedScore >= 0.60) return 'bg-[#FFFF00] text-black';        // Yellow
+  if (normalizedScore >= 0.55) return 'bg-[#FFE135] text-black';        // Golden yellow
+  if (normalizedScore >= 0.50) return 'bg-[#FFC000] text-black';        // Orange-yellow
+  if (normalizedScore >= 0.45) return 'bg-[#FFA500] text-black';        // Orange
+  if (normalizedScore >= 0.40) return 'bg-[#FF8C00] text-black';        // Dark orange
+  if (normalizedScore >= 0.35) return 'bg-[#FF7518] text-white';        // Pumpkin
+  if (normalizedScore >= 0.30) return 'bg-[#FF5722] text-white';        // Deep orange
+  if (normalizedScore >= 0.25) return 'bg-[#FF4500] text-white';        // Orange-red
+  if (normalizedScore >= 0.20) return 'bg-[#FF3300] text-white';        // Red-orange
+  if (normalizedScore >= 0.15) return 'bg-[#FF1A1A] text-white';        // Bright red
+  if (normalizedScore >= 0.10) return 'bg-[#FF0000] text-white';        // Red
+  if (normalizedScore >= 0.05) return 'bg-[#E60000] text-white';        // Dark red
+  if (normalizedScore > 0) return 'bg-[#CC0000] text-white';            // Darker red
+  return 'bg-gray-200 text-gray-500';
 };
 
 // Format value for display
@@ -87,11 +87,25 @@ const formatScore = (score: number | null): string => {
   return (score * 100).toFixed(0) + '%';
 };
 
+// Format HEX with 4 characters per line
+const formatHex = (hex: string | null): string[] => {
+  if (!hex) return ['-'];
+  // Remove spaces and split into chunks of 4
+  const cleanHex = hex.replace(/\s/g, '').toUpperCase();
+  const chunks: string[] = [];
+  for (let i = 0; i < cleanHex.length; i += 4) {
+    chunks.push(cleanHex.slice(i, i + 4));
+  }
+  return chunks.length > 0 ? chunks : ['-'];
+};
+
 // Group variables by source IP, destination IP, address, and FC - count samples per group
+// Note: In Modbus, SourceIp is the equipment (slave) responding, DestinationIp is the master asking
 const groupVariables = (variables: LearningSample[]) => {
   const grouped = new Map<string, LearningSample[]>();
   
   for (const v of variables) {
+    // Key by SourceIp (equipment), DestinationIp (master), Address, and FC
     const key = `${v.SourceIp}-${v.DestinationIp}-${v.Address}-${v.FC}`;
     if (!grouped.has(key)) {
       grouped.set(key, []);
@@ -111,13 +125,13 @@ const groupVariables = (variables: LearningSample[]) => {
     result.push({ ...samples[0], sampleCount: samples.length });
   }
   
-  // Sort by destination IP, then source IP, then address
+  // Sort by source IP (equipment), then destination IP (master), then address
   result.sort((a, b) => {
-    if (a.DestinationIp !== b.DestinationIp) {
-      return (a.DestinationIp || '').localeCompare(b.DestinationIp || '');
-    }
     if (a.SourceIp !== b.SourceIp) {
       return (a.SourceIp || '').localeCompare(b.SourceIp || '');
+    }
+    if (a.DestinationIp !== b.DestinationIp) {
+      return (a.DestinationIp || '').localeCompare(b.DestinationIp || '');
     }
     return (a.Address || 0) - (b.Address || 0);
   });
@@ -142,8 +156,8 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
     });
   };
 
-  // Calculate total unique addresses
-  const uniqueAddresses = new Set(groupedVariables.map(v => `${v.DestinationIp}-${v.Address}`)).size;
+  // Calculate total unique addresses (by equipment + address)
+  const uniqueAddresses = new Set(groupedVariables.map(v => `${v.SourceIp}-${v.Address}`)).size;
 
   return (
     <div className="space-y-4">
@@ -151,27 +165,27 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
       <div className="flex items-center gap-4 text-xs flex-wrap">
         <span className="text-muted-foreground">Score Legend (20 tones):</span>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-emerald-500" />
+          <div className="w-4 h-4 rounded bg-[#00B050]" />
           <span>High (≥0.9)</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-lime-500" />
+          <div className="w-4 h-4 rounded bg-[#B5E61D]" />
           <span>Good (0.7-0.9)</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-amber-500" />
+          <div className="w-4 h-4 rounded bg-[#FFC000]" />
           <span>Medium (0.5-0.7)</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-orange-500" />
+          <div className="w-4 h-4 rounded bg-[#FF5722]" />
           <span>Low (0.3-0.5)</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-red-600" />
+          <div className="w-4 h-4 rounded bg-[#FF0000]" />
           <span>Poor (&lt;0.3)</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-slate-100 border" />
+          <div className="w-4 h-4 rounded bg-gray-200 border" />
           <span>N/A</span>
         </div>
       </div>
@@ -189,7 +203,7 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                 <TableHead className="w-12">FC</TableHead>
                 <TableHead className="w-16">Samples</TableHead>
                 <TableHead className="w-20">Best Type</TableHead>
-                <TableHead className="w-28">HEX</TableHead>
+                <TableHead className="w-16">HEX</TableHead>
                 {dataTypeColumns.map(col => (
                   <TableHead key={col.key} className="w-24 text-center text-xs">
                     {col.label}
@@ -201,6 +215,7 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
               {groupedVariables.map((variable) => {
                 const rowKey = `${variable.SourceIp}-${variable.DestinationIp}-${variable.Address}-${variable.FC}`;
                 const isExpanded = expandedRows.has(rowKey);
+                const hexChunks = formatHex(variable.HEX);
                 
                 return (
                   <TableRow 
@@ -248,8 +263,12 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {variable.HEX || '-'}
+                    <TableCell className="font-mono text-[10px] leading-tight">
+                      <div className="flex flex-col">
+                        {hexChunks.map((chunk, i) => (
+                          <span key={i}>{chunk}</span>
+                        ))}
+                      </div>
                     </TableCell>
                     {dataTypeColumns.map(col => {
                       const score = variable[col.scoreKey as keyof LearningSample] as number | null;
@@ -261,14 +280,14 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                             <TooltipTrigger asChild>
                               <div 
                                 className={cn(
-                                  "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px]",
+                                  "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[36px]",
                                   getScoreColor(score)
                                 )}
                               >
-                                <span className="text-[10px] opacity-90">
+                                <span className="text-[10px] font-semibold">
                                   {formatValue(value, col.key)}
                                 </span>
-                                <span className="text-[9px] opacity-75">
+                                <span className="text-[9px] opacity-80">
                                   {formatScore(score)}
                                 </span>
                               </div>
