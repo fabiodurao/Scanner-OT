@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 interface VariableHeatmapTableProps {
   variables: LearningSample[];
+  allSourceIps?: string[];
 }
 
 interface ColumnFilters {
@@ -32,7 +33,6 @@ const emptyFilters: ColumnFilters = {
   bestType: '',
 };
 
-// All data type columns for heatmap
 const dataTypeColumns = [
   { key: 'UINT16', scoreKey: 'score_uint16', label: 'UINT16' },
   { key: 'INT16', scoreKey: 'score_int16', label: 'INT16' },
@@ -50,7 +50,6 @@ const dataTypeColumns = [
   { key: 'FLOAT64LE', scoreKey: 'score_float64le', label: 'FLOAT64LE' },
 ] as const;
 
-// 20-tone gradient from red to green
 const getScoreColor = (score: number | null): string => {
   if (score === null || score === undefined) return 'bg-gray-200 text-gray-500';
   const normalizedScore = Math.min(1, Math.max(0, score));
@@ -128,7 +127,6 @@ const groupVariables = (variables: LearningSample[]) => {
   return result;
 };
 
-// Filter header component
 const FilterHeader = ({ 
   label, 
   value, 
@@ -202,24 +200,27 @@ const FilterHeader = ({
   );
 };
 
-export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) => {
+export const VariableHeatmapTable = ({ variables, allSourceIps = [] }: VariableHeatmapTableProps) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<ColumnFilters>(emptyFilters);
   
   const groupedVariables = useMemo(() => groupVariables(variables), [variables]);
   
-  // Get unique values for filter dropdowns
-  const uniqueValues = useMemo(() => ({
-    sourceIps: [...new Set(groupedVariables.map(v => v.SourceIp).filter(Boolean))] as string[],
-    destinationIps: [...new Set(groupedVariables.map(v => v.DestinationIp).filter(Boolean))] as string[],
-    unitIds: [...new Set(groupedVariables.map(v => v.unid_Id?.toString()).filter(Boolean))] as string[],
-    addresses: [...new Set(groupedVariables.map(v => v.Address?.toString()).filter(Boolean))] as string[],
-    fcs: [...new Set(groupedVariables.map(v => v.FC?.toString()).filter(Boolean))] as string[],
-    protocols: [...new Set(groupedVariables.map(v => v.Protocol).filter(Boolean))] as string[],
-    bestTypes: [...new Set(groupedVariables.map(v => v['Best Type']).filter(Boolean))] as string[],
-  }), [groupedVariables]);
+  const uniqueValues = useMemo(() => {
+    const sourceIpsFromData = [...new Set(groupedVariables.map(v => v.SourceIp).filter((ip): ip is string => Boolean(ip)))];
+    const sourceIps = allSourceIps.length > 0 ? allSourceIps : sourceIpsFromData;
+    
+    return {
+      sourceIps: sourceIps.sort(),
+      destinationIps: [...new Set(groupedVariables.map(v => v.DestinationIp).filter((ip): ip is string => Boolean(ip)))].sort(),
+      unitIds: [...new Set(groupedVariables.map(v => v.unid_Id?.toString()).filter((id): id is string => Boolean(id)))].sort(),
+      addresses: [...new Set(groupedVariables.map(v => v.Address?.toString()).filter((addr): addr is string => Boolean(addr)))].sort((a, b) => parseInt(a) - parseInt(b)),
+      fcs: [...new Set(groupedVariables.map(v => v.FC?.toString()).filter((fc): fc is string => Boolean(fc)))].sort((a, b) => parseInt(a) - parseInt(b)),
+      protocols: [...new Set(groupedVariables.map(v => v.Protocol).filter((p): p is string => Boolean(p)))].sort(),
+      bestTypes: [...new Set(groupedVariables.map(v => v['Best Type']).filter((t): t is string => Boolean(t)))].sort(),
+    };
+  }, [groupedVariables, allSourceIps]);
   
-  // Apply filters
   const filteredVariables = useMemo(() => {
     return groupedVariables.filter(v => {
       if (filters.sourceIp && !v.SourceIp?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
@@ -251,10 +252,12 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
   };
 
   const uniqueAddresses = new Set(filteredVariables.map(v => `${v.SourceIp}-${v.Address}`)).size;
+  
+  const sourceIpsInData = new Set(groupedVariables.map(v => v.SourceIp).filter(Boolean)).size;
+  const totalSourceIps = uniqueValues.sourceIps.length;
 
   return (
     <div className="space-y-4">
-      {/* Legend and filter status */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 text-xs flex-wrap">
           <span className="text-muted-foreground">Score Legend:</span>
@@ -280,15 +283,21 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
           </div>
         </div>
         
-        {hasActiveFilters && (
-          <Button variant="outline" size="sm" onClick={clearAllFilters} className="h-7 text-xs">
-            <X className="h-3 w-3 mr-1" />
-            Clear all filters
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {sourceIpsInData < totalSourceIps && (
+            <span className="text-xs text-amber-600">
+              Note: Showing {sourceIpsInData} of {totalSourceIps} Source IPs (limited sample)
+            </span>
+          )}
+          {hasActiveFilters && (
+            <Button variant="outline" size="sm" onClick={clearAllFilters} className="h-7 text-xs">
+              <X className="h-3 w-3 mr-1" />
+              Clear all filters
+            </Button>
+          )}
+        </div>
       </div>
       
-      {/* Table with sticky header */}
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
           <table className="w-full min-w-[2000px]">
@@ -297,7 +306,7 @@ export const VariableHeatmapTable = ({ variables }: VariableHeatmapTableProps) =
                 <th className="w-10 px-2 py-2"></th>
                 <th className="w-28 px-2 py-2 text-left">
                   <FilterHeader 
-                    label="Source IP" 
+                    label={`Source IP (${uniqueValues.sourceIps.length})`}
                     value={filters.sourceIp} 
                     onChange={(v) => updateFilter('sourceIp', v)}
                     options={uniqueValues.sourceIps}

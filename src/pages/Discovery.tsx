@@ -45,6 +45,7 @@ const Discovery = () => {
   const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
   const [equipment, setEquipment] = useState<DiscoveredEquipment[]>([]);
   const [variables, setVariables] = useState<LearningSample[]>([]);
+  const [allSourceIps, setAllSourceIps] = useState<string[]>([]); // All unique Source IPs from DB
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -76,7 +77,20 @@ const Discovery = () => {
     const siteEquipment = await getSiteEquipment(siteId);
     setEquipment(siteEquipment);
     
-    // Fetch variables
+    // Fetch ALL unique Source IPs directly from DB (no limit)
+    const { data: sourceIpData } = await supabase
+      .from('learning_samples')
+      .select('SourceIp')
+      .eq('Identifier', siteId)
+      .not('SourceIp', 'is', null);
+    
+    if (sourceIpData) {
+      const uniqueIps = [...new Set(sourceIpData.map(d => d.SourceIp).filter(Boolean))] as string[];
+      uniqueIps.sort();
+      setAllSourceIps(uniqueIps);
+    }
+    
+    // Fetch variables (limited for display)
     const siteVariables = await getVariables(siteId);
     setVariables(siteVariables);
     
@@ -109,6 +123,16 @@ const Discovery = () => {
 
   // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
+  
+  // Build equipment options for dropdown using ALL source IPs from DB
+  // This ensures consistency between the dropdown and what's in the database
+  const equipmentOptions = allSourceIps.map(ip => {
+    const eq = slaveEquipment.find(e => e.ip === ip);
+    return {
+      ip,
+      variableCount: eq?.variableCount || 0,
+    };
+  });
 
   if (loading) {
     return (
@@ -177,6 +201,9 @@ const Discovery = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalEquipment}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {allSourceIps.length} unique Source IPs
+                </p>
               </CardContent>
             </Card>
             
@@ -265,14 +292,14 @@ const Discovery = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-                      <SelectTrigger className="w-48">
+                      <SelectTrigger className="w-56">
                         <SelectValue placeholder="Filter by equipment" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Equipment</SelectItem>
-                        {slaveEquipment.map(eq => (
+                        <SelectItem value="all">All Equipment ({allSourceIps.length} IPs)</SelectItem>
+                        {equipmentOptions.map(eq => (
                           <SelectItem key={eq.ip} value={eq.ip}>
-                            {eq.ip} ({eq.variableCount} vars)
+                            {eq.ip} {eq.variableCount > 0 && `(${eq.variableCount} vars)`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -306,7 +333,10 @@ const Discovery = () => {
                     )}
                   </div>
                 ) : (
-                  <VariableHeatmapTable variables={filteredVariables} />
+                  <VariableHeatmapTable 
+                    variables={filteredVariables} 
+                    allSourceIps={allSourceIps}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -317,7 +347,7 @@ const Discovery = () => {
               <CardHeader>
                 <CardTitle>Discovered Equipment</CardTitle>
                 <CardDescription>
-                  Network devices identified in the OT traffic
+                  Network devices identified in the OT traffic ({allSourceIps.length} unique Source IPs in database)
                 </CardDescription>
               </CardHeader>
               <CardContent>
