@@ -69,26 +69,24 @@ const Discovery = () => {
       setSite(siteData);
     }
     
-    // Fetch stats
+    // Fetch stats (no limit)
     const siteStats = await getSiteStats(siteId);
     setStats(siteStats);
     
-    // Fetch equipment
+    // Fetch equipment (no limit - gets ALL unique IPs)
     const siteEquipment = await getSiteEquipment(siteId);
     setEquipment(siteEquipment);
     
-    // Fetch ALL unique Source IPs directly from DB (no limit)
-    const { data: sourceIpData } = await supabase
-      .from('learning_samples')
-      .select('SourceIp')
-      .eq('Identifier', siteId)
-      .not('SourceIp', 'is', null);
+    // Extract all Source IPs from equipment data (slaves only)
+    // This is now the source of truth for all Source IPs
+    const sourceIpsFromEquipment = siteEquipment
+      .filter(e => e.role === 'slave')
+      .map(e => e.ip)
+      .sort();
     
-    if (sourceIpData) {
-      const uniqueIps = [...new Set(sourceIpData.map(d => d.SourceIp).filter(Boolean))] as string[];
-      uniqueIps.sort();
-      setAllSourceIps(uniqueIps);
-    }
+    setAllSourceIps(sourceIpsFromEquipment);
+    
+    console.log(`[Discovery] All Source IPs from equipment: ${sourceIpsFromEquipment.length}`, sourceIpsFromEquipment);
     
     // Fetch variables (limited for display)
     const siteVariables = await getVariables(siteId);
@@ -124,7 +122,7 @@ const Discovery = () => {
   // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
   
-  // Build equipment options for dropdown using ALL source IPs from DB
+  // Build equipment options for dropdown using ALL source IPs
   // This ensures consistency between the dropdown and what's in the database
   const equipmentOptions = allSourceIps.map(ip => {
     const eq = slaveEquipment.find(e => e.ip === ip);
@@ -202,7 +200,7 @@ const Discovery = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalEquipment}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {allSourceIps.length} unique Source IPs
+                  {allSourceIps.length} slave devices
                 </p>
               </CardContent>
             </Card>
@@ -347,7 +345,7 @@ const Discovery = () => {
               <CardHeader>
                 <CardTitle>Discovered Equipment</CardTitle>
                 <CardDescription>
-                  Network devices identified in the OT traffic ({allSourceIps.length} unique Source IPs in database)
+                  Network devices identified in the OT traffic ({allSourceIps.length} slave devices, {equipment.filter(e => e.role === 'master').length} master devices)
                 </CardDescription>
               </CardHeader>
               <CardContent>
