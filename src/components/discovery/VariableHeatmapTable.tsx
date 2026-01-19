@@ -20,6 +20,8 @@ interface VariableHeatmapTableProps {
 interface ColumnFilters {
   sourceIp: string;
   destinationIp: string;
+  sourcePort: string;
+  destinationPort: string;
   unitId: string;
   address: string;
   fc: string;
@@ -30,6 +32,8 @@ interface ColumnFilters {
 const emptyFilters: ColumnFilters = {
   sourceIp: '',
   destinationIp: '',
+  sourcePort: '',
+  destinationPort: '',
   unitId: '',
   address: '',
   fc: '',
@@ -235,6 +239,8 @@ export const VariableHeatmapTable = ({
     return {
       sourceIps: sourceIps.sort(),
       destinationIps: [...new Set(groupedVariables.map(v => v.DestinationIp).filter((ip): ip is string => Boolean(ip)))].sort(),
+      sourcePorts: [...new Set(groupedVariables.map(v => v.SourcePort?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
+      destinationPorts: [...new Set(groupedVariables.map(v => v.DestinationPort?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
       unitIds: [...new Set(groupedVariables.map(v => v.unid_Id?.toString()).filter((id): id is string => Boolean(id)))].sort(),
       addresses: [...new Set(groupedVariables.map(v => v.Address?.toString()).filter((addr): addr is string => Boolean(addr)))].sort((a, b) => parseInt(a) - parseInt(b)),
       fcs: [...new Set(groupedVariables.map(v => v.FC?.toString()).filter((fc): fc is string => Boolean(fc)))].sort((a, b) => parseInt(a) - parseInt(b)),
@@ -247,6 +253,8 @@ export const VariableHeatmapTable = ({
     return groupedVariables.filter(v => {
       if (filters.sourceIp && !v.SourceIp?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
       if (filters.destinationIp && !v.DestinationIp?.toLowerCase().includes(filters.destinationIp.toLowerCase())) return false;
+      if (filters.sourcePort && v.SourcePort?.toString() !== filters.sourcePort) return false;
+      if (filters.destinationPort && v.DestinationPort?.toString() !== filters.destinationPort) return false;
       if (filters.unitId && v.unid_Id?.toString() !== filters.unitId) return false;
       if (filters.address && !v.Address?.toString().includes(filters.address)) return false;
       if (filters.fc && v.FC?.toString() !== filters.fc) return false;
@@ -308,9 +316,9 @@ export const VariableHeatmapTable = ({
   };
 
   // Calculate column count for colspan
-  // Compact: expand + sourceIp + address + protocol + bestType + 14 data types = 18
+  // Compact: expand + sourceIp + address + protocol + bestType + timestamp + 14 data types = 20
   // Full: expand + sourceIp + destIp + srcPort + dstPort + unit + address + FC + protocol + N + bestType + HEX + timestamp + 14 data types = 27
-  const visibleColumnCount = isCompactView ? 5 + dataTypeColumns.length : 13 + dataTypeColumns.length;
+  const visibleColumnCount = isCompactView ? 6 + dataTypeColumns.length : 13 + dataTypeColumns.length;
 
   return (
     <div className="space-y-4">
@@ -373,7 +381,7 @@ export const VariableHeatmapTable = ({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {isCompactView ? 'Show all columns (Dest IP, Ports, Unit, FC, N, HEX, Timestamp)' : 'Hide extra columns for compact view'}
+              {isCompactView ? 'Show all columns (Dest IP, Ports, Unit, FC, N, HEX)' : 'Hide extra columns for compact view'}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -451,7 +459,7 @@ export const VariableHeatmapTable = ({
       
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn("w-full", isCompactView ? "min-w-[1200px]" : "min-w-[2100px]")}>
+          <table className={cn("w-full", isCompactView ? "min-w-[1300px]" : "min-w-[2100px]")}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
                 <th className="w-8 px-1 py-2"></th>
@@ -481,12 +489,28 @@ export const VariableHeatmapTable = ({
                 )}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-center whitespace-nowrap">
-                    <span className="font-medium">Src Port</span>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="font-medium">Src Port</span>
+                      <FilterButton 
+                        label="Source Port" 
+                        value={filters.sourcePort} 
+                        onChange={(v) => updateFilter('sourcePort', v)}
+                        options={uniqueValues.sourcePorts}
+                      />
+                    </div>
                   </th>
                 )}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-center whitespace-nowrap">
-                    <span className="font-medium">Dst Port</span>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="font-medium">Dst Port</span>
+                      <FilterButton 
+                        label="Destination Port" 
+                        value={filters.destinationPort} 
+                        onChange={(v) => updateFilter('destinationPort', v)}
+                        options={uniqueValues.destinationPorts}
+                      />
+                    </div>
                   </th>
                 )}
                 {!isCompactView && (
@@ -558,11 +582,9 @@ export const VariableHeatmapTable = ({
                     <span className="font-medium">HEX</span>
                   </th>
                 )}
-                {!isCompactView && (
-                  <th className="px-2 py-2 text-left whitespace-nowrap">
-                    <span className="font-medium">Timestamp</span>
-                  </th>
-                )}
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <span className="font-medium">Timestamp</span>
+                </th>
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
@@ -655,11 +677,9 @@ export const VariableHeatmapTable = ({
                           </div>
                         </td>
                       )}
-                      {!isCompactView && (
-                        <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {formatTimestamp(variable.time)}
-                        </td>
-                      )}
+                      <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {formatTimestamp(variable.time)}
+                      </td>
                       {dataTypeColumns.map(col => {
                         const score = variable[col.scoreKey as keyof LearningSample] as number | null;
                         const value = variable[col.key as keyof LearningSample] as number | null;
@@ -707,7 +727,7 @@ export const VariableHeatmapTable = ({
         {paginatedVariables.length} of {filteredVariables.length} variables ({uniqueAddresses} addresses)
         {hasActiveFilters && ` • filtered from ${groupedVariables.length}`}
         {' '}• {variables.length} samples
-        {isCompactView && ' • Compact view (8 columns hidden)'}
+        {isCompactView && ' • Compact view (7 columns hidden)'}
       </div>
     </div>
   );
