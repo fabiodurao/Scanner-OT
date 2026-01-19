@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface VariableHeatmapTableProps {
   variables: LearningSample[];
@@ -106,6 +107,15 @@ const formatHex = (hex: string | null): string[] => {
     lines.push(formatted);
   }
   return lines.length > 0 ? lines : ['-'];
+};
+
+const formatTimestamp = (time: string | null): string => {
+  if (!time) return '-';
+  try {
+    return format(new Date(time), 'MM/dd HH:mm:ss');
+  } catch {
+    return '-';
+  }
 };
 
 const groupVariables = (variables: LearningSample[]) => {
@@ -298,7 +308,9 @@ export const VariableHeatmapTable = ({
   };
 
   // Calculate column count for colspan
-  const visibleColumnCount = isCompactView ? 5 + dataTypeColumns.length : 10 + dataTypeColumns.length;
+  // Compact: expand + sourceIp + address + protocol + bestType + 14 data types = 18
+  // Full: expand + sourceIp + destIp + srcPort + dstPort + unit + address + FC + protocol + N + bestType + HEX + timestamp + 14 data types = 27
+  const visibleColumnCount = isCompactView ? 5 + dataTypeColumns.length : 13 + dataTypeColumns.length;
 
   return (
     <div className="space-y-4">
@@ -361,7 +373,7 @@ export const VariableHeatmapTable = ({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {isCompactView ? 'Show all columns' : 'Hide Dest IP, Unit, FC, N, HEX columns'}
+              {isCompactView ? 'Show all columns (Dest IP, Ports, Unit, FC, N, HEX, Timestamp)' : 'Hide extra columns for compact view'}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -439,7 +451,7 @@ export const VariableHeatmapTable = ({
       
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn("w-full", isCompactView ? "min-w-[1200px]" : "min-w-[1800px]")}>
+          <table className={cn("w-full", isCompactView ? "min-w-[1200px]" : "min-w-[2100px]")}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
                 <th className="w-8 px-1 py-2"></th>
@@ -465,6 +477,16 @@ export const VariableHeatmapTable = ({
                         options={uniqueValues.destinationIps}
                       />
                     </div>
+                  </th>
+                )}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-center whitespace-nowrap">
+                    <span className="font-medium">Src Port</span>
+                  </th>
+                )}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-center whitespace-nowrap">
+                    <span className="font-medium">Dst Port</span>
                   </th>
                 )}
                 {!isCompactView && (
@@ -536,6 +558,11 @@ export const VariableHeatmapTable = ({
                     <span className="font-medium">HEX</span>
                   </th>
                 )}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap">
+                    <span className="font-medium">Timestamp</span>
+                  </th>
+                )}
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
@@ -586,6 +613,12 @@ export const VariableHeatmapTable = ({
                         <td className="px-2 py-1.5 font-mono text-xs">{variable.DestinationIp || '-'}</td>
                       )}
                       {!isCompactView && (
+                        <td className="px-2 py-1.5 font-mono text-center text-xs">{variable.SourcePort || '-'}</td>
+                      )}
+                      {!isCompactView && (
+                        <td className="px-2 py-1.5 font-mono text-center text-xs">{variable.DestinationPort || '-'}</td>
+                      )}
+                      {!isCompactView && (
                         <td className="px-2 py-1.5 font-mono">{variable.unid_Id ?? '-'}</td>
                       )}
                       <td className="px-2 py-1.5 font-mono font-medium">{variable.Address}</td>
@@ -620,6 +653,11 @@ export const VariableHeatmapTable = ({
                               <span key={i} className="whitespace-nowrap">{line}</span>
                             ))}
                           </div>
+                        </td>
+                      )}
+                      {!isCompactView && (
+                        <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatTimestamp(variable.time)}
                         </td>
                       )}
                       {dataTypeColumns.map(col => {
@@ -669,7 +707,7 @@ export const VariableHeatmapTable = ({
         {paginatedVariables.length} of {filteredVariables.length} variables ({uniqueAddresses} addresses)
         {hasActiveFilters && ` • filtered from ${groupedVariables.length}`}
         {' '}• {variables.length} samples
-        {isCompactView && ' • Compact view (5 columns hidden)'}
+        {isCompactView && ' • Compact view (8 columns hidden)'}
       </div>
     </div>
   );
