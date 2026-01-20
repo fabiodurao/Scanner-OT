@@ -36,7 +36,11 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     const json = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
-      toast.error(json?.error ? String(json.error) : "Failed to run analysis");
+      const msg =
+        (json as { error?: string; details?: string })?.error ||
+        (json as { message?: string })?.message ||
+        "Failed to run analysis";
+      toast.error(msg);
       setRunning(false);
       return;
     }

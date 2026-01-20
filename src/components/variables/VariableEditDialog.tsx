@@ -76,7 +76,7 @@ export function VariableEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Editar variável</DialogTitle>
+          <DialogTitle>Edit variable</DialogTitle>
           <DialogDescription>
             <span className="font-mono">{variable.source_ip}</span> • Addr{" "}
             <span className="font-mono">{variable.address}</span> • FC{" "}
@@ -87,7 +87,7 @@ export function VariableEditDialog({
         <div className="space-y-4 py-2">
           {suggestedType && (
             <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
-              <div className="text-sm font-medium text-purple-900">Sugestão da IA</div>
+              <div className="text-sm font-medium text-purple-900">AI suggestion</div>
               <div className="mt-1 flex items-center gap-2">
                 <Badge className="bg-purple-100 text-purple-800 font-mono">{suggestedType}</Badge>
                 {typeof variable.ai_confidence === "number" && (
@@ -118,17 +118,17 @@ export function VariableEditDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Label</Label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex: Active Power" />
+              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Active Power" />
             </div>
             <div className="space-y-2">
               <Label>Unit</Label>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Ex: kW, V, A" />
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. kW, V, A" />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: Power" />
+            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Power" />
           </div>
         </div>
 

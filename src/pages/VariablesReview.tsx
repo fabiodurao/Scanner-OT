@@ -82,7 +82,7 @@ export default function VariablesReview() {
       .order("address", { ascending: true });
 
     if (error) {
-      toast.error("Erro ao carregar variáveis");
+      toast.error("Failed to load variables");
       setLoading(false);
       return;
     }
@@ -119,8 +119,9 @@ export default function VariablesReview() {
       if (
         aiOnly === "needs_review" &&
         (!v.ai_suggested_type || state === "confirmed" || state === "published")
-      )
+      ) {
         return false;
+      }
 
       if (q) {
         const matchesIp = v.source_ip?.toLowerCase().includes(q);
@@ -147,11 +148,11 @@ export default function VariablesReview() {
   const confirmAI = async (v: DiscoveredVariable) => {
     const aiType = asDataTypeOrNull(v.ai_suggested_type);
     if (!aiType) {
-      toast.error("Sem sugestão de IA válida para confirmar");
+      toast.error("No valid AI suggestion to confirm");
       return;
     }
     if (!user) {
-      toast.error("Não autenticado");
+      toast.error("Not authenticated");
       return;
     }
 
@@ -171,7 +172,7 @@ export default function VariablesReview() {
       .eq("id", v.id);
 
     if (error) {
-      toast.error("Erro ao confirmar: " + error.message);
+      toast.error("Failed to confirm: " + error.message);
       setConfirmingId(null);
       return;
     }
@@ -192,7 +193,7 @@ export default function VariablesReview() {
       ),
     );
 
-    toast.success("Variável confirmada!");
+    toast.success("Variable confirmed");
     setConfirmingId(null);
   };
 
@@ -211,7 +212,7 @@ export default function VariablesReview() {
 
     const dt = asDataTypeOrNull(data.data_type);
     if (!dt) {
-      toast.error("Tipo de dado inválido");
+      toast.error("Invalid data type");
       return;
     }
 
@@ -235,7 +236,7 @@ export default function VariablesReview() {
       .eq("id", editing.id);
 
     if (error) {
-      toast.error("Erro ao salvar: " + error.message);
+      toast.error("Failed to save: " + error.message);
       setSavingEdit(false);
       return;
     }
@@ -259,7 +260,7 @@ export default function VariablesReview() {
       ),
     );
 
-    toast.success("Salvo e confirmado!");
+    toast.success("Saved & confirmed");
     setSavingEdit(false);
     setEditOpen(false);
   };
@@ -273,7 +274,7 @@ export default function VariablesReview() {
             className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Voltar para Discovery
+            Back to Discovery
           </Link>
 
           <div className="mt-4 flex items-start justify-between gap-4">
@@ -282,7 +283,7 @@ export default function VariablesReview() {
                 Variables Review
               </h1>
               <p className="text-muted-foreground mt-1">
-                Revise e confirme tipos (IA ou manual) para o site{" "}
+                Review and confirm types (AI or manual) for site{" "}
                 <span className="font-mono">{siteId}</span>
               </p>
             </div>
@@ -303,14 +304,14 @@ export default function VariablesReview() {
           </Card>
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Com IA</CardTitle>
+              <CardTitle className="text-sm">With AI</CardTitle>
               <Sparkles className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent className="text-2xl font-bold">{counts.withAi}</CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Precisa revisão</CardTitle>
+              <CardTitle className="text-sm">Needs review</CardTitle>
               <HelpCircle className="h-4 w-4 text-amber-600" />
             </CardHeader>
             <CardContent className="text-2xl font-bold text-amber-700">
@@ -319,7 +320,7 @@ export default function VariablesReview() {
           </Card>
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Confirmadas</CardTitle>
+              <CardTitle className="text-sm">Confirmed</CardTitle>
               <CheckCircle className="h-4 w-4 text-emerald-600" />
             </CardHeader>
             <CardContent className="text-2xl font-bold text-emerald-700">
@@ -334,7 +335,7 @@ export default function VariablesReview() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por IP, address ou label..."
+                  placeholder="Search by IP, address or label..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-10"
@@ -387,7 +388,7 @@ export default function VariablesReview() {
         ) : filtered.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-12 text-center text-muted-foreground">
-              Nenhuma variável encontrada com os filtros atuais.
+              No variables found for the current filters.
             </CardContent>
           </Card>
         ) : (

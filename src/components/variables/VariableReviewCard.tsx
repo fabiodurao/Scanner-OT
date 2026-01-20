@@ -98,7 +98,7 @@ export function VariableReviewCard({
           <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
             <div className="flex items-center gap-2 text-sm font-medium text-purple-900">
               <Sparkles className="h-4 w-4" />
-              AI Suggestion
+              AI suggestion
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-3">
