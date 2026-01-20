@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { QueuedFile } from '@/types/upload';
 
@@ -12,7 +12,6 @@ interface UploadContextType {
   cancelFile: (fileId: string) => void;
   cancelAll: () => void;
   clearCompleted: () => void;
-  startUpload: () => void;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -27,10 +26,40 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
   const cancelledRef = useRef(false);
   const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map());
   const isProcessingRef = useRef(false);
+  const queueRef = useRef<QueuedFile[]>([]);
+
+  // Keep queueRef in sync with queue state
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
 
   const updateQueueItem = useCallback((fileId: string, update: Partial<QueuedFile>) => {
-    setQueue(prev => prev.map(item => item.id === fileId ? { ...item, ...update } : item));
+    setQueue(prev => {
+      const updated = prev.map(item => item.id === fileId ? { ...item, ...update } : item);
+      queueRef.current = updated;
+      return updated;
+    });
   }, []);
+
+  const updateSessionStats = async (sessionId: string) => {
+    const { data: sessionFiles } = await supabase
+      .from('pcap_files')
+      .select('size_bytes')
+      .eq('session_id', sessionId)
+      .eq('upload_status', 'completed');
+
+    const completedFiles = sessionFiles || [];
+    const totalSize = completedFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
+
+    await supabase
+      .from('upload_sessions')
+      .update({
+        total_files: completedFiles.length,
+        total_size_bytes: totalSize,
+        status: completedFiles.length > 0 ? 'completed' : 'in_progress',
+      })
+      .eq('id', sessionId);
+  };
 
   const uploadFile = useCallback(async (queueItem: QueuedFile): Promise<boolean> => {
     if (cancelledRef.current) {
@@ -152,52 +181,35 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [updateQueueItem]);
 
-  const updateSessionStats = async (sessionId: string) => {
-    const { data: sessionFiles } = await supabase
-      .from('pcap_files')
-      .select('size_bytes')
-      .eq('session_id', sessionId)
-      .eq('upload_status', 'completed');
-
-    const completedFiles = sessionFiles || [];
-    const totalSize = completedFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
-
-    await supabase
-      .from('upload_sessions')
-      .update({
-        total_files: completedFiles.length,
-        total_size_bytes: totalSize,
-        status: completedFiles.length > 0 ? 'completed' : 'in_progress',
-      })
-      .eq('id', sessionId);
-  };
-
   const processQueue = useCallback(async () => {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      console.log('[UploadContext] Already processing, skipping');
+      return;
+    }
+    
+    console.log('[UploadContext] Starting processQueue');
     isProcessingRef.current = true;
     setIsUploading(true);
+    cancelledRef.current = false;
 
-    // Get current queue state
-    let currentQueue = [...queue];
-    
     while (!cancelledRef.current) {
-      // Find next pending item
+      // Use ref to get current queue state
+      const currentQueue = queueRef.current;
       const pendingItem = currentQueue.find(item => item.status === 'pending');
-      if (!pendingItem) break;
       
+      if (!pendingItem) {
+        console.log('[UploadContext] No more pending items');
+        break;
+      }
+      
+      console.log('[UploadContext] Uploading file:', pendingItem.file.name);
       await uploadFile(pendingItem);
-      
-      // Refresh queue state
-      setQueue(prev => {
-        currentQueue = prev;
-        return prev;
-      });
     }
 
+    console.log('[UploadContext] processQueue finished');
     isProcessingRef.current = false;
     setIsUploading(false);
-    cancelledRef.current = false;
-  }, [queue, uploadFile]);
+  }, [uploadFile]);
 
   const addToQueue = useCallback((
     files: File[], 
@@ -217,17 +229,29 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
       status: 'pending',
     }));
     
-    setQueue(prev => [...prev, ...newItems]);
-  }, []);
-
-  const startUpload = useCallback(() => {
-    if (!isProcessingRef.current && queue.some(item => item.status === 'pending')) {
-      processQueue();
-    }
-  }, [queue, processQueue]);
+    console.log('[UploadContext] Adding to queue:', newItems.length, 'files');
+    
+    setQueue(prev => {
+      const updated = [...prev, ...newItems];
+      queueRef.current = updated;
+      return updated;
+    });
+    
+    // Auto-start upload after a small delay to ensure state is updated
+    setTimeout(() => {
+      console.log('[UploadContext] Auto-starting upload');
+      if (!isProcessingRef.current) {
+        processQueue();
+      }
+    }, 100);
+  }, [processQueue]);
 
   const removeFromQueue = useCallback((fileId: string) => {
-    setQueue(prev => prev.filter(item => item.id !== fileId));
+    setQueue(prev => {
+      const updated = prev.filter(item => item.id !== fileId);
+      queueRef.current = updated;
+      return updated;
+    });
   }, []);
 
   const cancelFile = useCallback((fileId: string) => {
@@ -235,16 +259,21 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     if (xhr) {
       xhr.abort();
     } else {
-      // If not uploading, just mark as cancelled or remove
-      setQueue(prev => prev.map(item => 
-        item.id === fileId && item.status === 'pending' 
-          ? { ...item, status: 'cancelled' as const } 
-          : item
-      ));
+      // If not uploading, just mark as cancelled
+      setQueue(prev => {
+        const updated = prev.map(item => 
+          item.id === fileId && item.status === 'pending' 
+            ? { ...item, status: 'cancelled' as const } 
+            : item
+        );
+        queueRef.current = updated;
+        return updated;
+      });
     }
   }, []);
 
   const cancelAll = useCallback(() => {
+    console.log('[UploadContext] Cancelling all uploads');
     cancelledRef.current = true;
     
     // Abort all active uploads
@@ -253,15 +282,23 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     });
     
     // Mark all pending as cancelled
-    setQueue(prev => prev.map(item => 
-      item.status === 'pending' ? { ...item, status: 'cancelled' as const } : item
-    ));
+    setQueue(prev => {
+      const updated = prev.map(item => 
+        item.status === 'pending' ? { ...item, status: 'cancelled' as const } : item
+      );
+      queueRef.current = updated;
+      return updated;
+    });
   }, []);
 
   const clearCompleted = useCallback(() => {
-    setQueue(prev => prev.filter(item => 
-      item.status !== 'completed' && item.status !== 'cancelled' && item.status !== 'error'
-    ));
+    setQueue(prev => {
+      const updated = prev.filter(item => 
+        item.status !== 'completed' && item.status !== 'cancelled' && item.status !== 'error'
+      );
+      queueRef.current = updated;
+      return updated;
+    });
   }, []);
 
   return (
@@ -273,7 +310,6 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
       cancelFile,
       cancelAll,
       clearCompleted,
-      startUpload,
     }}>
       {children}
     </UploadContext.Provider>

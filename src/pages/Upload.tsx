@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 
 const Upload = () => {
   const { user } = useAuth();
-  const { queue, addToQueue, startUpload, isUploading } = useUpload();
+  const { queue, addToQueue } = useUpload();
   
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
@@ -95,7 +95,7 @@ const Upload = () => {
       setSessionDescription('');
     }
 
-    // Add files to queue
+    // Add files to queue - this will auto-start the upload
     addToQueue(files, selectedSite.id, selectedSite.name, sessionId, sessionDisplayName);
     
     toast.success(`Added ${files.length} file${files.length !== 1 ? 's' : ''} to queue`);
@@ -104,11 +104,6 @@ const Upload = () => {
     setFiles([]);
     setAddingToQueue(false);
     triggerRefresh();
-
-    // Auto-start upload if not already uploading
-    if (!isUploading) {
-      setTimeout(() => startUpload(), 100);
-    }
   };
 
   // Get site name for display
