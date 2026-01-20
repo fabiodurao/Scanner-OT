@@ -12,7 +12,7 @@ import { Site, UploadSession } from '@/types/upload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Upload as UploadIcon, Loader2, CheckCircle, FolderOpen } from 'lucide-react';
+import { Upload as UploadIcon, Loader2, CheckCircle, FolderOpen, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -23,6 +23,7 @@ const Upload = () => {
     isUploading, 
     currentSession,
     startUpload, 
+    addFilesToQueue,
     cancelAll, 
     cancelFile, 
     removeFromQueue,
@@ -46,6 +47,8 @@ const Upload = () => {
   const completedCount = uploads.filter(u => u.status === 'completed').length;
   const errorCount = uploads.filter(u => u.status === 'error').length;
   const cancelledCount = uploads.filter(u => u.status === 'cancelled').length;
+  const pendingCount = uploads.filter(u => u.status === 'pending').length;
+  const uploadingCount = uploads.filter(u => u.status === 'uploading').length;
   const isComplete = hasActiveUpload && !isUploading && (completedCount + errorCount + cancelledCount === uploads.length);
 
   const handleStartUpload = async () => {
@@ -98,6 +101,17 @@ const Upload = () => {
     triggerRefresh();
   };
 
+  const handleAddMoreFiles = () => {
+    if (files.length === 0) {
+      toast.error('Select files to add');
+      return;
+    }
+
+    addFilesToQueue(files);
+    setFiles([]);
+    toast.success(`Added ${files.length} file${files.length !== 1 ? 's' : ''} to queue`);
+  };
+
   const handleReset = () => {
     clearCompleted();
     setFiles([]);
@@ -124,20 +138,25 @@ const Upload = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UploadIcon className="h-5 w-5" />
-                  New Upload
+                  {hasActiveUpload && !isComplete ? 'Upload in Progress' : 'New Upload'}
                 </CardTitle>
                 <CardDescription>
-                  Select the site and add PCAP files for upload
+                  {hasActiveUpload && !isComplete 
+                    ? 'You can add more files to the current upload session'
+                    : 'Select the site and add PCAP files for upload'
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Show upload progress if there's an active or completed upload */}
-                {hasActiveUpload ? (
+                {/* Show upload progress if there's an active upload */}
+                {hasActiveUpload && (
                   <div className="space-y-4">
                     {currentSession && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>Site:</span>
                         <span className="font-medium text-foreground">{currentSession.siteName}</span>
+                        <span className="text-xs">•</span>
+                        <span className="text-xs">{currentSession.sessionName}</span>
                       </div>
                     )}
                     
@@ -152,7 +171,10 @@ const Upload = () => {
                     {isUploading && (
                       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading files... You can navigate away, the upload will continue.
+                        {uploadingCount > 0 && pendingCount > 0 
+                          ? `Uploading... ${pendingCount} file${pendingCount !== 1 ? 's' : ''} in queue`
+                          : 'Uploading files...'
+                        }
                       </div>
                     )}
 
@@ -171,60 +193,98 @@ const Upload = () => {
                         </Button>
                       </div>
                     )}
-
-                    {!isUploading && !isComplete && (
-                      <div className="flex gap-2 justify-center">
-                        <Button variant="outline" onClick={handleReset}>
-                          New Upload
-                        </Button>
-                      </div>
-                    )}
                   </div>
-                ) : (
+                )}
+
+                {/* Show file dropzone when uploading (to add more files) or when no upload is active */}
+                {(isUploading || !hasActiveUpload) && !isComplete && (
                   <>
-                    <SiteSelector
-                      selectedSiteId={selectedSite?.id || null}
-                      onSelectSite={setSelectedSite}
-                    />
-
-                    {selectedSite && (
+                    {/* Only show site/session selector when no upload is active */}
+                    {!hasActiveUpload && (
                       <>
-                        <Separator />
+                        <SiteSelector
+                          selectedSiteId={selectedSite?.id || null}
+                          onSelectSite={setSelectedSite}
+                        />
+
+                        {selectedSite && (
+                          <>
+                            <Separator />
+                            
+                            <SessionSelector
+                              siteId={selectedSite.id}
+                              selectedSessionId={selectedSession?.id || null}
+                              onSelectSession={setSelectedSession}
+                              newSessionName={sessionName}
+                              onNewSessionNameChange={setSessionName}
+                              newSessionDescription={sessionDescription}
+                              onNewSessionDescriptionChange={setSessionDescription}
+                              mode={sessionMode}
+                              onModeChange={setSessionMode}
+                              refreshTrigger={refreshTrigger}
+                            />
+
+                            <Separator />
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {/* Show dropzone when site is selected OR when upload is in progress */}
+                    {(selectedSite || isUploading) && (
+                      <>
+                        {isUploading && <Separator />}
                         
-                        <SessionSelector
-                          siteId={selectedSite.id}
-                          selectedSessionId={selectedSession?.id || null}
-                          onSelectSession={setSelectedSession}
-                          newSessionName={sessionName}
-                          onNewSessionNameChange={setSessionName}
-                          newSessionDescription={sessionDescription}
-                          onNewSessionDescriptionChange={setSessionDescription}
-                          mode={sessionMode}
-                          onModeChange={setSessionMode}
-                          refreshTrigger={refreshTrigger}
-                        />
+                        <div>
+                          {isUploading && (
+                            <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              Add More Files
+                            </div>
+                          )}
+                          <FileDropzone
+                            files={files}
+                            onFilesChange={setFiles}
+                          />
+                        </div>
 
-                        <Separator />
+                        {/* Start upload button (when no upload active) */}
+                        {!hasActiveUpload && (
+                          <Button
+                            onClick={handleStartUpload}
+                            disabled={files.length === 0 || (sessionMode === 'existing' && !selectedSession)}
+                            className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
+                          >
+                            <UploadIcon className="mr-2 h-4 w-4" />
+                            {sessionMode === 'existing' 
+                              ? `Add ${files.length} file${files.length !== 1 ? 's' : ''} to session`
+                              : `Start Upload (${files.length} file${files.length !== 1 ? 's' : ''})`
+                            }
+                          </Button>
+                        )}
 
-                        <FileDropzone
-                          files={files}
-                          onFilesChange={setFiles}
-                        />
-
-                        <Button
-                          onClick={handleStartUpload}
-                          disabled={files.length === 0 || (sessionMode === 'existing' && !selectedSession)}
-                          className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
-                        >
-                          <UploadIcon className="mr-2 h-4 w-4" />
-                          {sessionMode === 'existing' 
-                            ? `Add ${files.length} file${files.length !== 1 ? 's' : ''} to session`
-                            : `Start Upload (${files.length} file${files.length !== 1 ? 's' : ''})`
-                          }
-                        </Button>
+                        {/* Add to queue button (when upload is active) */}
+                        {isUploading && files.length > 0 && (
+                          <Button
+                            onClick={handleAddMoreFiles}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add {files.length} file{files.length !== 1 ? 's' : ''} to Queue
+                          </Button>
+                        )}
                       </>
                     )}
                   </>
+                )}
+
+                {/* Reset button when upload is done but not complete (has errors/cancelled) */}
+                {hasActiveUpload && !isUploading && !isComplete && (
+                  <div className="flex gap-2 justify-center pt-4">
+                    <Button variant="outline" onClick={handleReset}>
+                      Clear & Start New Upload
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -241,7 +301,9 @@ const Upload = () => {
                 <CardDescription>
                   {selectedSite 
                     ? `Upload history for ${selectedSite.name}`
-                    : 'Select a site to view history'
+                    : currentSession
+                      ? `Upload history for ${currentSession.siteName}`
+                      : 'Select a site to view history'
                   }
                 </CardDescription>
               </CardHeader>
@@ -249,6 +311,12 @@ const Upload = () => {
                 {selectedSite ? (
                   <SessionsList 
                     siteId={selectedSite.id} 
+                    refreshTrigger={refreshTrigger}
+                    onSessionsChange={triggerRefresh}
+                  />
+                ) : currentSession ? (
+                  <SessionsList 
+                    siteId={currentSession.siteId} 
                     refreshTrigger={refreshTrigger}
                     onSessionsChange={triggerRefresh}
                   />

@@ -16,6 +16,7 @@ interface UploadContextType {
   isUploading: boolean;
   currentSession: UploadSession | null;
   startUpload: (files: File[], siteId: string, siteName: string, sessionId: string, sessionName: string) => Promise<void>;
+  addFilesToQueue: (files: File[]) => void;
   cancelAll: () => void;
   cancelFile: (fileName: string) => void;
   removeFromQueue: (fileName: string) => void;
@@ -31,6 +32,8 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
   
   const cancelledRef = useRef(false);
   const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map());
+  const queueRef = useRef<File[]>([]);
+  const isProcessingRef = useRef(false);
 
   const updateUpload = useCallback((fileName: string, update: Partial<FileUploadProgress>) => {
     setUploads(prev => prev.map(u => u.file.name === fileName ? { ...u, ...update } : u));
@@ -154,32 +157,18 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [updateUpload]);
 
-  const startUpload = useCallback(async (
-    files: File[], 
-    siteId: string, 
-    siteName: string,
-    sessionId: string, 
-    sessionName: string
-  ) => {
-    cancelledRef.current = false;
-    xhrMapRef.current.clear();
+  const processQueue = useCallback(async (siteId: string, sessionId: string) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
 
-    const initialUploads: FileUploadProgress[] = files.map(file => ({
-      file,
-      progress: 0,
-      status: 'pending',
-    }));
-    
-    setUploads(initialUploads);
-    setIsUploading(true);
-    setCurrentSession({ sessionId, siteId, siteName, sessionName });
-
-    for (const file of files) {
-      if (cancelledRef.current) break;
-      await uploadFile(file, siteId, sessionId);
+    while (queueRef.current.length > 0 && !cancelledRef.current) {
+      const file = queueRef.current.shift();
+      if (file) {
+        await uploadFile(file, siteId, sessionId);
+      }
     }
 
-    // Update session statistics
+    // Update session statistics when queue is empty
     const { data: sessionFiles } = await supabase
       .from('pcap_files')
       .select('size_bytes')
@@ -199,11 +188,59 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
       })
       .eq('id', sessionId);
 
+    isProcessingRef.current = false;
     setIsUploading(false);
   }, [uploadFile]);
 
+  const startUpload = useCallback(async (
+    files: File[], 
+    siteId: string, 
+    siteName: string,
+    sessionId: string, 
+    sessionName: string
+  ) => {
+    cancelledRef.current = false;
+    xhrMapRef.current.clear();
+    queueRef.current = [...files];
+
+    const initialUploads: FileUploadProgress[] = files.map(file => ({
+      file,
+      progress: 0,
+      status: 'pending',
+    }));
+    
+    setUploads(initialUploads);
+    setIsUploading(true);
+    setCurrentSession({ sessionId, siteId, siteName, sessionName });
+
+    processQueue(siteId, sessionId);
+  }, [processQueue]);
+
+  const addFilesToQueue = useCallback((files: File[]) => {
+    if (!currentSession) return;
+
+    // Add new files to the queue
+    queueRef.current.push(...files);
+
+    // Add to uploads state
+    const newUploads: FileUploadProgress[] = files.map(file => ({
+      file,
+      progress: 0,
+      status: 'pending',
+    }));
+    
+    setUploads(prev => [...prev, ...newUploads]);
+    setIsUploading(true);
+
+    // Start processing if not already running
+    if (!isProcessingRef.current) {
+      processQueue(currentSession.siteId, currentSession.sessionId);
+    }
+  }, [currentSession, processQueue]);
+
   const cancelAll = useCallback(() => {
     cancelledRef.current = true;
+    queueRef.current = [];
     
     xhrMapRef.current.forEach((xhr) => {
       xhr.abort();
@@ -215,13 +252,25 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const cancelFile = useCallback((fileName: string) => {
+    // Remove from queue if pending
+    queueRef.current = queueRef.current.filter(f => f.name !== fileName);
+    
+    // Abort if currently uploading
     const xhr = xhrMapRef.current.get(fileName);
     if (xhr) {
       xhr.abort();
+    } else {
+      // If not uploading, just mark as cancelled
+      setUploads(prev => prev.map(u => 
+        u.file.name === fileName && u.status === 'pending' 
+          ? { ...u, status: 'cancelled' as const } 
+          : u
+      ));
     }
   }, []);
 
   const removeFromQueue = useCallback((fileName: string) => {
+    queueRef.current = queueRef.current.filter(f => f.name !== fileName);
     setUploads(prev => prev.map(u => 
       u.file.name === fileName ? { ...u, status: 'cancelled' as const } : u
     ));
@@ -232,6 +281,8 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     setCurrentSession(null);
     cancelledRef.current = false;
     xhrMapRef.current.clear();
+    queueRef.current = [];
+    isProcessingRef.current = false;
   }, []);
 
   return (
@@ -240,6 +291,7 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
       isUploading,
       currentSession,
       startUpload,
+      addFilesToQueue,
       cancelAll,
       cancelFile,
       removeFromQueue,
