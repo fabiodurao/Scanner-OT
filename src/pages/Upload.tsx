@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 
 const Upload = () => {
   const { user } = useAuth();
-  const { queue, addToQueue, lastCompletedSessionId, clearLastCompletedSession } = useUpload();
+  const { queue, addToQueue, completedCount } = useUpload();
   
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
@@ -42,14 +42,13 @@ const Upload = () => {
     }
   }, [selectedSite, queue]);
 
-  // Auto-refresh when a file completes uploading
+  // Auto-refresh when completedCount changes (a file finished uploading)
   useEffect(() => {
-    if (lastCompletedSessionId) {
-      console.log('[Upload] File completed, refreshing sessions list');
+    if (completedCount > 0) {
+      console.log('[Upload] completedCount changed to:', completedCount, '- triggering refresh');
       setRefreshTrigger(prev => prev + 1);
-      clearLastCompletedSession();
     }
-  }, [lastCompletedSessionId, clearLastCompletedSession]);
+  }, [completedCount]);
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);

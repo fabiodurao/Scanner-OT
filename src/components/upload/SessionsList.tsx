@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { UploadSession, PcapFile } from '@/types/upload';
 import { SortableSessionFiles } from './SortableSessionFiles';
@@ -67,7 +67,8 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
   const [editSessionDescription, setEditSessionDescription] = useState('');
   const [savingSession, setSavingSession] = useState(false);
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
+    console.log('[SessionsList] Fetching sessions for site:', siteId);
     setLoading(true);
     
     const { data, error } = await supabase
@@ -79,19 +80,35 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
     if (error) {
       console.error('Error fetching sessions:', error);
     } else {
+      console.log('[SessionsList] Fetched sessions:', data?.length);
       setSessions(data || []);
     }
     setLoading(false);
-  };
+  }, [siteId]);
 
+  // Fetch sessions when siteId or refreshTrigger changes
   useEffect(() => {
     if (siteId) {
       fetchSessions();
     }
-  }, [siteId, refreshTrigger]);
+  }, [siteId, refreshTrigger, fetchSessions]);
 
-  const loadSessionFiles = async (sessionId: string) => {
-    if (sessionFiles[sessionId]) return;
+  // Also refresh files for expanded session when refreshTrigger changes
+  useEffect(() => {
+    if (expandedSession && refreshTrigger) {
+      console.log('[SessionsList] Refresh trigger changed, reloading files for expanded session:', expandedSession);
+      loadSessionFiles(expandedSession, true); // Force reload
+    }
+  }, [refreshTrigger, expandedSession]);
+
+  const loadSessionFiles = async (sessionId: string, forceReload: boolean = false) => {
+    // Skip if already loaded and not forcing reload
+    if (sessionFiles[sessionId] && !forceReload) {
+      console.log('[SessionsList] Files already loaded for session:', sessionId);
+      return;
+    }
+    
+    console.log('[SessionsList] Loading files for session:', sessionId, 'forceReload:', forceReload);
     
     const { data, error } = await supabase
       .from('pcap_files')
@@ -100,14 +117,28 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
       .order('display_order', { ascending: true });
     
     if (!error && data) {
+      console.log('[SessionsList] Loaded files:', data.length, 'for session:', sessionId);
       setSessionFiles(prev => ({ ...prev, [sessionId]: data }));
+      
+      // Also update the session stats in the sessions list
+      const completedFiles = data.filter(f => f.upload_status === 'completed');
+      const totalSize = completedFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
+      
+      setSessions(prev => prev.map(s => 
+        s.id === sessionId 
+          ? { ...s, total_files: completedFiles.length, total_size_bytes: totalSize }
+          : s
+      ));
+    } else if (error) {
+      console.error('[SessionsList] Error loading files:', error);
     }
   };
 
   const handleAccordionChange = (value: string) => {
+    console.log('[SessionsList] Accordion changed to:', value);
     setExpandedSession(value);
     if (value) {
-      loadSessionFiles(value);
+      loadSessionFiles(value, true); // Always reload when expanding
     }
   };
 
@@ -133,14 +164,7 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
       console.error('Error saving file order:', error);
       toast.error('Error saving order');
       // Reload files to restore correct order
-      const { data } = await supabase
-        .from('pcap_files')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('display_order', { ascending: true });
-      if (data) {
-        setSessionFiles(prev => ({ ...prev, [sessionId]: data }));
-      }
+      await loadSessionFiles(sessionId, true);
     }
     
     setSavingOrder(false);
@@ -281,12 +305,13 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
 
     // Update session statistics
     const remainingFiles = (sessionFiles[sessionId] || []).filter(f => f.id !== file.id);
-    const totalSize = remainingFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
+    const completedFiles = remainingFiles.filter(f => f.upload_status === 'completed');
+    const totalSize = completedFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
 
     await supabase
       .from('upload_sessions')
       .update({
-        total_files: remainingFiles.length,
+        total_files: completedFiles.length,
         total_size_bytes: totalSize,
       })
       .eq('id', sessionId);
@@ -300,7 +325,7 @@ export const SessionsList = ({ siteId, refreshTrigger, onSessionsChange }: Sessi
     // Update session in list
     setSessions(prev => prev.map(s => 
       s.id === sessionId 
-        ? { ...s, total_files: remainingFiles.length, total_size_bytes: totalSize }
+        ? { ...s, total_files: completedFiles.length, total_size_bytes: totalSize }
         : s
     ));
 
