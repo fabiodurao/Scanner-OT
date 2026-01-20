@@ -61,6 +61,21 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
       .eq('id', sessionId);
   };
 
+  // Get the next display_order for a session
+  const getNextDisplayOrder = async (sessionId: string): Promise<number> => {
+    const { data } = await supabase
+      .from('pcap_files')
+      .select('display_order')
+      .eq('session_id', sessionId)
+      .order('display_order', { ascending: false })
+      .limit(1);
+    
+    if (data && data.length > 0 && data[0].display_order !== null) {
+      return data[0].display_order + 1;
+    }
+    return 1; // Start from 1 if no files exist
+  };
+
   const uploadFile = useCallback(async (queueItem: QueuedFile): Promise<boolean> => {
     if (cancelledRef.current) {
       updateQueueItem(queueItem.id, { status: 'cancelled' });
@@ -97,6 +112,9 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
 
       const { presignedUrl, s3Key, bucket } = await presignedResponse.json();
 
+      // Get the next display_order for this session
+      const nextDisplayOrder = await getNextDisplayOrder(queueItem.sessionId);
+
       const { data: pcapFile, error: dbError } = await supabase
         .from('pcap_files')
         .insert({
@@ -108,6 +126,7 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
           s3_bucket: bucket,
           content_type: queueItem.file.type || 'application/octet-stream',
           upload_status: 'uploading',
+          display_order: nextDisplayOrder,
         })
         .select()
         .single();
