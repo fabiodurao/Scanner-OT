@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 
 const Upload = () => {
   const { user } = useAuth();
-  const { queue, addToQueue } = useUpload();
+  const { queue, addToQueue, lastCompletedSessionId, clearLastCompletedSession } = useUpload();
   
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
@@ -41,6 +41,15 @@ const Upload = () => {
       setDisplaySiteId(queue[queue.length - 1].siteId);
     }
   }, [selectedSite, queue]);
+
+  // Auto-refresh when a file completes uploading
+  useEffect(() => {
+    if (lastCompletedSessionId) {
+      console.log('[Upload] File completed, refreshing sessions list');
+      setRefreshTrigger(prev => prev + 1);
+      clearLastCompletedSession();
+    }
+  }, [lastCompletedSessionId, clearLastCompletedSession]);
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -93,6 +102,9 @@ const Upload = () => {
       // Reset session form for next use
       setSessionName('');
       setSessionDescription('');
+      
+      // Refresh to show the new session
+      triggerRefresh();
     }
 
     // Add files to queue - this will auto-start the upload
@@ -103,7 +115,6 @@ const Upload = () => {
     // Clear file selection
     setFiles([]);
     setAddingToQueue(false);
-    triggerRefresh();
   };
 
   // Get site name for display

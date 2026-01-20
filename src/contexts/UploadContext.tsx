@@ -7,11 +7,13 @@ const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 interface UploadContextType {
   queue: QueuedFile[];
   isUploading: boolean;
+  lastCompletedSessionId: string | null;
   addToQueue: (files: File[], siteId: string, siteName: string, sessionId: string, sessionName: string) => void;
   removeFromQueue: (fileId: string) => void;
   cancelFile: (fileId: string) => void;
   cancelAll: () => void;
   clearCompleted: () => void;
+  clearLastCompletedSession: () => void;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -22,6 +24,7 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 export const UploadProvider = ({ children }: { children: ReactNode }) => {
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [lastCompletedSessionId, setLastCompletedSessionId] = useState<string | null>(null);
   
   const cancelledRef = useRef(false);
   const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -154,6 +157,9 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
             
             // Update session statistics
             await updateSessionStats(queueItem.sessionId);
+            
+            // Notify that a file was completed - this triggers refresh in UI
+            setLastCompletedSessionId(queueItem.sessionId);
             
             resolve(true);
           } else {
@@ -320,15 +326,21 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const clearLastCompletedSession = useCallback(() => {
+    setLastCompletedSessionId(null);
+  }, []);
+
   return (
     <UploadContext.Provider value={{
       queue,
       isUploading,
+      lastCompletedSessionId,
       addToQueue,
       removeFromQueue,
       cancelFile,
       cancelAll,
       clearCompleted,
+      clearLastCompletedSession,
     }}>
       {children}
     </UploadContext.Provider>
