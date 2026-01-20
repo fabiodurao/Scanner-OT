@@ -1,17 +1,36 @@
 import { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Save, Cpu, Link as LinkIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface AllDataCounts {
+  learning_samples_count: number;
+  equipment_count: number;
+  variables_count: number;
+}
 
 const Settings = () => {
   const { settings, loading, saving, saveSettings } = useUserSettings();
+  const { profile } = useAuth();
   
   // Local form state
   const [formData, setFormData] = useState({
@@ -24,6 +43,16 @@ const Settings = () => {
     mbsniffer_interval_batch: '60',
     mbsniffer_interval_min: '5',
   });
+
+  // Danger zone state
+  const [dataCounts, setDataCounts] = useState<AllDataCounts | null>(null);
+  const [loadingCounts, setLoadingCounts] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const isAdmin = profile?.is_admin === true;
+  const confirmRequired = 'DELETE ALL';
 
   // Update form when settings load
   useEffect(() => {
@@ -40,6 +69,29 @@ const Settings = () => {
       });
     }
   }, [loading, settings]);
+
+  // Fetch data counts for danger zone
+  const fetchDataCounts = async () => {
+    if (!isAdmin) return;
+    
+    setLoadingCounts(true);
+    
+    const { data, error } = await supabase.rpc('get_all_discovery_data_counts');
+    
+    if (error) {
+      console.error('Error fetching data counts:', error);
+    } else if (data && data.length > 0) {
+      setDataCounts(data[0]);
+    }
+    
+    setLoadingCounts(false);
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchDataCounts();
+    }
+  }, [isAdmin]);
 
   const handleSave = async () => {
     const success = await saveSettings({
@@ -59,6 +111,42 @@ const Settings = () => {
       toast.error('Error saving settings');
     }
   };
+
+  const handleClearAllData = async () => {
+    if (confirmText !== confirmRequired) {
+      toast.error('Confirmation text does not match');
+      return;
+    }
+
+    setDeleting(true);
+
+    const { data, error } = await supabase.rpc('clear_all_discovery_data');
+
+    if (error) {
+      console.error('Error clearing data:', error);
+      toast.error('Error clearing data: ' + error.message);
+      setDeleting(false);
+      return;
+    }
+
+    const result = data?.[0];
+    const totalDeleted = (result?.learning_samples_deleted || 0) + 
+                         (result?.equipment_deleted || 0) + 
+                         (result?.variables_deleted || 0);
+
+    toast.success(`Successfully deleted ${totalDeleted.toLocaleString()} records from all sites`);
+    
+    setDialogOpen(false);
+    setConfirmText('');
+    setDeleting(false);
+    
+    // Refresh counts
+    await fetchDataCounts();
+  };
+
+  const totalRecords = dataCounts 
+    ? dataCounts.learning_samples_count + dataCounts.equipment_count + dataCounts.variables_count
+    : 0;
 
   if (loading) {
     return (
@@ -267,7 +355,145 @@ const Settings = () => {
               )}
             </Button>
           </div>
+
+          {/* Danger Zone - Admin Only */}
+          {isAdmin && (
+            <Card className="border-red-200 bg-red-50/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="h-5 w-5" />
+                  Danger Zone
+                </CardTitle>
+                <CardDescription className="text-red-600">
+                  Irreversible actions that permanently delete data from all sites
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Data Overview */}
+                {loadingCounts ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : dataCounts && (
+                  <div className="grid gap-3 md:grid-cols-3 mb-4">
+                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                      <Database className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <div className="font-bold">{dataCounts.learning_samples_count.toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Learning Samples</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                      <Server className="h-4 w-4 text-purple-600" />
+                      <div>
+                        <div className="font-bold">{dataCounts.equipment_count.toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Equipment Records</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                      <Variable className="h-4 w-4 text-emerald-600" />
+                      <div>
+                        <div className="font-bold">{dataCounts.variables_count.toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Discovered Variables</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 border border-red-200 rounded-lg bg-white">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="font-medium text-red-900">Clear All Discovery Data</h4>
+                      <p className="text-sm text-red-700 mt-1">
+                        Permanently delete all learning samples, discovered equipment, and discovered variables 
+                        from <strong>ALL sites</strong>. This action cannot be undone.
+                      </p>
+                      {totalRecords > 0 && (
+                        <p className="text-sm font-medium text-red-800 mt-2">
+                          This will delete {totalRecords.toLocaleString()} records across all sites.
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setDialogOpen(true)}
+                      disabled={totalRecords === 0}
+                      className="flex-shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All Data
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-5 w-5" />
+                Clear All Discovery Data
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>
+                    You are about to permanently delete <strong>ALL</strong> discovery data from <strong>ALL sites</strong>.
+                  </p>
+                  
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                    <p className="font-medium text-red-800">This will delete:</p>
+                    <ul className="text-sm text-red-700 space-y-1">
+                      <li>• {dataCounts?.learning_samples_count.toLocaleString() || 0} learning samples</li>
+                      <li>• {dataCounts?.equipment_count.toLocaleString() || 0} equipment records</li>
+                      <li>• {dataCounts?.variables_count.toLocaleString() || 0} discovered variables</li>
+                    </ul>
+                    <p className="text-sm font-medium text-red-800 pt-2 border-t border-red-200">
+                      Total: {totalRecords.toLocaleString()} records
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-all-text" className="text-foreground">
+                      Type <strong>{confirmRequired}</strong> to confirm:
+                    </Label>
+                    <Input
+                      id="confirm-all-text"
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                      placeholder={confirmRequired}
+                      className="font-mono"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearAllData}
+                disabled={confirmText !== confirmRequired || deleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete All Data
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   );

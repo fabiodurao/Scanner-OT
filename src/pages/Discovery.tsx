@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment } from '@/types/discovery';
 import { Site } from '@/types/upload';
 import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTable';
 import { EquipmentList } from '@/components/discovery/EquipmentList';
+import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,7 @@ import {
   Clock,
   Database,
   RefreshCcw,
+  Settings,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -41,6 +44,7 @@ const countUniqueVariables = (variables: LearningSample[]): number => {
 
 const Discovery = () => {
   const { siteId } = useParams<{ siteId: string }>();
+  const { profile } = useAuth();
   const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables } = useDiscoveryData();
   
   const [site, setSite] = useState<Site | null>(null);
@@ -58,6 +62,8 @@ const Discovery = () => {
   
   // Track if we're showing filtered data
   const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
+
+  const isAdmin = profile?.is_admin === true;
 
   const loadData = useCallback(async () => {
     if (!siteId) return;
@@ -196,6 +202,12 @@ const Discovery = () => {
     }
     
     setLoadingFiltered(false);
+  };
+
+  // Handle data cleared from settings tab
+  const handleDataCleared = () => {
+    // Reload all data
+    loadData();
   };
 
   // Filter variables by FC (client-side since it's fast)
@@ -366,6 +378,12 @@ const Discovery = () => {
               <Server className="h-4 w-4 mr-2" />
               Equipment ({equipment.length})
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="settings">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </TabsTrigger>
+            )}
           </TabsList>
           
           <TabsContent value="variables">
@@ -469,6 +487,16 @@ const Discovery = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="settings">
+              <SiteSettingsTab 
+                siteIdentifier={siteId!}
+                siteName={site?.name}
+                onDataCleared={handleDataCleared}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </MainLayout>
