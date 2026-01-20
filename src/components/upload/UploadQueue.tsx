@@ -15,7 +15,6 @@ import {
   X, 
   StopCircle,
   Trash2,
-  Play,
   Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,7 +27,7 @@ const formatFileSize = (bytes: number) => {
 };
 
 export const UploadQueue = () => {
-  const { queue, isUploading, cancelAll, cancelFile, removeFromQueue, clearCompleted, startUpload } = useUpload();
+  const { queue, isUploading, cancelAll, cancelFile, removeFromQueue, clearCompleted } = useUpload();
   const [isExpanded, setIsExpanded] = useState(true);
 
   const completedCount = queue.filter(q => q.status === 'completed').length;
@@ -110,7 +109,7 @@ export const UploadQueue = () => {
             <div className="mt-3">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                 <span>
-                  {uploadingCount > 0 ? 'Uploading...' : 'Ready to upload'}
+                  {uploadingCount > 0 ? 'Uploading...' : 'Starting upload...'}
                   {pendingCount > 0 && ` (${pendingCount} in queue)`}
                 </span>
                 <span>{Math.round(totalProgress)}%</span>
@@ -124,12 +123,6 @@ export const UploadQueue = () => {
           <CardContent className="pt-0">
             {/* Action buttons */}
             <div className="flex items-center gap-2 mb-4">
-              {pendingCount > 0 && !isUploading && (
-                <Button size="sm" onClick={startUpload} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
-                  <Play className="h-4 w-4 mr-1" />
-                  Start Upload
-                </Button>
-              )}
               {(isUploading || activeCount > 0) && (
                 <Button size="sm" variant="destructive" onClick={cancelAll}>
                   <StopCircle className="h-4 w-4 mr-1" />
