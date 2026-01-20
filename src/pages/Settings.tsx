@@ -51,6 +51,7 @@ interface AuditLog {
   performed_by: string;
   performed_at: string;
   user_email?: string;
+  site_name?: string;
 }
 
 const Settings = () => {
@@ -141,29 +142,46 @@ const Settings = () => {
     
     if (error) {
       console.error('Error fetching audit logs:', error);
-    } else {
-      // Fetch user emails for the logs
-      const userIds = [...new Set((data || []).map(log => log.performed_by).filter(Boolean))];
-      
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .in('id', userIds);
-        
-        const emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
-        
-        const logsWithEmail = (data || []).map(log => ({
-          ...log,
-          user_email: emailMap.get(log.performed_by) || 'Unknown'
-        }));
-        
-        setAuditLogs(logsWithEmail as AuditLog[]);
-      } else {
-        setAuditLogs((data || []) as AuditLog[]);
-      }
+      setLoadingAudit(false);
+      return;
     }
     
+    // Fetch user emails for the logs
+    const userIds = [...new Set((data || []).map(log => log.performed_by).filter(Boolean))];
+    
+    let emailMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+      
+      emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+    }
+    
+    // Get unique site identifiers from logs that target a site
+    const uniqueSiteIds = [...new Set((data || [])
+      .filter(log => log.target_type === 'site' && log.target_identifier)
+      .map(log => log.target_identifier)
+      .filter((id): id is string => Boolean(id)))];
+    
+    let siteNameMap = new Map<string, string>();
+    if (uniqueSiteIds.length > 0) {
+      const { data: sites } = await supabase
+        .from('sites')
+        .select('unique_id, name')
+        .in('unique_id', uniqueSiteIds);
+      
+      siteNameMap = new Map(sites?.map(s => [s.unique_id, s.name]) || []);
+    }
+    
+    const logsWithDetails = (data || []).map(log => ({
+      ...log,
+      user_email: emailMap.get(log.performed_by) || 'Unknown',
+      site_name: log.target_identifier ? siteNameMap.get(log.target_identifier) : undefined,
+    }));
+    
+    setAuditLogs(logsWithDetails as AuditLog[]);
     setLoadingAudit(false);
   };
 
@@ -527,9 +545,14 @@ const Settings = () => {
                                 {log.target_type === 'all_sites' ? (
                                   <span className="text-red-600 font-medium">All Sites</span>
                                 ) : log.target_identifier ? (
-                                  <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">
-                                    {log.target_identifier.slice(0, 12)}...
-                                  </code>
+                                  <div>
+                                    <div className="font-medium">
+                                      {log.site_name || 'Unknown Site'}
+                                    </div>
+                                    <code className="text-[10px] text-muted-foreground font-mono">
+                                      {log.target_identifier}
+                                    </code>
+                                  </div>
                                 ) : (
                                   '-'
                                 )}
