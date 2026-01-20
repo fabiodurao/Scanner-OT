@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { SiteSelector } from '@/components/upload/SiteSelector';
 import { SessionSelector } from '@/components/upload/SessionSelector';
@@ -6,8 +6,9 @@ import { FileDropzone } from '@/components/upload/FileDropzone';
 import { UploadProgress } from '@/components/upload/UploadProgress';
 import { SessionsList } from '@/components/upload/SessionsList';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUpload } from '@/contexts/UploadContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Site, UploadSession, FileUploadProgress } from '@/types/upload';
+import { Site, UploadSession } from '@/types/upload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -15,177 +16,37 @@ import { Upload as UploadIcon, Loader2, CheckCircle, FolderOpen } from 'lucide-r
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
-
 const Upload = () => {
   const { user } = useAuth();
+  const { 
+    uploads, 
+    isUploading, 
+    currentSession,
+    startUpload, 
+    cancelAll, 
+    cancelFile, 
+    removeFromQueue,
+    clearCompleted 
+  } = useUpload();
+  
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sessionMode, setSessionMode] = useState<'new' | 'existing'>('new');
   const [selectedSession, setSelectedSession] = useState<UploadSession | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [sessionDescription, setSessionDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [step, setStep] = useState<'select' | 'progress' | 'complete'>('select');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [uploads, setUploads] = useState<FileUploadProgress[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const cancelledRef = useRef(false);
-  const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map());
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
-  const updateUpload = useCallback((fileName: string, update: Partial<FileUploadProgress>) => {
-    setUploads(prev => prev.map(u => u.file.name === fileName ? { ...u, ...update } : u));
-  }, []);
-
-  const uploadFile = useCallback(async (file: File, siteId: string, sessionId: string): Promise<boolean> => {
-    const fileName = file.name;
-    
-    if (cancelledRef.current) {
-      updateUpload(fileName, { status: 'cancelled' });
-      return false;
-    }
-    
-    try {
-      updateUpload(fileName, { status: 'uploading', progress: 0 });
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      const presignedResponse = await fetch(
-        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/s3-presigned-url`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type || 'application/octet-stream',
-            customerId: siteId, // Keep as customerId for S3 path compatibility
-            sessionId,
-          }),
-        }
-      );
-
-      if (!presignedResponse.ok) {
-        const errorData = await presignedResponse.json();
-        throw new Error(errorData.error || 'Error generating upload URL');
-      }
-
-      const { presignedUrl, s3Key, bucket } = await presignedResponse.json();
-
-      const { data: pcapFile, error: dbError } = await supabase
-        .from('pcap_files')
-        .insert({
-          session_id: sessionId,
-          filename: s3Key.split('/').pop(),
-          original_filename: file.name,
-          size_bytes: file.size,
-          s3_key: s3Key,
-          s3_bucket: bucket,
-          content_type: file.type || 'application/octet-stream',
-          upload_status: 'uploading',
-        })
-        .select()
-        .single();
-
-      if (dbError) throw new Error('Error registering file: ' + dbError.message);
-
-      const success = await new Promise<boolean>((resolve) => {
-        const xhr = new XMLHttpRequest();
-        xhrMapRef.current.set(fileName, xhr);
-        
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            updateUpload(fileName, { progress: Math.round((event.loaded / event.total) * 100) });
-          }
-        });
-
-        xhr.addEventListener('load', async () => {
-          xhrMapRef.current.delete(fileName);
-          if (xhr.status >= 200 && xhr.status < 300) {
-            await supabase
-              .from('pcap_files')
-              .update({ upload_status: 'completed', completed_at: new Date().toISOString() })
-              .eq('id', pcapFile.id);
-            updateUpload(fileName, { status: 'completed', progress: 100, pcapFileId: pcapFile.id });
-            resolve(true);
-          } else {
-            await supabase
-              .from('pcap_files')
-              .update({ upload_status: 'error', error_message: `HTTP ${xhr.status}` })
-              .eq('id', pcapFile.id);
-            updateUpload(fileName, { status: 'error', error: `Upload failed with status ${xhr.status}` });
-            resolve(false);
-          }
-        });
-
-        xhr.addEventListener('error', async () => {
-          xhrMapRef.current.delete(fileName);
-          await supabase
-            .from('pcap_files')
-            .update({ upload_status: 'error', error_message: 'Network error' })
-            .eq('id', pcapFile.id);
-          updateUpload(fileName, { status: 'error', error: 'Network error' });
-          resolve(false);
-        });
-
-        xhr.addEventListener('abort', async () => {
-          xhrMapRef.current.delete(fileName);
-          await supabase
-            .from('pcap_files')
-            .delete()
-            .eq('id', pcapFile.id);
-          updateUpload(fileName, { status: 'cancelled' });
-          resolve(false);
-        });
-
-        xhr.open('PUT', presignedUrl);
-        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-        xhr.send(file);
-      });
-
-      return success;
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateUpload(fileName, { status: 'error', error: errorMessage });
-      return false;
-    }
-  }, [updateUpload]);
-
-  const handleCancelAll = useCallback(() => {
-    cancelledRef.current = true;
-    
-    xhrMapRef.current.forEach((xhr) => {
-      xhr.abort();
-    });
-    
-    setUploads(prev => prev.map(u => 
-      u.status === 'pending' ? { ...u, status: 'cancelled' as const } : u
-    ));
-    
-    toast.info('All uploads cancelled');
-  }, []);
-
-  const handleCancelFile = useCallback((fileName: string) => {
-    const xhr = xhrMapRef.current.get(fileName);
-    if (xhr) {
-      xhr.abort();
-      toast.info(`Upload of "${fileName}" cancelled`);
-    }
-  }, []);
-
-  const handleRemoveFromQueue = useCallback((fileName: string) => {
-    setUploads(prev => prev.map(u => 
-      u.file.name === fileName ? { ...u, status: 'cancelled' as const } : u
-    ));
-    toast.info(`"${fileName}" removed from queue`);
-  }, []);
+  // Determine current step based on state
+  const hasActiveUpload = uploads.length > 0;
+  const completedCount = uploads.filter(u => u.status === 'completed').length;
+  const errorCount = uploads.filter(u => u.status === 'error').length;
+  const cancelledCount = uploads.filter(u => u.status === 'cancelled').length;
+  const isComplete = hasActiveUpload && !isUploading && (completedCount + errorCount + cancelledCount === uploads.length);
 
   const handleStartUpload = async () => {
     if (!selectedSite || files.length === 0) {
@@ -198,22 +59,12 @@ const Upload = () => {
       return;
     }
 
-    cancelledRef.current = false;
-    xhrMapRef.current.clear();
-
-    const initialUploads: FileUploadProgress[] = files.map(file => ({
-      file,
-      progress: 0,
-      status: 'pending',
-    }));
-    setUploads(initialUploads);
-    setStep('progress');
-    setIsUploading(true);
-
     let sessionId: string;
+    let sessionDisplayName: string;
 
     if (sessionMode === 'existing' && selectedSession) {
       sessionId = selectedSession.id;
+      sessionDisplayName = selectedSession.name || format(new Date(selectedSession.created_at), "MM/dd/yyyy 'at' HH:mm");
     } else {
       // Create new session with timestamp as default name
       const defaultName = sessionName || format(new Date(), "MM/dd/yyyy 'at' HH:mm");
@@ -232,64 +83,29 @@ const Upload = () => {
 
       if (error) {
         toast.error('Error creating upload session: ' + error.message);
-        setStep('select');
-        setIsUploading(false);
         return;
       }
 
       sessionId = session.id;
+      sessionDisplayName = defaultName;
     }
 
-    const siteId = selectedSite.id;
-
-    for (const file of files) {
-      if (cancelledRef.current) {
-        break;
-      }
-
-      await uploadFile(file, siteId, sessionId);
-    }
-
-    // Update session statistics
-    const { data: sessionFiles } = await supabase
-      .from('pcap_files')
-      .select('size_bytes')
-      .eq('session_id', sessionId)
-      .eq('upload_status', 'completed');
-
-    const completedFiles = sessionFiles || [];
-    const totalSize = completedFiles.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
-
-    await supabase
-      .from('upload_sessions')
-      .update({
-        total_files: completedFiles.length,
-        total_size_bytes: totalSize,
-        status: completedFiles.length > 0 ? 'completed' : 'error',
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', sessionId);
-
-    setIsUploading(false);
-    setStep('complete');
+    // Start upload using the global context
+    await startUpload(files, selectedSite.id, selectedSite.name, sessionId, sessionDisplayName);
+    
+    // Clear local file selection
+    setFiles([]);
     triggerRefresh();
   };
 
   const handleReset = () => {
+    clearCompleted();
     setFiles([]);
     setSessionName('');
     setSessionDescription('');
     setSessionMode('new');
     setSelectedSession(null);
-    setStep('select');
-    setUploads([]);
-    cancelledRef.current = false;
-    xhrMapRef.current.clear();
   };
-
-  const completedCount = uploads.filter(u => u.status === 'completed').length;
-  const errorCount = uploads.filter(u => u.status === 'error').length;
-  const cancelledCount = uploads.filter(u => u.status === 'cancelled').length;
 
   return (
     <MainLayout>
@@ -315,7 +131,56 @@ const Upload = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {step === 'select' && (
+                {/* Show upload progress if there's an active or completed upload */}
+                {hasActiveUpload ? (
+                  <div className="space-y-4">
+                    {currentSession && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>Site:</span>
+                        <span className="font-medium text-foreground">{currentSession.siteName}</span>
+                      </div>
+                    )}
+                    
+                    <UploadProgress 
+                      uploads={uploads} 
+                      isUploading={isUploading}
+                      onCancelAll={cancelAll}
+                      onCancelFile={cancelFile}
+                      onRemoveFromQueue={removeFromQueue}
+                    />
+
+                    {isUploading && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading files... You can navigate away, the upload will continue.
+                      </div>
+                    )}
+
+                    {isComplete && (
+                      <div className="text-center py-4">
+                        <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold mb-1">Upload Complete!</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {completedCount} file{completedCount !== 1 ? 's' : ''} uploaded successfully.
+                          {errorCount > 0 && ` ${errorCount} error${errorCount !== 1 ? 's' : ''}.`}
+                          {cancelledCount > 0 && ` ${cancelledCount} cancelled.`}
+                        </p>
+                        <Button onClick={handleReset}>
+                          <UploadIcon className="mr-2 h-4 w-4" />
+                          New Upload
+                        </Button>
+                      </div>
+                    )}
+
+                    {!isUploading && !isComplete && (
+                      <div className="flex gap-2 justify-center">
+                        <Button variant="outline" onClick={handleReset}>
+                          New Upload
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <>
                     <SiteSelector
                       selectedSiteId={selectedSite?.id || null}
@@ -360,56 +225,6 @@ const Upload = () => {
                       </>
                     )}
                   </>
-                )}
-
-                {step === 'progress' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>Site:</span>
-                      <span className="font-medium text-foreground">{selectedSite?.name}</span>
-                    </div>
-                    
-                    <UploadProgress 
-                      uploads={uploads} 
-                      isUploading={isUploading}
-                      onCancelAll={handleCancelAll}
-                      onCancelFile={handleCancelFile}
-                      onRemoveFromQueue={handleRemoveFromQueue}
-                    />
-
-                    {isUploading && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading files... Do not close this page.
-                      </div>
-                    )}
-
-                    {!isUploading && (
-                      <div className="flex gap-2 justify-center">
-                        <Button variant="outline" onClick={handleReset}>
-                          New Upload
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {step === 'complete' && (
-                  <div className="text-center py-8">
-                    <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Upload Complete!</h3>
-                    <p className="text-muted-foreground mb-6">
-                      {completedCount} file{completedCount !== 1 ? 's' : ''} uploaded successfully.
-                      {errorCount > 0 && ` ${errorCount} error${errorCount !== 1 ? 's' : ''}.`}
-                      {cancelledCount > 0 && ` ${cancelledCount} cancelled.`}
-                    </p>
-                    <div className="flex gap-2 justify-center">
-                      <Button onClick={handleReset}>
-                        <UploadIcon className="mr-2 h-4 w-4" />
-                        New Upload
-                      </Button>
-                    </div>
-                  </div>
                 )}
               </CardContent>
             </Card>

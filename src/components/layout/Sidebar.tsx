@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActiveJobsIndicator } from './ActiveJobsIndicator';
+import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
 import {
   LayoutDashboard,
   Upload,
@@ -254,6 +255,9 @@ const Sidebar = () => {
           ))}
         </div>
       </nav>
+      
+      {/* Active Uploads Indicator - above jobs indicator */}
+      {!isCollapsed && <ActiveUploadsIndicator />}
       
       {/* Active Jobs Indicator - above user info */}
       {!isCollapsed && <ActiveJobsIndicator />}

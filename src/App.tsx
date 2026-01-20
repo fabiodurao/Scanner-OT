@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProcessingJobsProvider } from "@/contexts/ProcessingJobsContext";
+import { UploadProvider } from "@/contexts/UploadContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index";
@@ -68,7 +69,9 @@ const AppWithProviders = () => {
   return (
     <AuthProvider>
       <ProcessingJobsProvider>
-        <AppRoutes />
+        <UploadProvider>
+          <AppRoutes />
+        </UploadProvider>
       </ProcessingJobsProvider>
     </AuthProvider>
   );
