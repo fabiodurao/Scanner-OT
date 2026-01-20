@@ -9,6 +9,8 @@ import { Site } from '@/types/upload';
 import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTable';
 import { EquipmentList } from '@/components/discovery/EquipmentList';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
+import { ReviewVariablesButton } from '@/components/discovery/ReviewVariablesButton';
+import { RunAnalysisButton } from '@/components/discovery/RunAnalysisButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -278,7 +280,9 @@ const Discovery = () => {
                 </code>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {siteId && <RunAnalysisButton siteId={siteId} />}
+              {siteId && <ReviewVariablesButton siteId={siteId} />}
               <Button variant="outline" onClick={handleSyncEquipment} disabled={syncing}>
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Equipment

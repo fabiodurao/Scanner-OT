@@ -41,6 +41,22 @@ export interface DiscoveredVariable {
   // Learning
   learning_state: LearningState;
   confidence_score: number;
+
+  // AI fields (already exist in DB)
+  ai_suggested_type: DataType | null;
+  ai_confidence: number;
+  ai_analysis_at: string | null;
+  ai_reasoning: string | null;
+
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  
+  // Stats
+  stats_min: number | null;
+  stats_max: number | null;
+  stats_mean: number | null;
+  stats_std_dev: number | null;
+  stats_jump_count: number | null;
   
   // Scores for heatmap
   score_uint16: number;

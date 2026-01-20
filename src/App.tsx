@@ -23,6 +23,7 @@ import Login from "./pages/Login";
 import PendingApproval from "./pages/PendingApproval";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
+import VariablesReview from "./pages/VariablesReview";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const AppRoutes = () => {
       <Route path="/sites-management" element={<ProtectedRoute><SitesManagement /></ProtectedRoute>} />
       <Route path="/discovery" element={<ProtectedRoute><UnknownSites /></ProtectedRoute>} />
       <Route path="/discovery/:siteId" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
+      <Route path="/discovery/:siteId/variables" element={<ProtectedRoute><VariablesReview /></ProtectedRoute>} />
       <Route path="/customers" element={<Navigate to="/sites-management" replace />} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute requireAdmin><UserManagement /></ProtectedRoute>} />
