@@ -5,18 +5,18 @@ import { Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const ActiveUploadsIndicator = () => {
-  const { uploads, isUploading, currentSession } = useUpload();
+  const { queue, isUploading } = useUpload();
 
   // Calculate stats
-  const completedCount = uploads.filter(u => u.status === 'completed').length;
-  const errorCount = uploads.filter(u => u.status === 'error').length;
-  const uploadingCount = uploads.filter(u => u.status === 'uploading').length;
-  const pendingCount = uploads.filter(u => u.status === 'pending').length;
-  const totalCount = uploads.length;
+  const completedCount = queue.filter(q => q.status === 'completed').length;
+  const errorCount = queue.filter(q => q.status === 'error').length;
+  const uploadingCount = queue.filter(q => q.status === 'uploading').length;
+  const pendingCount = queue.filter(q => q.status === 'pending').length;
+  const totalCount = queue.length;
   
   // Calculate overall progress
   const totalProgress = totalCount > 0 
-    ? uploads.reduce((sum, u) => sum + u.progress, 0) / totalCount 
+    ? queue.reduce((sum, q) => sum + q.progress, 0) / totalCount 
     : 0;
 
   // Don't show if no uploads
@@ -24,7 +24,11 @@ export const ActiveUploadsIndicator = () => {
     return null;
   }
 
-  const isComplete = !isUploading && completedCount + errorCount === totalCount;
+  const activeCount = uploadingCount + pendingCount;
+  const isComplete = !isUploading && activeCount === 0;
+
+  // Get current uploading file info
+  const currentUpload = queue.find(q => q.status === 'uploading');
 
   return (
     <div className="px-3 py-2 border-t border-[hsl(var(--sidebar-border))]">
@@ -49,7 +53,7 @@ export const ActiveUploadsIndicator = () => {
               isUploading ? "text-blue-400" : isComplete ? "text-emerald-400" : "text-gray-400"
             )}>
               {isUploading 
-                ? `Uploading ${uploadingCount + pendingCount} file${uploadingCount + pendingCount !== 1 ? 's' : ''}`
+                ? `Uploading ${activeCount} file${activeCount !== 1 ? 's' : ''}`
                 : isComplete 
                   ? `Upload complete`
                   : 'Upload'
@@ -77,10 +81,10 @@ export const ActiveUploadsIndicator = () => {
         {/* Progress section */}
         {isUploading && (
           <div className="px-2 pb-2">
-            {/* Current session info */}
-            {currentSession && (
+            {/* Current site info */}
+            {currentUpload && (
               <div className="text-[10px] text-gray-400 mb-1.5 truncate">
-                {currentSession.siteName}
+                {currentUpload.siteName}
               </div>
             )}
             
@@ -96,11 +100,11 @@ export const ActiveUploadsIndicator = () => {
             </div>
             
             {/* File being uploaded */}
-            {uploads.find(u => u.status === 'uploading') && (
+            {currentUpload && (
               <div className="mt-1.5 flex items-center gap-2">
                 <Loader2 className="h-3 w-3 text-blue-400 animate-spin flex-shrink-0" />
                 <span className="text-[10px] text-gray-400 truncate">
-                  {uploads.find(u => u.status === 'uploading')?.file.name}
+                  {currentUpload.file.name}
                 </span>
               </div>
             )}

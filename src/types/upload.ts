@@ -54,3 +54,17 @@ export interface FileUploadProgress {
   pcapFileId?: string;
   xhr?: XMLHttpRequest;
 }
+
+// New type for queued files with site/session info
+export interface QueuedFile {
+  id: string;
+  file: File;
+  siteId: string;
+  siteName: string;
+  sessionId: string;
+  sessionName: string;
+  progress: number;
+  status: 'pending' | 'uploading' | 'completed' | 'error' | 'cancelled';
+  error?: string;
+  pcapFileId?: string;
+}
