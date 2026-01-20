@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,13 +20,37 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable, History, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 interface AllDataCounts {
   learning_samples_count: number;
   equipment_count: number;
   variables_count: number;
+}
+
+interface AuditLog {
+  id: string;
+  action: string;
+  target_type: string;
+  target_identifier: string | null;
+  details: {
+    learning_samples_deleted?: number;
+    equipment_deleted?: number;
+    variables_deleted?: number;
+  } | null;
+  performed_by: string;
+  performed_at: string;
+  user_email?: string;
 }
 
 const Settings = () => {
@@ -50,6 +75,13 @@ const Settings = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // Audit log state
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditTotalCount, setAuditTotalCount] = useState(0);
+  const auditPageSize = 10;
 
   const isAdmin = profile?.is_admin === true;
   const confirmRequired = 'DELETE ALL';
@@ -87,11 +119,60 @@ const Settings = () => {
     setLoadingCounts(false);
   };
 
+  // Fetch audit logs
+  const fetchAuditLogs = async () => {
+    if (!isAdmin) return;
+    
+    setLoadingAudit(true);
+    
+    // Get total count
+    const { count } = await supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true });
+    
+    setAuditTotalCount(count || 0);
+    
+    // Get paginated logs
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .order('performed_at', { ascending: false })
+      .range(auditPage * auditPageSize, (auditPage + 1) * auditPageSize - 1);
+    
+    if (error) {
+      console.error('Error fetching audit logs:', error);
+    } else {
+      // Fetch user emails for the logs
+      const userIds = [...new Set((data || []).map(log => log.performed_by).filter(Boolean))];
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds);
+        
+        const emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+        
+        const logsWithEmail = (data || []).map(log => ({
+          ...log,
+          user_email: emailMap.get(log.performed_by) || 'Unknown'
+        }));
+        
+        setAuditLogs(logsWithEmail as AuditLog[]);
+      } else {
+        setAuditLogs((data || []) as AuditLog[]);
+      }
+    }
+    
+    setLoadingAudit(false);
+  };
+
   useEffect(() => {
     if (isAdmin) {
       fetchDataCounts();
+      fetchAuditLogs();
     }
-  }, [isAdmin]);
+  }, [isAdmin, auditPage]);
 
   const handleSave = async () => {
     const success = await saveSettings({
@@ -140,13 +221,44 @@ const Settings = () => {
     setConfirmText('');
     setDeleting(false);
     
-    // Refresh counts
+    // Refresh counts and audit logs
     await fetchDataCounts();
+    await fetchAuditLogs();
+  };
+
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case 'CLEAR_SITE_DATA':
+        return <Badge variant="destructive">Clear Site</Badge>;
+      case 'CLEAR_ALL_DISCOVERY_DATA':
+        return <Badge variant="destructive" className="bg-red-700">Clear All</Badge>;
+      default:
+        return <Badge variant="outline">{action}</Badge>;
+    }
+  };
+
+  const formatDetails = (details: AuditLog['details']) => {
+    if (!details) return '-';
+    
+    const parts = [];
+    if (details.learning_samples_deleted) {
+      parts.push(`${details.learning_samples_deleted.toLocaleString()} samples`);
+    }
+    if (details.equipment_deleted) {
+      parts.push(`${details.equipment_deleted.toLocaleString()} equipment`);
+    }
+    if (details.variables_deleted) {
+      parts.push(`${details.variables_deleted.toLocaleString()} variables`);
+    }
+    
+    return parts.length > 0 ? parts.join(', ') : '-';
   };
 
   const totalRecords = dataCounts 
     ? dataCounts.learning_samples_count + dataCounts.equipment_count + dataCounts.variables_count
     : 0;
+
+  const totalAuditPages = Math.ceil(auditTotalCount / auditPageSize);
 
   if (loading) {
     return (
@@ -355,6 +467,118 @@ const Settings = () => {
               )}
             </Button>
           </div>
+
+          {/* Audit Log - Admin Only */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5" />
+                      Audit Log
+                    </CardTitle>
+                    <CardDescription>
+                      History of administrative actions ({auditTotalCount} total entries)
+                    </CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={fetchAuditLogs} disabled={loadingAudit}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loadingAudit ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingAudit ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : auditLogs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No audit logs yet</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[140px]">Date</TableHead>
+                            <TableHead className="w-[120px]">Action</TableHead>
+                            <TableHead>Target</TableHead>
+                            <TableHead>Details</TableHead>
+                            <TableHead className="w-[180px]">User</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {auditLogs.map((log) => (
+                            <TableRow key={log.id}>
+                              <TableCell className="font-mono text-xs">
+                                <div>{format(new Date(log.performed_at), 'MMM d, yyyy')}</div>
+                                <div className="text-muted-foreground">
+                                  {format(new Date(log.performed_at), 'HH:mm:ss')}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {getActionBadge(log.action)}
+                              </TableCell>
+                              <TableCell>
+                                {log.target_type === 'all_sites' ? (
+                                  <span className="text-red-600 font-medium">All Sites</span>
+                                ) : log.target_identifier ? (
+                                  <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">
+                                    {log.target_identifier.slice(0, 12)}...
+                                  </code>
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {formatDetails(log.details)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {log.user_email || 'Unknown'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {/* Pagination */}
+                    {totalAuditPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-muted-foreground">
+                          Page {auditPage + 1} of {totalAuditPages}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAuditPage(p => Math.max(0, p - 1))}
+                            disabled={auditPage === 0}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAuditPage(p => Math.min(totalAuditPages - 1, p + 1))}
+                            disabled={auditPage >= totalAuditPages - 1}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Danger Zone - Admin Only */}
           {isAdmin && (
