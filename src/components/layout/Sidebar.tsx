@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVariablesNeedingReview } from '@/hooks/useVariablesNeedingReview';
 import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
 import {
@@ -17,8 +18,10 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeft,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   Collapsible,
@@ -37,6 +40,7 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 const Sidebar = () => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
+  const { totalCount: reviewCount } = useVariablesNeedingReview();
   
   // Initialize from localStorage to persist across navigation
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -58,6 +62,13 @@ const Sidebar = () => {
   const mainNavigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Sites Management', href: '/sites-management', icon: Building2 },
+    { 
+      name: 'Variables Review', 
+      href: '/variables-review', 
+      icon: Sparkles,
+      badge: reviewCount > 0 ? reviewCount : undefined,
+      badgeColor: 'bg-purple-500 text-white',
+    },
   ];
 
   const pcapNavigation = [
@@ -84,6 +95,11 @@ const Sidebar = () => {
              location.pathname.startsWith('/sites-management/');
     }
     
+    if (href === '/variables-review') {
+      return location.pathname === '/variables-review' ||
+             location.pathname.includes('/variables');
+    }
+    
     return location.pathname.startsWith(href);
   };
 
@@ -91,14 +107,14 @@ const Sidebar = () => {
     setIsCollapsed(prev => !prev);
   };
 
-  const NavLink = ({ item }: { item: { name: string; href: string; icon: React.ElementType } }) => {
+  const NavLink = ({ item }: { item: { name: string; href: string; icon: React.ElementType; badge?: number; badgeColor?: string } }) => {
     const active = isActive(item.href);
     
     const linkContent = (
       <Link
         to={item.href}
         className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative',
           active
             ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
             : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white',
@@ -106,7 +122,24 @@ const Sidebar = () => {
         )}
       >
         <item.icon className="h-5 w-5 flex-shrink-0" />
-        {!isCollapsed && <span className="truncate">{item.name}</span>}
+        {!isCollapsed && (
+          <>
+            <span className="truncate flex-1">{item.name}</span>
+            {item.badge && item.badge > 0 && (
+              <Badge className={cn("text-xs px-1.5 py-0 h-5", item.badgeColor || "bg-red-500 text-white")}>
+                {item.badge > 99 ? '99+' : item.badge}
+              </Badge>
+            )}
+          </>
+        )}
+        {isCollapsed && item.badge && item.badge > 0 && (
+          <span className={cn(
+            "absolute -top-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold",
+            item.badgeColor || "bg-red-500 text-white"
+          )}>
+            {item.badge > 9 ? '9+' : item.badge}
+          </span>
+        )}
       </Link>
     );
 
@@ -117,7 +150,14 @@ const Sidebar = () => {
             {linkContent}
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {item.name}
+            <div className="flex items-center gap-2">
+              {item.name}
+              {item.badge && item.badge > 0 && (
+                <Badge className={cn("text-xs", item.badgeColor || "bg-red-500 text-white")}>
+                  {item.badge}
+                </Badge>
+              )}
+            </div>
           </TooltipContent>
         </Tooltip>
       );

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { useVariablesNeedingReview } from '@/hooks/useVariablesNeedingReview';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,8 @@ import {
   HelpCircle,
   RefreshCw,
   Plus,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -39,6 +42,8 @@ const Index = () => {
     getSiteStats,
     refreshAll 
   } = useDiscoveryData();
+  
+  const { totalCount: reviewCount, bySite: reviewBySite, loading: reviewLoading } = useVariablesNeedingReview();
   
   const [siteStats, setSiteStats] = useState<Record<string, SiteDiscoveryStats>>({});
   const [loadingStats, setLoadingStats] = useState(false);
@@ -78,14 +83,17 @@ const Index = () => {
   };
 
   const handleRegisterSite = (identifier: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click navigation
-    // Navigate to Sites Management with the register parameter
+    e.stopPropagation();
     navigate(`/sites-management?register=${encodeURIComponent(identifier)}`);
   };
 
   const handleCardClick = (identifier: string | null, id: string) => {
     const targetId = identifier || id;
     navigate(`/discovery/${targetId}`);
+  };
+
+  const handleReviewSite = (siteIdentifier: string) => {
+    navigate(`/variables-review?site=${siteIdentifier}`);
   };
 
   // Calculate totals
@@ -142,6 +150,69 @@ const Index = () => {
           </Button>
         </div>
 
+        {/* Action Required Section - NOVO */}
+        {!reviewLoading && reviewCount > 0 && (
+          <Card className="mb-6 border-purple-300 bg-gradient-to-r from-purple-50 to-purple-100/50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-purple-500 rounded-lg">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-purple-900 text-lg">
+                    Action Required: {reviewCount} Variable{reviewCount !== 1 ? 's' : ''} Need Review
+                  </h3>
+                  <p className="text-sm text-purple-700 mt-1">
+                    AI has analyzed variables and generated suggestions. Review and confirm them to improve data quality.
+                  </p>
+                  
+                  {/* Quick access to sites needing review */}
+                  {reviewBySite.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {reviewBySite.slice(0, 5).map(site => (
+                        <Button
+                          key={site.siteIdentifier}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReviewSite(site.siteIdentifier)}
+                          className="bg-white hover:bg-purple-50 border-purple-200"
+                        >
+                          <Building2 className="h-3 w-3 mr-2" />
+                          {site.siteName}
+                          <Badge className="ml-2 bg-purple-500 text-white">
+                            {site.count}
+                          </Badge>
+                        </Button>
+                      ))}
+                      {reviewBySite.length > 5 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate('/variables-review')}
+                          className="bg-white hover:bg-purple-50 border-purple-200"
+                        >
+                          +{reviewBySite.length - 5} more sites
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="mt-4">
+                    <Button 
+                      onClick={() => navigate('/variables-review')}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Review All Variables
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Unknown Sites Alert */}
         {!unknownSitesLoading && unknownSites.length > 0 && (
           <Card className="mb-6 border-amber-300 bg-amber-50">
@@ -156,7 +227,7 @@ const Index = () => {
                   </h3>
                   <p className="text-sm text-amber-700 mt-1">
                     Data is being received from site identifiers that are not registered in the system.
-                    Register them below to enable full monitoring and analysis.
+                    Register them to enable full monitoring and analysis.
                   </p>
                 </div>
               </div>
@@ -298,16 +369,32 @@ const Index = () => {
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
                 const isUnregistered = siteCard.type === 'unregistered';
                 
+                // Check if this site has variables needing review
+                const reviewInfo = reviewBySite.find(r => r.siteIdentifier === siteCard.identifier);
+                const hasReviews = reviewInfo && reviewInfo.count > 0;
+                
                 return (
                   <Card 
                     key={siteCard.id} 
-                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer h-full ${
+                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer h-full relative ${
                       isUnregistered 
                         ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' 
+                        : hasReviews
+                        ? 'border-purple-300 bg-purple-50/20 hover:border-purple-400'
                         : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'
                     }`}
                     onClick={() => handleCardClick(siteCard.identifier, siteCard.id)}
                   >
+                    {/* Review badge indicator */}
+                    {hasReviews && (
+                      <div className="absolute -top-2 -right-2 z-10">
+                        <Badge className="bg-purple-500 text-white shadow-lg animate-pulse">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          {reviewInfo.count} to review
+                        </Badge>
+                      </div>
+                    )}
+                    
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
