@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useVariablesNeedingReview } from '@/hooks/useVariablesNeedingReview';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { DiscoveredVariable } from '@/types/discovery';
+import { DiscoveredVariable, DataType } from '@/types/discovery';
 import { VariableReviewCard } from '@/components/variables/VariableReviewCard';
 import { VariableEditDialog } from '@/components/variables/VariableEditDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,17 +35,16 @@ import { toast } from 'sonner';
 
 type LearningState = 'unknown' | 'hypothesis' | 'confirmed' | 'published';
 
-const asDataTypeOrNull = (value: string | null) => {
+const asDataTypeOrNull = (value: string | null): DataType | null => {
   if (!value) return null;
-  const allowed = ['uint16', 'int16', 'uint32be', 'int32be', 'uint32le', 'int32le', 'float32be', 'float32le', 'uint64be', 'int64be', 'uint64le', 'int64le', 'float64be', 'float64le'];
-  return allowed.includes(value) ? value : null;
+  const allowed: DataType[] = ['uint16', 'int16', 'uint32be', 'int32be', 'uint32le', 'int32le', 'float32be', 'float32le', 'uint64be', 'int64be', 'uint64le', 'int64le', 'float64be', 'float64le'];
+  return allowed.includes(value as DataType) ? (value as DataType) : null;
 };
 
 const VariablesReviewGlobal = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { totalCount: globalReviewCount, bySite, loading: countsLoading, refresh: refreshCounts } = useVariablesNeedingReview();
+  const { totalCount: globalReviewCount, bySite, refresh: refreshCounts } = useVariablesNeedingReview();
 
   const [variables, setVariables] = useState<DiscoveredVariable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,9 +191,9 @@ const VariablesReviewGlobal = () => {
         x.id === v.id
           ? {
               ...x,
-              data_type: aiType,
+              data_type: aiType as DataType,
               confidence_score: v.ai_confidence ?? x.confidence_score,
-              learning_state: 'confirmed',
+              learning_state: 'confirmed' as const,
               confirmed_by: user.id,
               confirmed_at: nowIso,
               updated_at: nowIso,
@@ -256,11 +255,11 @@ const VariablesReviewGlobal = () => {
         x.id === editing.id
           ? {
               ...x,
-              data_type: dt,
+              data_type: dt as DataType,
               semantic_label: data.semantic_label,
               semantic_unit: data.semantic_unit,
               semantic_category: data.semantic_category,
-              learning_state: 'confirmed',
+              learning_state: 'confirmed' as const,
               confirmed_by: user.id,
               confirmed_at: nowIso,
               updated_at: nowIso,
