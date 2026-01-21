@@ -14,7 +14,7 @@ export interface DiscoveredVariable {
   site_id: string | null;
   site_identifier: string;
   
-  // Equipment
+  // Equipment (lowercase - internal use)
   source_ip: string;
   source_mac: string | null;
   destination_ip: string;
@@ -23,10 +23,29 @@ export interface DiscoveredVariable {
   destination_port: number | null;
   protocol: string;
   
-  // Variable
+  // Equipment (CamelCase - for n8n mapping)
+  SiteIdentifier: string | null;
+  SourceIp: string | null;
+  DestinationIp: string | null;
+  SourceMac: string | null;
+  DestinationMac: string | null;
+  SourcePort: number | null;
+  DestinationPort: number | null;
+  Protocol: string | null;
+  Interface: number | null;
+  
+  // Variable (lowercase - internal use)
   unit_id: number;
   address: number;
   function_code: number;
+  
+  // Variable (CamelCase - for n8n mapping)
+  Address: number | null;
+  FC: number | null;
+  unid_Id: number | null;
+  
+  // Data source
+  data_source: string | null;
   
   // Data
   data_type: DataType | null;
@@ -68,7 +87,7 @@ export interface DiscoveredVariable {
   historical_scores_float64be: number | null;
   historical_scores_float64le: number | null;
 
-  // Stats for UINT16
+  // Stats for UINT16 (case-sensitive for n8n auto-mapping)
   stats_UINT16_count: number | null;
   stats_UINT16_avg_value: number | null;
   stats_UINT16_std: number | null;
