@@ -68,6 +68,9 @@ const Settings = () => {
     n8n_webhook_url: '',
     mbsniffer_interval_batch: '60',
     mbsniffer_interval_min: '5',
+    analysis_webhook_url: '',
+    sample_threshold_for_analysis: '50',
+    auto_confirm_threshold: '0.95',
   });
 
   // Danger zone state
@@ -99,6 +102,9 @@ const Settings = () => {
         n8n_webhook_url: settings.n8n_webhook_url || '',
         mbsniffer_interval_batch: settings.mbsniffer_interval_batch.toString(),
         mbsniffer_interval_min: settings.mbsniffer_interval_min.toString(),
+        analysis_webhook_url: (settings as any).analysis_webhook_url || '',
+        sample_threshold_for_analysis: ((settings as any).sample_threshold_for_analysis || 50).toString(),
+        auto_confirm_threshold: ((settings as any).auto_confirm_threshold || 0.95).toString(),
       });
     }
   }, [loading, settings]);
@@ -202,7 +208,10 @@ const Settings = () => {
       n8n_webhook_url: formData.n8n_webhook_url || null,
       mbsniffer_interval_batch: parseInt(formData.mbsniffer_interval_batch) || 60,
       mbsniffer_interval_min: parseInt(formData.mbsniffer_interval_min) || 5,
-    });
+      analysis_webhook_url: formData.analysis_webhook_url || null,
+      sample_threshold_for_analysis: parseInt(formData.sample_threshold_for_analysis) || 50,
+      auto_confirm_threshold: parseFloat(formData.auto_confirm_threshold) || 0.95,
+    } as any);
 
     if (success) {
       toast.success('Settings saved successfully!');
@@ -332,6 +341,68 @@ const Settings = () => {
                   checked={formData.notifications_enabled}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, notifications_enabled: checked }))}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Analysis Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Analysis Settings</CardTitle>
+              <CardDescription>
+                Configure AI-powered variable type inference
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="analysis-webhook">
+                  Analysis Webhook URL
+                </Label>
+                <Input
+                  id="analysis-webhook"
+                  placeholder="https://n8n.otscanner.qzz.io/webhook/..."
+                  value={formData.analysis_webhook_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, analysis_webhook_url: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Webhook endpoint for AI analysis (n8n workflow). Used by "Run AI Analysis" button.
+                </p>
+              </div>
+              <Separator />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sample-threshold">
+                    Minimum Samples for Analysis
+                  </Label>
+                  <Input
+                    id="sample-threshold"
+                    type="number"
+                    value={formData.sample_threshold_for_analysis}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sample_threshold_for_analysis: e.target.value }))}
+                    min="1"
+                    placeholder="50"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Variables need at least this many samples to be analyzed
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-confirm-threshold">
+                    Auto-Confirm Threshold
+                  </Label>
+                  <Input
+                    id="auto-confirm-threshold"
+                    type="number"
+                    value={formData.auto_confirm_threshold}
+                    onChange={(e) => setFormData(prev => ({ ...prev, auto_confirm_threshold: e.target.value }))}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    AI suggestions above this confidence are auto-confirmed (0.0 - 1.0)
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

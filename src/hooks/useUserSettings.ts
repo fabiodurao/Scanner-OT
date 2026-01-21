@@ -13,6 +13,9 @@ export interface UserSettings {
   confidence_threshold: number;
   cross_site_learning: boolean;
   saas_endpoint: string;
+  analysis_webhook_url: string | null;
+  sample_threshold_for_analysis: number;
+  auto_confirm_threshold: number;
 }
 
 const defaultSettings: UserSettings = {
@@ -24,6 +27,9 @@ const defaultSettings: UserSettings = {
   confidence_threshold: 0.95,
   cross_site_learning: false,
   saas_endpoint: 'https://api.cyberenergia.com/v1',
+  analysis_webhook_url: 'https://n8n.otscanner.qzz.io/webhook-test/26d1b1b8-1713-4332-91da-151bebf35d5d',
+  sample_threshold_for_analysis: 50,
+  auto_confirm_threshold: 0.95,
 };
 
 export const useUserSettings = () => {
