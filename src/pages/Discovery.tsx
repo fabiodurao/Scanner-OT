@@ -4,12 +4,12 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment } from '@/types/discovery';
+import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment, DiscoveredVariable } from '@/types/discovery';
 import { Site } from '@/types/upload';
 import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTable';
+import { HistoricalHeatmapTable } from '@/components/variables/HistoricalHeatmapTable';
 import { EquipmentList } from '@/components/discovery/EquipmentList';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
-import { ReviewVariablesButton } from '@/components/discovery/ReviewVariablesButton';
 import { RunAnalysisButton } from '@/components/discovery/RunAnalysisButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ import {
   Database,
   RefreshCcw,
   Settings,
+  Grid3x3,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -47,12 +48,13 @@ const countUniqueVariables = (variables: LearningSample[]): number => {
 const Discovery = () => {
   const { siteId } = useParams<{ siteId: string }>();
   const { profile } = useAuth();
-  const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables } = useDiscoveryData();
+  const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables, getDiscoveredVariables } = useDiscoveryData();
   
   const [site, setSite] = useState<Site | null>(null);
   const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
   const [equipment, setEquipment] = useState<DiscoveredEquipment[]>([]);
   const [variables, setVariables] = useState<LearningSample[]>([]);
+  const [discoveredVariables, setDiscoveredVariables] = useState<DiscoveredVariable[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -97,8 +99,12 @@ const Discovery = () => {
     const siteVariables = await getVariables(siteId);
     setVariables(siteVariables);
     
+    // Fetch discovered variables for historical heatmap
+    const discoveredVars = await getDiscoveredVariables(siteId);
+    setDiscoveredVariables(discoveredVars);
+    
     setLoading(false);
-  }, [siteId, getSiteStats, getSiteEquipment, getVariables]);
+  }, [siteId, getSiteStats, getSiteEquipment, getVariables, getDiscoveredVariables]);
 
   useEffect(() => {
     loadData();
@@ -282,7 +288,6 @@ const Discovery = () => {
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {siteId && <RunAnalysisButton siteId={siteId} />}
-              {siteId && <ReviewVariablesButton siteId={siteId} />}
               <Button variant="outline" onClick={handleSyncEquipment} disabled={syncing}>
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Equipment
@@ -378,6 +383,10 @@ const Discovery = () => {
               <Variable className="h-4 w-4 mr-2" />
               Variables ({uniqueVariableCount})
             </TabsTrigger>
+            <TabsTrigger value="historical">
+              <Grid3x3 className="h-4 w-4 mr-2" />
+              Historical Heatmap
+            </TabsTrigger>
             <TabsTrigger value="equipment">
               <Server className="h-4 w-4 mr-2" />
               Equipment ({equipment.length})
@@ -455,6 +464,23 @@ const Discovery = () => {
                     isLoadingFiltered={loadingFiltered}
                   />
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="historical">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Grid3x3 className="h-5 w-5" />
+                  Historical Analysis Heatmap
+                </CardTitle>
+                <CardDescription>
+                  Detailed statistical analysis across all data types with AI winner selection
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <HistoricalHeatmapTable variables={discoveredVariables} />
               </CardContent>
             </Card>
           </TabsContent>

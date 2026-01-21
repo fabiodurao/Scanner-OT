@@ -24,7 +24,6 @@ import PendingApproval from "./pages/PendingApproval";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 import VariablesReview from "./pages/VariablesReview";
-import VariablesReviewGlobal from "./pages/VariablesReviewGlobal";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +37,6 @@ const AppRoutes = () => {
       <Route path="/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
       <Route path="/sites/:siteId/equipment/:equipmentId" element={<ProtectedRoute><EquipmentDetail /></ProtectedRoute>} />
       <Route path="/variables" element={<ProtectedRoute><Variables /></ProtectedRoute>} />
-      <Route path="/variables-review" element={<ProtectedRoute><VariablesReviewGlobal /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       <Route path="/processing" element={<ProtectedRoute><PcapProcessing /></ProtectedRoute>} />
       <Route path="/sites-management" element={<ProtectedRoute><SitesManagement /></ProtectedRoute>} />
