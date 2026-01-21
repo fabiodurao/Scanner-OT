@@ -9,6 +9,18 @@ export type DataType =
   | 'uint64be' | 'int64be' | 'uint64le' | 'int64le'
   | 'float64be' | 'float64le';
 
+// Stats structure for each data type from AI analysis
+export interface DataTypeStats {
+  count: number;
+  avg_value: number;
+  std: number;
+  avg_jump: number;
+  max_jump: number;
+  nulls: number;
+  zeros: number;
+  avg_score: number;
+}
+
 export interface DiscoveredVariable {
   id: string;
   site_id: string | null;
@@ -42,23 +54,29 @@ export interface DiscoveredVariable {
   learning_state: LearningState;
   confidence_score: number;
 
-  // AI fields (already exist in DB)
+  // AI fields (simple suggestions)
   ai_suggested_type: DataType | null;
   ai_confidence: number;
   ai_analysis_at: string | null;
   ai_reasoning: string | null;
 
+  // AI historical analysis (new - from n8n workflow)
+  historical_scores: Record<string, number> | null; // e.g. {"uint16": 0.97, "int16": 0.89, ...}
+  stats: Record<string, DataTypeStats> | null; // e.g. {"UINT16": {count: 91, avg_value: 215.6, ...}, ...}
+  winner: string | null; // e.g. "uint16"
+  explanation: string | null; // AI textual explanation
+
   confirmed_by: string | null;
   confirmed_at: string | null;
   
-  // Stats
+  // Stats (legacy - keeping for compatibility)
   stats_min: number | null;
   stats_max: number | null;
   stats_mean: number | null;
   stats_std_dev: number | null;
   stats_jump_count: number | null;
   
-  // Scores for heatmap
+  // Scores for heatmap (legacy - keeping for compatibility)
   score_uint16: number;
   score_int16: number;
   score_uint32be: number;

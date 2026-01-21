@@ -6,9 +6,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DataType, DiscoveredVariable } from "@/types/discovery";
 import { VariableReviewCard } from "@/components/variables/VariableReviewCard";
 import { VariableEditDialog } from "@/components/variables/VariableEditDialog";
+import { HistoricalHeatmapTable } from "@/components/variables/HistoricalHeatmapTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -23,6 +25,8 @@ import {
   Sparkles,
   CheckCircle,
   HelpCircle,
+  Grid3x3,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -137,12 +141,13 @@ export default function VariablesReview() {
   const counts = useMemo(() => {
     const all = variables.length;
     const withAi = variables.filter((v) => Boolean(v.ai_suggested_type)).length;
+    const withHistory = variables.filter((v) => Boolean(v.stats && v.historical_scores)).length;
     const needsReview = variables.filter((v) => {
       const st = (v.learning_state || "unknown") as LearningState;
       return Boolean(v.ai_suggested_type) && st !== "confirmed" && st !== "published";
     }).length;
     const confirmed = variables.filter((v) => (v.learning_state || "unknown") === "confirmed").length;
-    return { all, withAi, needsReview, confirmed };
+    return { all, withAi, withHistory, needsReview, confirmed };
   }, [variables]);
 
   const confirmAI = async (v: DiscoveredVariable) => {
@@ -307,7 +312,12 @@ export default function VariablesReview() {
               <CardTitle className="text-sm">With AI</CardTitle>
               <Sparkles className="h-4 w-4 text-purple-600" />
             </CardHeader>
-            <CardContent className="text-2xl font-bold">{counts.withAi}</CardContent>
+            <CardContent>
+              <div className="text-2xl font-bold">{counts.withAi}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {counts.withHistory} with historical data
+              </p>
+            </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -329,81 +339,104 @@ export default function VariablesReview() {
           </Card>
         </div>
 
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by IP, address or label..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-10"
-                />
+        <Tabs defaultValue="cards" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="cards">
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Cards View
+            </TabsTrigger>
+            <TabsTrigger value="heatmap">
+              <Grid3x3 className="h-4 w-4 mr-2" />
+              Heatmap ({counts.withHistory})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cards">
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="flex flex-col lg:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by IP, address or label..."
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <Select value={ipFilter} onValueChange={setIpFilter}>
+                    <SelectTrigger className="w-full lg:w-56">
+                      <SelectValue placeholder="Equipment IP" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All IPs</SelectItem>
+                      {ipOptions.map((ip) => (
+                        <SelectItem key={ip} value={ip}>
+                          {ip}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={stateFilter} onValueChange={setStateFilter}>
+                    <SelectTrigger className="w-full lg:w-56">
+                      <SelectValue placeholder="Learning state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All states</SelectItem>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                      <SelectItem value="hypothesis">Hypothesis</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={aiOnly} onValueChange={setAiOnly}>
+                    <SelectTrigger className="w-full lg:w-56">
+                      <SelectValue placeholder="AI filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="ai">Only with AI</SelectItem>
+                      <SelectItem value="needs_review">AI needs review</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {loading ? (
+              <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            ) : filtered.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No variables found for the current filters.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((v) => (
+                  <VariableReviewCard
+                    key={v.id}
+                    variable={v}
+                    onEdit={() => openEdit(v)}
+                    onConfirmAI={() => confirmAI(v)}
+                    isConfirming={confirmingId === v.id}
+                  />
+                ))}
               </div>
+            )}
+          </TabsContent>
 
-              <Select value={ipFilter} onValueChange={setIpFilter}>
-                <SelectTrigger className="w-full lg:w-56">
-                  <SelectValue placeholder="Equipment IP" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All IPs</SelectItem>
-                  {ipOptions.map((ip) => (
-                    <SelectItem key={ip} value={ip}>
-                      {ip}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={stateFilter} onValueChange={setStateFilter}>
-                <SelectTrigger className="w-full lg:w-56">
-                  <SelectValue placeholder="Learning state" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All states</SelectItem>
-                  <SelectItem value="unknown">Unknown</SelectItem>
-                  <SelectItem value="hypothesis">Hypothesis</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={aiOnly} onValueChange={setAiOnly}>
-                <SelectTrigger className="w-full lg:w-56">
-                  <SelectValue placeholder="AI filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="ai">Only with AI</SelectItem>
-                  <SelectItem value="needs_review">AI needs review</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {loading ? (
-          <div className="py-12 text-center text-muted-foreground">Loading...</div>
-        ) : filtered.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              No variables found for the current filters.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((v) => (
-              <VariableReviewCard
-                key={v.id}
-                variable={v}
-                onEdit={() => openEdit(v)}
-                onConfirmAI={() => confirmAI(v)}
-                isConfirming={confirmingId === v.id}
-              />
-            ))}
-          </div>
-        )}
+          <TabsContent value="heatmap">
+            {loading ? (
+              <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            ) : (
+              <HistoricalHeatmapTable variables={variables} />
+            )}
+          </TabsContent>
+        </Tabs>
 
         <VariableEditDialog
           open={editOpen}
