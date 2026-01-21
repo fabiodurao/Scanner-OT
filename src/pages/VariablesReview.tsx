@@ -141,7 +141,11 @@ export default function VariablesReview() {
   const counts = useMemo(() => {
     const all = variables.length;
     const withAi = variables.filter((v) => Boolean(v.ai_suggested_type)).length;
-    const withHistory = variables.filter((v) => Boolean(v.stats && v.historical_scores)).length;
+    const withHistory = variables.filter((v) => 
+      v.historical_scores_uint16 !== null || 
+      v.historical_scores_int16 !== null ||
+      v.winner !== null
+    ).length;
     const needsReview = variables.filter((v) => {
       const st = (v.learning_state || "unknown") as LearningState;
       return Boolean(v.ai_suggested_type) && st !== "confirmed" && st !== "published";

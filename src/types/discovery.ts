@@ -9,18 +9,6 @@ export type DataType =
   | 'uint64be' | 'int64be' | 'uint64le' | 'int64le'
   | 'float64be' | 'float64le';
 
-// Stats structure for each data type from AI analysis
-export interface DataTypeStats {
-  count: number;
-  avg_value: number;
-  std: number;
-  avg_jump: number;
-  max_jump: number;
-  nulls: number;
-  zeros: number;
-  avg_score: number;
-}
-
 export interface DiscoveredVariable {
   id: string;
   site_id: string | null;
@@ -45,7 +33,7 @@ export interface DiscoveredVariable {
   last_raw_value: string | null;
   last_interpreted_value: number | null;
   
-  // Semantic
+  // Semantic (for future use - not in JSON yet)
   semantic_label: string | null;
   semantic_unit: string | null;
   semantic_category: string | null;
@@ -54,29 +42,183 @@ export interface DiscoveredVariable {
   learning_state: LearningState;
   confidence_score: number;
 
-  // AI fields (simple suggestions)
+  // AI fields (simple suggestions - legacy, keeping for compatibility)
   ai_suggested_type: DataType | null;
   ai_confidence: number;
   ai_analysis_at: string | null;
   ai_reasoning: string | null;
 
-  // AI historical analysis (new - from n8n workflow)
-  historical_scores: Record<string, number> | null; // e.g. {"uint16": 0.97, "int16": 0.89, ...}
-  stats: Record<string, DataTypeStats> | null; // e.g. {"UINT16": {count: 91, avg_value: 215.6, ...}, ...}
-  winner: string | null; // e.g. "uint16"
-  explanation: string | null; // AI textual explanation
+  // AI historical analysis - winner and explanation
+  winner: string | null;
+  explanation: string | null;
+
+  // AI historical scores (individual columns for n8n auto-mapping)
+  historical_scores_uint16: number | null;
+  historical_scores_int16: number | null;
+  historical_scores_uint32be: number | null;
+  historical_scores_int32be: number | null;
+  historical_scores_uint32le: number | null;
+  historical_scores_int32le: number | null;
+  historical_scores_float32be: number | null;
+  historical_scores_float32le: number | null;
+  historical_scores_uint64be: number | null;
+  historical_scores_int64be: number | null;
+  historical_scores_uint64le: number | null;
+  historical_scores_int64le: number | null;
+  historical_scores_float64be: number | null;
+  historical_scores_float64le: number | null;
+
+  // Stats for UINT16
+  stats_UINT16_count: number | null;
+  stats_UINT16_avg_value: number | null;
+  stats_UINT16_std: number | null;
+  stats_UINT16_avg_jump: number | null;
+  stats_UINT16_max_jump: number | null;
+  stats_UINT16_nulls: number | null;
+  stats_UINT16_zeros: number | null;
+  stats_UINT16_avg_score: number | null;
+
+  // Stats for INT16
+  stats_INT16_count: number | null;
+  stats_INT16_avg_value: number | null;
+  stats_INT16_std: number | null;
+  stats_INT16_avg_jump: number | null;
+  stats_INT16_max_jump: number | null;
+  stats_INT16_nulls: number | null;
+  stats_INT16_zeros: number | null;
+  stats_INT16_avg_score: number | null;
+
+  // Stats for UINT32BE
+  stats_UINT32BE_count: number | null;
+  stats_UINT32BE_avg_value: number | null;
+  stats_UINT32BE_std: number | null;
+  stats_UINT32BE_avg_jump: number | null;
+  stats_UINT32BE_max_jump: number | null;
+  stats_UINT32BE_nulls: number | null;
+  stats_UINT32BE_zeros: number | null;
+  stats_UINT32BE_avg_score: number | null;
+
+  // Stats for INT32BE
+  stats_INT32BE_count: number | null;
+  stats_INT32BE_avg_value: number | null;
+  stats_INT32BE_std: number | null;
+  stats_INT32BE_avg_jump: number | null;
+  stats_INT32BE_max_jump: number | null;
+  stats_INT32BE_nulls: number | null;
+  stats_INT32BE_zeros: number | null;
+  stats_INT32BE_avg_score: number | null;
+
+  // Stats for UINT32LE
+  stats_UINT32LE_count: number | null;
+  stats_UINT32LE_avg_value: number | null;
+  stats_UINT32LE_std: number | null;
+  stats_UINT32LE_avg_jump: number | null;
+  stats_UINT32LE_max_jump: number | null;
+  stats_UINT32LE_nulls: number | null;
+  stats_UINT32LE_zeros: number | null;
+  stats_UINT32LE_avg_score: number | null;
+
+  // Stats for INT32LE
+  stats_INT32LE_count: number | null;
+  stats_INT32LE_avg_value: number | null;
+  stats_INT32LE_std: number | null;
+  stats_INT32LE_avg_jump: number | null;
+  stats_INT32LE_max_jump: number | null;
+  stats_INT32LE_nulls: number | null;
+  stats_INT32LE_zeros: number | null;
+  stats_INT32LE_avg_score: number | null;
+
+  // Stats for FLOAT32BE
+  stats_FLOAT32BE_count: number | null;
+  stats_FLOAT32BE_avg_value: number | null;
+  stats_FLOAT32BE_std: number | null;
+  stats_FLOAT32BE_avg_jump: number | null;
+  stats_FLOAT32BE_max_jump: number | null;
+  stats_FLOAT32BE_nulls: number | null;
+  stats_FLOAT32BE_zeros: number | null;
+  stats_FLOAT32BE_avg_score: number | null;
+
+  // Stats for FLOAT32LE
+  stats_FLOAT32LE_count: number | null;
+  stats_FLOAT32LE_avg_value: number | null;
+  stats_FLOAT32LE_std: number | null;
+  stats_FLOAT32LE_avg_jump: number | null;
+  stats_FLOAT32LE_max_jump: number | null;
+  stats_FLOAT32LE_nulls: number | null;
+  stats_FLOAT32LE_zeros: number | null;
+  stats_FLOAT32LE_avg_score: number | null;
+
+  // Stats for UINT64BE
+  stats_UINT64BE_count: number | null;
+  stats_UINT64BE_avg_value: number | null;
+  stats_UINT64BE_std: number | null;
+  stats_UINT64BE_avg_jump: number | null;
+  stats_UINT64BE_max_jump: number | null;
+  stats_UINT64BE_nulls: number | null;
+  stats_UINT64BE_zeros: number | null;
+  stats_UINT64BE_avg_score: number | null;
+
+  // Stats for INT64BE
+  stats_INT64BE_count: number | null;
+  stats_INT64BE_avg_value: number | null;
+  stats_INT64BE_std: number | null;
+  stats_INT64BE_avg_jump: number | null;
+  stats_INT64BE_max_jump: number | null;
+  stats_INT64BE_nulls: number | null;
+  stats_INT64BE_zeros: number | null;
+  stats_INT64BE_avg_score: number | null;
+
+  // Stats for UINT64LE
+  stats_UINT64LE_count: number | null;
+  stats_UINT64LE_avg_value: number | null;
+  stats_UINT64LE_std: number | null;
+  stats_UINT64LE_avg_jump: number | null;
+  stats_UINT64LE_max_jump: number | null;
+  stats_UINT64LE_nulls: number | null;
+  stats_UINT64LE_zeros: number | null;
+  stats_UINT64LE_avg_score: number | null;
+
+  // Stats for INT64LE
+  stats_INT64LE_count: number | null;
+  stats_INT64LE_avg_value: number | null;
+  stats_INT64LE_std: number | null;
+  stats_INT64LE_avg_jump: number | null;
+  stats_INT64LE_max_jump: number | null;
+  stats_INT64LE_nulls: number | null;
+  stats_INT64LE_zeros: number | null;
+  stats_INT64LE_avg_score: number | null;
+
+  // Stats for FLOAT64BE
+  stats_FLOAT64BE_count: number | null;
+  stats_FLOAT64BE_avg_value: number | null;
+  stats_FLOAT64BE_std: number | null;
+  stats_FLOAT64BE_avg_jump: number | null;
+  stats_FLOAT64BE_max_jump: number | null;
+  stats_FLOAT64BE_nulls: number | null;
+  stats_FLOAT64BE_zeros: number | null;
+  stats_FLOAT64BE_avg_score: number | null;
+
+  // Stats for FLOAT64LE
+  stats_FLOAT64LE_count: number | null;
+  stats_FLOAT64LE_avg_value: number | null;
+  stats_FLOAT64LE_std: number | null;
+  stats_FLOAT64LE_avg_jump: number | null;
+  stats_FLOAT64LE_max_jump: number | null;
+  stats_FLOAT64LE_nulls: number | null;
+  stats_FLOAT64LE_zeros: number | null;
+  stats_FLOAT64LE_avg_score: number | null;
 
   confirmed_by: string | null;
   confirmed_at: string | null;
   
-  // Stats (legacy - keeping for compatibility)
+  // Legacy fields (keeping for compatibility with old data)
   stats_min: number | null;
   stats_max: number | null;
   stats_mean: number | null;
   stats_std_dev: number | null;
   stats_jump_count: number | null;
   
-  // Scores for heatmap (legacy - keeping for compatibility)
+  // Legacy scores (keeping for compatibility)
   score_uint16: number;
   score_int16: number;
   score_uint32be: number;
