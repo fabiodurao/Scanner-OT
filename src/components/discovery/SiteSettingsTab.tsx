@@ -69,6 +69,7 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
 
     setDeleting(true);
 
+    // Call the RPC function which now handles all three tables
     const { data, error } = await supabase
       .rpc('clear_site_data', { p_site_identifier: siteIdentifier });
 

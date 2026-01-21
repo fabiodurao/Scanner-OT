@@ -381,11 +381,11 @@ const Discovery = () => {
           <TabsList>
             <TabsTrigger value="variables">
               <Variable className="h-4 w-4 mr-2" />
-              Variables ({uniqueVariableCount})
+              Discovered Variables ({uniqueVariableCount})
             </TabsTrigger>
             <TabsTrigger value="historical">
               <Grid3x3 className="h-4 w-4 mr-2" />
-              Historical Heatmap
+              Historical Analysis
             </TabsTrigger>
             <TabsTrigger value="equipment">
               <Server className="h-4 w-4 mr-2" />
@@ -473,7 +473,7 @@ const Discovery = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Grid3x3 className="h-5 w-5" />
-                  Historical Analysis Heatmap
+                  Historical Analysis
                 </CardTitle>
                 <CardDescription>
                   Detailed statistical analysis across all data types with AI winner selection
@@ -497,7 +497,7 @@ const Discovery = () => {
                   </div>
                   <Button variant="outline" size="sm" onClick={handleSyncEquipment} disabled={syncing}>
                     <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    Sync from Samples
+                    Sync Equipment
                   </Button>
                 </div>
               </CardHeader>
