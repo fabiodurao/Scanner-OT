@@ -72,6 +72,16 @@ const getScoreColor = (score: number | null): string => {
   return 'bg-gray-200 text-gray-500';
 };
 
+const formatValue = (value: number | null, type: string): string => {
+  if (value === null || value === undefined) return '-';
+  if (type.includes('FLOAT')) {
+    if (!isFinite(value) || Math.abs(value) > 1e15) return 'Invalid';
+    if (Math.abs(value) < 0.01 && value !== 0) return value.toExponential(2);
+    return value.toFixed(3);
+  }
+  return value.toLocaleString();
+};
+
 const formatScore = (score: number | null): string => {
   if (score === null || score === undefined) return '-';
   return (score * 100).toFixed(0) + '%';
@@ -465,6 +475,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
 
                       {dataTypeColumns.map(col => {
                         const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
+                        const value = variable[col.key as keyof DiscoveredVariable] as number | null;
                         
                         // Get stats from individual columns
                         const countKey = `stats_${col.key}_count` as keyof DiscoveredVariable;
@@ -493,11 +504,14 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                               <TooltipTrigger asChild>
                                 <div 
                                   className={cn(
-                                    "px-1 py-1 rounded text-center text-xs font-medium flex items-center justify-center min-h-[32px] cursor-help",
+                                    "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help",
                                     getScoreColor(score)
                                   )}
                                 >
-                                  <span className="text-[9px] font-semibold">
+                                  <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">
+                                    {formatValue(value, col.key)}
+                                  </span>
+                                  <span className="text-[9px] mt-0.5 px-1 py-0 rounded bg-black/10">
                                     {formatScore(score)}
                                   </span>
                                 </div>
@@ -506,6 +520,9 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                 {hasStats ? (
                                   <div className="space-y-1 text-xs">
                                     <p className="font-medium border-b pb-1">{col.key}</p>
+                                    <p>Value: {formatValue(value, col.key)}</p>
+                                    <p>Score: {score !== null ? (score * 100).toFixed(1) + '%' : 'N/A'}</p>
+                                    <p className="border-t pt-1 mt-1 font-medium">Historical Stats:</p>
                                     <p>Count: <span className="font-mono">{count}</span></p>
                                     <p>Avg Value: <span className="font-mono">{avgValue?.toFixed(3) || '-'}</span></p>
                                     <p>Std Dev: <span className="font-mono">{std?.toFixed(3) || '-'}</span></p>
@@ -516,7 +533,11 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                     <p className="border-t pt-1 mt-1">Avg Score: <span className="font-mono font-bold">{formatScore(avgScore)}</span></p>
                                   </div>
                                 ) : (
-                                  <p className="text-xs">No stats available</p>
+                                  <div className="space-y-1 text-xs">
+                                    <p className="font-medium">{col.key}</p>
+                                    <p>Value: {formatValue(value, col.key)}</p>
+                                    <p>Score: {score !== null ? (score * 100).toFixed(1) + '%' : 'N/A'}</p>
+                                  </div>
                                 )}
                               </TooltipContent>
                             </Tooltip>
