@@ -15,6 +15,7 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
+  console.log("[analysis-callback] ========================================");
   console.log("[analysis-callback] Request received:", req.method);
 
   if (req.method === "OPTIONS") {
@@ -51,7 +52,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Atualizar o job no banco
+    // Update job in database
     const { error } = await supabase
       .from('analysis_jobs')
       .update({
@@ -72,6 +73,10 @@ serve(async (req: Request) => {
     }
 
     console.log("[analysis-callback] Job updated successfully:", job_id);
+    console.log("[analysis-callback] Status:", status);
+    console.log("[analysis-callback] Variables analyzed:", variables_analyzed);
+    console.log("[analysis-callback] Suggestions count:", suggestions_count);
+    console.log("[analysis-callback] ========================================");
 
     return new Response(
       JSON.stringify({ ok: true, message: "Job updated successfully" }),

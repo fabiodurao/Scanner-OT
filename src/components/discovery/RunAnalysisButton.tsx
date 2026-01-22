@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalysisJobs } from "@/contexts/AnalysisJobsContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { toast } from "sonner";
 const SUPABASE_PROJECT_ID = "jgclhfwigmxmqyhqngcm";
 
 export function RunAnalysisButton({ siteId }: { siteId: string }) {
-  const navigate = useNavigate();
   const { activeJobs } = useAnalysisJobs();
   const [localRunning, setLocalRunning] = useState(false);
 
@@ -53,24 +51,24 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         return;
       }
 
-      // Success! Show results
-      const variablesAnalyzed = (json as { variables_analyzed?: number }).variables_analyzed || 0;
-      const suggestionsCount = (json as { suggestions_count?: number }).suggestions_count || 0;
+      // Check if there are variables to analyze
+      const variablesCount = (json as { variables_count?: number }).variables_count || 0;
 
       setLocalRunning(false);
 
-      if (variablesAnalyzed === 0) {
+      if (variablesCount === 0) {
         toast.info("No variables ready for analysis (need more samples)");
       } else {
         toast.success(
-          `Analysis complete! ${suggestionsCount} suggestions for ${variablesAnalyzed} variables`
+          `Analysis started! Processing ${variablesCount} variables in background...`
         );
         
-        // Navigate to Historical Analysis tab
+        // Show info toast about callback
         setTimeout(() => {
-          navigate(`/discovery/${siteId}?tab=historical`, { replace: true });
-          window.location.reload();
-        }, 1500);
+          toast.info("You'll be notified when analysis completes", {
+            duration: 3000,
+          });
+        }, 1000);
       }
     } catch (error) {
       console.error('[RunAnalysisButton] Error:', error);

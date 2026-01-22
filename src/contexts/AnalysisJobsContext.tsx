@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export interface ActiveAnalysisJob {
   id: string;
@@ -22,8 +24,10 @@ const AnalysisJobsContext = createContext<AnalysisJobsContextType | undefined>(u
 
 export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeJobs, setActiveJobs] = useState<ActiveAnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const previousJobsRef = useRef<Set<string>>(new Set());
 
   const fetchActiveJobs = useCallback(async () => {
     if (!user) {
@@ -74,7 +78,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [user, fetchActiveJobs]);
 
-  // Real-time subscription
+  // Real-time subscription with completion detection
   useEffect(() => {
     if (!user) return;
 
@@ -87,9 +91,66 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           schema: 'public',
           table: 'analysis_jobs',
         },
-        () => {
-          // Refresh jobs when any change happens
-          fetchActiveJobs();
+        async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newJob = payload.new as ActiveAnalysisJob;
+            if (newJob.status === 'processing') {
+              setActiveJobs(prev => [newJob, ...prev]);
+              previousJobsRef.current.add(newJob.id);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedJob = payload.new as ActiveAnalysisJob;
+            
+            // Check if job just completed
+            if (
+              (updatedJob.status === 'completed' || updatedJob.status === 'error') &&
+              previousJobsRef.current.has(updatedJob.id)
+            ) {
+              // Job completed! Show notification
+              previousJobsRef.current.delete(updatedJob.id);
+              
+              // Fetch site name for notification
+              const { data: site } = await supabase
+                .from('sites')
+                .select('name')
+                .eq('unique_id', updatedJob.site_identifier)
+                .single();
+              
+              const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
+              
+              if (updatedJob.status === 'completed') {
+                toast.success(
+                  `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
+                  {
+                    duration: 5000,
+                    action: {
+                      label: 'View Results',
+                      onClick: () => {
+                        navigate(`/discovery/${updatedJob.site_identifier}?tab=historical`);
+                        window.location.reload();
+                      },
+                    },
+                  }
+                );
+              } else {
+                toast.error(`Analysis failed for ${siteName}`);
+              }
+              
+              // Remove from active jobs
+              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
+            } else if (updatedJob.status === 'processing') {
+              // Update existing job
+              setActiveJobs(prev => prev.map(job => 
+                job.id === updatedJob.id ? updatedJob : job
+              ));
+            } else {
+              // Remove completed/error jobs
+              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setActiveJobs(prev => prev.filter(job => job.id !== payload.old.id));
+            previousJobsRef.current.delete(payload.old.id);
+          }
         }
       )
       .subscribe();
@@ -97,7 +158,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchActiveJobs]);
+  }, [user, navigate]);
 
   return (
     <AnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>
