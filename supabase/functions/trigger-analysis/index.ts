@@ -121,7 +121,31 @@ serve(async (req: Request) => {
       )
     }
 
-    // Call external webhook (n8n)
+    // Create analysis job for tracking
+    const { data: job, error: jobError } = await supabase
+      .from('analysis_jobs')
+      .insert({
+        site_identifier: siteIdentifier,
+        status: 'processing',
+        created_by: user.id,
+      })
+      .select()
+      .single()
+
+    if (jobError) {
+      console.log("[trigger-analysis] Failed to create job", { jobError })
+      return new Response(
+        JSON.stringify({ error: "Failed to create analysis job" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      )
+    }
+
+    console.log("[trigger-analysis] Created job:", job.id)
+
+    // Construir callback URL
+    const callbackUrl = `${supabaseUrl}/functions/v1/analysis-callback`
+
+    // Call external webhook (n8n) with callback info
     const webhookResp = await fetch(analysisWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -129,60 +153,41 @@ serve(async (req: Request) => {
         site_identifier: siteIdentifier,
         min_samples: minSamples,
         variables: readyVars,
+        callback_url: callbackUrl,  // URL para n8n chamar quando terminar
+        job_id: job.id,              // ID do job para rastreamento
       }),
     })
 
     if (!webhookResp.ok) {
       const text = await webhookResp.text()
       console.log("[trigger-analysis] Webhook failed", { status: webhookResp.status, text })
+      
+      // Marcar job como erro
+      await supabase
+        .from('analysis_jobs')
+        .update({
+          status: 'error',
+          completed_at: new Date().toISOString(),
+          error_message: `Webhook call failed: ${webhookResp.status}`,
+        })
+        .eq('id', job.id)
+      
       return new Response(
         JSON.stringify({ error: "Webhook call failed", status: webhookResp.status, details: text }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
 
-    const webhookJson = await webhookResp.json().catch(() => null)
+    console.log("[trigger-analysis] Webhook called successfully, job is processing")
 
-    // Expected response format:
-    // { suggestions: [{ source_ip, address, function_code, suggested_type, confidence, reasoning }] }
-    const suggestions = (webhookJson?.suggestions || []) as Array<{
-      source_ip: string
-      address: number
-      function_code: number
-      suggested_type: string
-      confidence: number
-      reasoning?: string | null
-    }>
-
-    console.log("[trigger-analysis] Suggestions received", { count: suggestions.length })
-
-    // Update discovered_variables with AI results (best-effort)
-    let updated = 0
-    for (const s of suggestions) {
-      const { error: updErr } = await supabase
-        .from("discovered_variables")
-        .update({
-          ai_suggested_type: s.suggested_type,
-          ai_confidence: s.confidence,
-          ai_reasoning: s.reasoning ?? null,
-          ai_analysis_at: new Date().toISOString(),
-          learning_state: "hypothesis",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("site_identifier", siteIdentifier)
-        .eq("source_ip", s.source_ip)
-        .eq("address", s.address)
-        .eq("function_code", s.function_code)
-
-      if (!updErr) updated++
-    }
-
+    // Retornar job_id para o frontend poder rastrear
     return new Response(
       JSON.stringify({
         ok: true,
+        job_id: job.id,
+        status: 'processing',
         readyCount: readyVars.length,
-        suggestionCount: suggestions.length,
-        updated,
+        message: 'Analysis started, you will be notified when complete',
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
@@ -190,7 +195,7 @@ serve(async (req: Request) => {
     console.error("[trigger-analysis] Error", { error })
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    })
+      headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    )
   }
 })
