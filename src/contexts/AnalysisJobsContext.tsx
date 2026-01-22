@@ -90,20 +90,31 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           table: 'analysis_jobs',
         },
         async (payload) => {
+          console.log('[AnalysisJobsContext] Received event:', payload.eventType, payload);
+          
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActiveAnalysisJob;
             if (newJob.status === 'processing') {
+              console.log('[AnalysisJobsContext] New job started:', newJob.id);
               setActiveJobs(prev => [newJob, ...prev]);
               previousJobsRef.current.add(newJob.id);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActiveAnalysisJob;
             
+            console.log('[AnalysisJobsContext] Job updated:', {
+              id: updatedJob.id,
+              status: updatedJob.status,
+              wasTracking: previousJobsRef.current.has(updatedJob.id),
+            });
+            
             // Check if job just completed
             if (
               (updatedJob.status === 'completed' || updatedJob.status === 'error') &&
               previousJobsRef.current.has(updatedJob.id)
             ) {
+              console.log('[AnalysisJobsContext] ✅ Job completed! Status:', updatedJob.status);
+              
               // Job completed! Show notification
               previousJobsRef.current.delete(updatedJob.id);
               
@@ -117,15 +128,13 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
               const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
               
               if (updatedJob.status === 'completed') {
-                console.log('[AnalysisJobsContext] Analysis completed for site:', updatedJob.site_identifier);
+                console.log('[AnalysisJobsContext] 🎉 Analysis completed successfully!');
+                console.log('[AnalysisJobsContext] Site:', siteName);
+                console.log('[AnalysisJobsContext] Variables analyzed:', updatedJob.variables_analyzed);
+                console.log('[AnalysisJobsContext] Suggestions:', updatedJob.suggestions_count);
                 
-                // Store navigation intent in localStorage
-                localStorage.setItem('navigate-to-analysis', JSON.stringify({
-                  siteIdentifier: updatedJob.site_identifier,
-                  timestamp: Date.now(),
-                }));
-                
-                console.log('[AnalysisJobsContext] Stored navigation intent in localStorage');
+                const targetUrl = `/discovery/${updatedJob.site_identifier}?tab=historical`;
+                console.log('[AnalysisJobsContext] Target URL:', targetUrl);
                 
                 toast.success(
                   `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
@@ -134,21 +143,23 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
                     action: {
                       label: 'View Results',
                       onClick: () => {
-                        console.log('[AnalysisJobsContext] User clicked View Results');
-                        // Navigate directly using window.location
-                        window.location.href = `/discovery/${updatedJob.site_identifier}?tab=historical`;
+                        console.log('[AnalysisJobsContext] 🖱️ User clicked View Results button');
+                        console.log('[AnalysisJobsContext] Navigating to:', targetUrl);
+                        window.location.href = targetUrl;
                       },
                     },
                   }
                 );
                 
-                // Auto-navigate after 2 seconds if user doesn't click
+                // Auto-navigate after 3 seconds
+                console.log('[AnalysisJobsContext] ⏱️ Starting 3-second countdown for auto-navigation...');
                 setTimeout(() => {
-                  console.log('[AnalysisJobsContext] Auto-navigating to results...');
-                  window.location.href = `/discovery/${updatedJob.site_identifier}?tab=historical`;
-                }, 2000);
+                  console.log('[AnalysisJobsContext] 🚀 Auto-navigating NOW to:', targetUrl);
+                  window.location.href = targetUrl;
+                }, 3000);
                 
               } else {
+                console.log('[AnalysisJobsContext] ❌ Analysis failed');
                 toast.error(`Analysis failed for ${siteName}`);
               }
               

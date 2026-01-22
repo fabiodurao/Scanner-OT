@@ -1,18 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalysisJobs } from "@/contexts/AnalysisJobsContext";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const SUPABASE_PROJECT_ID = "jgclhfwigmxmqyhqngcm";
 
 export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
+  const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const minSamples = settings.sample_threshold_for_analysis || 50;
 
   // Check if there's an active job for this site
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
+
+  // Fetch count of variables ready for analysis
+  useEffect(() => {
+    const fetchReadyCount = async () => {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .rpc('get_variables_ready_for_analysis', {
+          p_site_identifier: siteId,
+          p_min_samples: minSamples,
+        });
+
+      if (!error && data) {
+        setReadyCount(data.length);
+      }
+      
+      setLoading(false);
+    };
+
+    fetchReadyCount();
+
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchReadyCount, 10000);
+
+    return () => clearInterval(interval);
+  }, [siteId, minSamples]);
 
   const run = async () => {
     setLocalRunning(true);
@@ -51,7 +84,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         return;
       }
 
-      // Check if there are variables to analyze
       const variablesCount = (json as { variables_count?: number }).variables_count || 0;
 
       setLocalRunning(false);
@@ -63,7 +95,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           `Analysis started! Processing ${variablesCount} variables in background...`
         );
         
-        // Show info toast about callback
         setTimeout(() => {
           toast.info("You'll be notified when analysis completes", {
             duration: 3000,
@@ -77,24 +108,66 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     }
   };
 
+  const isReady = readyCount > 0;
+  const progressPercent = Math.min(100, (readyCount / Math.max(1, minSamples)) * 100);
+
+  if (loading) {
+    return (
+      <Button variant="outline" disabled className="relative overflow-hidden min-w-[200px]">
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Loading...
+      </Button>
+    );
+  }
+
   return (
     <Button
       variant="outline"
       onClick={run}
-      disabled={isRunning}
-      className="border-purple-200 hover:bg-purple-50"
-    >
-      {isRunning ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin text-purple-600" />
-          Running...
-        </>
-      ) : (
-        <>
-          <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
-          Run AI Analysis
-        </>
+      disabled={!isReady || isRunning}
+      className={cn(
+        "relative overflow-hidden min-w-[200px] transition-all",
+        !isReady && "text-muted-foreground border-slate-200",
+        isReady && !isRunning && "border-purple-300 hover:bg-purple-50 text-purple-700 font-medium",
+        isRunning && "border-purple-400 bg-purple-50"
       )}
+    >
+      {/* Progress bar background */}
+      <div 
+        className={cn(
+          "absolute inset-0 transition-all duration-500",
+          isReady ? "bg-purple-100" : "bg-slate-100"
+        )}
+        style={{ 
+          width: `${progressPercent}%`,
+          opacity: 0.5,
+        }}
+      />
+      
+      {/* Button content */}
+      <div className="relative z-10 flex items-center">
+        {isRunning ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Running...
+          </>
+        ) : (
+          <>
+            <Sparkles className="h-4 w-4 mr-2" />
+            Run AI Analysis
+            {isReady && (
+              <span className="ml-2 text-xs font-normal">
+                ({readyCount} ready)
+              </span>
+            )}
+            {!isReady && (
+              <span className="ml-2 text-xs font-normal">
+                ({readyCount}/{minSamples})
+              </span>
+            )}
+          </>
+        )}
+      </div>
     </Button>
   );
 }

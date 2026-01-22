@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   ChevronLeft, 
   Server, 
@@ -64,10 +63,6 @@ const Discovery = () => {
   
   // Active tab - read from URL params
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'variables');
-  
-  // Filters - now filtering by Source IP (equipment/slave)
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
-  const [selectedFC, setSelectedFC] = useState<string>('all');
   
   // Track if we're showing filtered data
   const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
@@ -129,8 +124,6 @@ const Discovery = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     setActiveSourceIpFilter(null);
-    setSelectedEquipment('all');
-    setSelectedFC('all');
     await loadData();
     setRefreshing(false);
   };
@@ -158,52 +151,15 @@ const Discovery = () => {
     setSyncing(false);
   };
 
-  // Handle equipment dropdown filter change
-  const handleEquipmentFilterChange = async (value: string) => {
-    setSelectedEquipment(value);
-    
-    if (value === 'all') {
-      // Reset to default data
-      setActiveSourceIpFilter(null);
-      const siteVariables = await getVariables(siteId!);
-      setVariables(siteVariables);
-    } else {
-      // Fetch data specifically for this Source IP
-      setLoadingFiltered(true);
-      setActiveSourceIpFilter(value);
-      
-      const { data, error } = await supabase
-        .from('learning_samples')
-        .select('*')
-        .eq('Identifier', siteId)
-        .eq('SourceIp', value)
-        .order('time', { ascending: false })
-        .limit(5000); // Higher limit for specific IP
-      
-      if (error) {
-        console.error('Error fetching filtered variables:', error);
-      } else {
-        setVariables((data || []) as LearningSample[]);
-      }
-      
-      setLoadingFiltered(false);
-    }
-  };
-
   // Handle table's internal Source IP filter (from column filter)
   const handleTableSourceIpFilter = async (ip: string | null) => {
     if (!siteId) return;
     
     if (!ip) {
-      // Reset to default or current equipment filter
-      if (selectedEquipment === 'all') {
-        setActiveSourceIpFilter(null);
-        const siteVariables = await getVariables(siteId);
-        setVariables(siteVariables);
-      } else {
-        // Keep the equipment dropdown filter
-        handleEquipmentFilterChange(selectedEquipment);
-      }
+      // Reset to default
+      setActiveSourceIpFilter(null);
+      const siteVariables = await getVariables(siteId);
+      setVariables(siteVariables);
       return;
     }
     
@@ -215,7 +171,7 @@ const Discovery = () => {
       .from('learning_samples')
       .select('*')
       .eq('Identifier', siteId)
-      .ilike('SourceIp', `%${ip}%`) // Use ilike for partial match
+      .ilike('SourceIp', `%${ip}%`)
       .order('time', { ascending: false })
       .limit(5000);
     
@@ -230,21 +186,11 @@ const Discovery = () => {
 
   // Handle data cleared from settings tab
   const handleDataCleared = () => {
-    // Reload all data
     loadData();
   };
 
-  // Filter variables by FC (client-side since it's fast)
-  const filteredVariables = variables.filter(v => {
-    if (selectedFC !== 'all' && v.FC?.toString() !== selectedFC) return false;
-    return true;
-  });
-
-  // Count unique variables after filtering
-  const uniqueVariableCount = countUniqueVariables(filteredVariables);
-
-  // Get unique function codes for filter
-  const functionCodes = [...new Set(variables.map(v => v.FC).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0));
+  // Count unique variables
+  const uniqueVariableCount = countUniqueVariables(variables);
 
   // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
@@ -303,7 +249,6 @@ const Discovery = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {siteId && <RunAnalysisButton siteId={siteId} />}
               <Button variant="outline" onClick={handleSyncEquipment} disabled={syncing}>
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Equipment
@@ -430,51 +375,22 @@ const Discovery = () => {
                       )}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={selectedEquipment} onValueChange={handleEquipmentFilterChange}>
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder="Filter by equipment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Equipment ({allSourceIps.length} IPs)</SelectItem>
-                        {slaveEquipment.map(eq => (
-                          <SelectItem key={eq.ip} value={eq.ip}>
-                            {eq.ip} ({eq.variableCount} vars)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <Select value={selectedFC} onValueChange={setSelectedFC}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue placeholder="Function" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All FC</SelectItem>
-                        {functionCodes.map(fc => (
-                          <SelectItem key={fc} value={fc?.toString() || ''}>
-                            FC {fc}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Run AI Analysis button */}
+                  {siteId && <RunAnalysisButton siteId={siteId} />}
                 </div>
               </CardHeader>
               <CardContent>
-                {filteredVariables.length === 0 && !loadingFiltered ? (
+                {variables.length === 0 && !loadingFiltered ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Variable className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No variables found</p>
-                    {variables.length === 0 && (
-                      <p className="text-sm mt-2">
-                        Upload and process a PCAP file to discover variables
-                      </p>
-                    )}
+                    <p className="text-sm mt-2">
+                      Upload and process a PCAP file to discover variables
+                    </p>
                   </div>
                 ) : (
                   <VariableHeatmapTable 
-                    variables={filteredVariables} 
+                    variables={variables} 
                     allSourceIps={allSourceIps}
                     onFilterBySourceIp={handleTableSourceIpFilter}
                     isLoadingFiltered={loadingFiltered}
@@ -487,13 +403,19 @@ const Discovery = () => {
           <TabsContent value="historical">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Grid3x3 className="h-5 w-5" />
-                  Historical Analysis
-                </CardTitle>
-                <CardDescription>
-                  Detailed statistical analysis across all data types with AI winner selection
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Grid3x3 className="h-5 w-5" />
+                      Historical Analysis
+                    </CardTitle>
+                    <CardDescription>
+                      Detailed statistical analysis across all data types with AI winner selection
+                    </CardDescription>
+                  </div>
+                  {/* Run AI Analysis button */}
+                  {siteId && <RunAnalysisButton siteId={siteId} />}
+                </div>
               </CardHeader>
               <CardContent>
                 <HistoricalHeatmapTable variables={discoveredVariables} />
