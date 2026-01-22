@@ -24,16 +24,19 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           event: 'UPDATE',
           schema: 'public',
           table: 'analysis_jobs',
-          filter: `id=eq.${jobId}`,
         },
         (payload) => {
           console.log('[RunAnalysisButton] Job updated:', payload.new);
           const updatedJob = payload.new as {
+            id: string;
             status: string;
             suggestions_count?: number;
             variables_analyzed?: number;
             error_message?: string;
           };
+          
+          // Only process updates for our job
+          if (updatedJob.id !== jobId) return;
           
           if (updatedJob.status === 'completed') {
             toast.success(
