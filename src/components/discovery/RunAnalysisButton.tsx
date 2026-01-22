@@ -13,9 +13,8 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
   const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
-  const [totalSamples, setTotalSamples] = useState(0);
+  const [samplesPerRegister, setSamplesPerRegister] = useState(0);
   const [variablesReady, setVariablesReady] = useState(0);
-  const [totalVariables, setTotalVariables] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const minSamples = settings.sample_threshold_for_analysis || 50;
@@ -23,19 +22,39 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   // Check if there's an active job for this site
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
-  // Fetch ALL samples count for this site
+  // Fetch sample count from FIRST register only (all have the same count)
   useEffect(() => {
     const fetchSampleCount = async () => {
       setLoading(true);
       
-      // Count ALL samples for this site (not just ready ones)
-      const { count: sampleCount, error: countError } = await supabase
+      // Get the first variable (any SourceIp + Address combination)
+      const { data: firstVar, error: firstError } = await supabase
+        .from('learning_samples')
+        .select('SourceIp, Address, FC')
+        .eq('Identifier', siteId)
+        .not('SourceIp', 'is', null)
+        .not('Address', 'is', null)
+        .limit(1)
+        .single();
+
+      if (firstError || !firstVar) {
+        setSamplesPerRegister(0);
+        setVariablesReady(0);
+        setLoading(false);
+        return;
+      }
+
+      // Count samples for this specific register
+      const { count, error: countError } = await supabase
         .from('learning_samples')
         .select('*', { count: 'exact', head: true })
-        .eq('Identifier', siteId);
+        .eq('Identifier', siteId)
+        .eq('SourceIp', firstVar.SourceIp)
+        .eq('Address', firstVar.Address)
+        .eq('FC', firstVar.FC);
 
-      if (!countError && sampleCount !== null) {
-        setTotalSamples(sampleCount);
+      if (!countError && count !== null) {
+        setSamplesPerRegister(count);
       }
 
       // Get variables ready for analysis (>= minSamples)
@@ -47,19 +66,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
       if (!error && data) {
         setVariablesReady(data.length);
-      }
-
-      // Count total unique variables (for progress calculation)
-      const { data: allVars, error: varsError } = await supabase
-        .from('learning_samples')
-        .select('SourceIp, DestinationIp, Address, FC')
-        .eq('Identifier', siteId);
-
-      if (!varsError && allVars) {
-        const uniqueVars = new Set(
-          allVars.map(v => `${v.SourceIp}-${v.DestinationIp}-${v.Address}-${v.FC}`)
-        );
-        setTotalVariables(uniqueVars.size);
       }
       
       setLoading(false);
@@ -118,7 +124,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         toast.info("No variables ready for analysis (need more samples)");
       } else {
         toast.success(
-          `Analysis started! Processing ${variablesCount} variables with ${totalSamples} total samples...`
+          `Analysis started! Processing ${variablesCount} variables with ${samplesPerRegister} samples each...`
         );
         
         setTimeout(() => {
@@ -136,12 +142,8 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
   const isReady = variablesReady > 0;
   
-  // Progress: how many samples we have vs how many we need
-  // We need minSamples * totalVariables to have all variables ready
-  const samplesNeeded = totalVariables * minSamples;
-  const progressPercent = samplesNeeded > 0 
-    ? Math.min(100, (totalSamples / samplesNeeded) * 100)
-    : 0;
+  // Progress based on samples per register vs minimum needed
+  const progressPercent = Math.min(100, (samplesPerRegister / minSamples) * 100);
 
   if (loading) {
     return (
@@ -188,7 +190,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
             <Sparkles className="h-4 w-4 mr-2" />
             Run AI Analysis
             <span className="ml-2 text-xs font-normal">
-              ({totalSamples.toLocaleString()} samples)
+              ({samplesPerRegister}/{minSamples} samples)
             </span>
           </>
         )}
