@@ -13,7 +13,8 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
   const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
-  const [readyCount, setReadyCount] = useState(0);
+  const [totalSamples, setTotalSamples] = useState(0);
+  const [variablesReady, setVariablesReady] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const minSamples = settings.sample_threshold_for_analysis || 50;
@@ -21,11 +22,12 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   // Check if there's an active job for this site
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
-  // Fetch count of variables ready for analysis
+  // Fetch total samples count for variables ready for analysis
   useEffect(() => {
-    const fetchReadyCount = async () => {
+    const fetchSampleCount = async () => {
       setLoading(true);
       
+      // Get variables ready for analysis (with sample counts)
       const { data, error } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
@@ -33,16 +35,22 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         });
 
       if (!error && data) {
-        setReadyCount(data.length);
+        // Count total samples across all ready variables
+        const total = data.reduce((sum: number, v: { sample_count: number }) => sum + (v.sample_count || 0), 0);
+        setTotalSamples(total);
+        setVariablesReady(data.length);
+      } else {
+        setTotalSamples(0);
+        setVariablesReady(0);
       }
       
       setLoading(false);
     };
 
-    fetchReadyCount();
+    fetchSampleCount();
 
     // Refresh every 10 seconds
-    const interval = setInterval(fetchReadyCount, 10000);
+    const interval = setInterval(fetchSampleCount, 10000);
 
     return () => clearInterval(interval);
   }, [siteId, minSamples]);
@@ -92,7 +100,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         toast.info("No variables ready for analysis (need more samples)");
       } else {
         toast.success(
-          `Analysis started! Processing ${variablesCount} variables in background...`
+          `Analysis started! Processing ${variablesCount} variables with ${totalSamples} total samples...`
         );
         
         setTimeout(() => {
@@ -108,12 +116,16 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     }
   };
 
-  const isReady = readyCount > 0;
-  const progressPercent = Math.min(100, (readyCount / Math.max(1, minSamples)) * 100);
+  const isReady = variablesReady > 0;
+  
+  // Progress based on total samples collected vs minimum needed
+  // We need at least minSamples per variable, so calculate average
+  const avgSamplesPerVariable = variablesReady > 0 ? totalSamples / variablesReady : 0;
+  const progressPercent = Math.min(100, (avgSamplesPerVariable / minSamples) * 100);
 
   if (loading) {
     return (
-      <Button variant="outline" disabled className="relative overflow-hidden min-w-[200px]">
+      <Button variant="outline" disabled className="relative overflow-hidden min-w-[220px]">
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Loading...
       </Button>
@@ -126,8 +138,8 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
       onClick={run}
       disabled={!isReady || isRunning}
       className={cn(
-        "relative overflow-hidden min-w-[200px] transition-all",
-        !isReady && "text-muted-foreground border-slate-200",
+        "relative overflow-hidden min-w-[220px] transition-all",
+        !isReady && "text-muted-foreground border-slate-200 bg-slate-50",
         isReady && !isRunning && "border-purple-300 hover:bg-purple-50 text-purple-700 font-medium",
         isRunning && "border-purple-400 bg-purple-50"
       )}
@@ -136,11 +148,11 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
       <div 
         className={cn(
           "absolute inset-0 transition-all duration-500",
-          isReady ? "bg-purple-100" : "bg-slate-100"
+          isReady ? "bg-purple-200" : "bg-slate-200"
         )}
         style={{ 
           width: `${progressPercent}%`,
-          opacity: 0.5,
+          opacity: 0.4,
         }}
       />
       
@@ -155,14 +167,13 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           <>
             <Sparkles className="h-4 w-4 mr-2" />
             Run AI Analysis
-            {isReady && (
+            {isReady ? (
               <span className="ml-2 text-xs font-normal">
-                ({readyCount} ready)
+                ({totalSamples} samples)
               </span>
-            )}
-            {!isReady && (
+            ) : (
               <span className="ml-2 text-xs font-normal">
-                ({readyCount}/{minSamples})
+                ({totalSamples}/{minSamples} samples)
               </span>
             )}
           </>
