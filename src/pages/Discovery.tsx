@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +47,8 @@ const countUniqueVariables = (variables: LearningSample[]): number => {
 
 const Discovery = () => {
   const { siteId } = useParams<{ siteId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const { profile } = useAuth();
   const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables, getDiscoveredVariables } = useDiscoveryData();
   
@@ -60,12 +62,26 @@ const Discovery = () => {
   const [syncing, setSyncing] = useState(false);
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   
+  // Active tab - read from URL params
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'variables');
+  
   // Filters - now filtering by Source IP (equipment/slave)
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [selectedFC, setSelectedFC] = useState<string>('all');
   
   // Track if we're showing filtered data
   const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'variables') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', value);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
 
   const isAdmin = profile?.is_admin === true;
 
@@ -377,7 +393,7 @@ const Discovery = () => {
         )}
 
         {/* Main Content */}
-        <Tabs defaultValue="variables" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList>
             <TabsTrigger value="variables">
               <Variable className="h-4 w-4 mr-2" />

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
+import { ActiveAnalysisIndicator } from './ActiveAnalysisIndicator';
 import {
   LayoutDashboard,
   Upload,
@@ -258,7 +259,10 @@ const Sidebar = () => {
         </div>
       </nav>
       
-      {/* Active Uploads Indicator - above jobs indicator */}
+      {/* Active AI Analysis Indicator - at the top */}
+      {!isCollapsed && <ActiveAnalysisIndicator />}
+      
+      {/* Active Uploads Indicator */}
       {!isCollapsed && <ActiveUploadsIndicator />}
       
       {/* Active Jobs Indicator - above user info */}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -8,6 +9,7 @@ const SUPABASE_PROJECT_ID = "jgclhfwigmxmqyhqngcm";
 
 export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const [running, setRunning] = useState(false);
+  const navigate = useNavigate();
 
   const run = async () => {
     setRunning(true);
@@ -57,8 +59,9 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           `Analysis complete! ${suggestionsCount} suggestions for ${variablesAnalyzed} variables`
         );
         
-        // Reload page to show new AI suggestions
+        // Navigate to Historical Analysis tab
         setTimeout(() => {
+          navigate(`/discovery/${siteId}?tab=historical`, { replace: true });
           window.location.reload();
         }, 1500);
       }
