@@ -29,13 +29,14 @@ type ReadyVar = {
 }
 
 serve(async (req: Request) => {
+  console.log("[trigger-analysis] ========================================")
+  console.log("[trigger-analysis] Request received", { method: req.method })
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log("[trigger-analysis] Request received", { method: req.method })
-
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
       console.log("[trigger-analysis] Missing Authorization header")
@@ -59,6 +60,8 @@ serve(async (req: Request) => {
       return new Response("Unauthorized", { status: 401, headers: corsHeaders })
     }
 
+    console.log("[trigger-analysis] User verified:", user.id)
+
     const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const siteIdentifier = (body as { siteIdentifier?: string })?.siteIdentifier
 
@@ -69,6 +72,8 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
+
+    console.log("[trigger-analysis] Site identifier:", siteIdentifier)
 
     // Load user settings (webhook + thresholds)
     const { data: settings, error: settingsError } = await supabase
@@ -88,6 +93,11 @@ serve(async (req: Request) => {
     const analysisWebhookUrl = (settings?.analysis_webhook_url as string | null) ?? null
     const minSamples = (settings?.sample_threshold_for_analysis as number | null) ?? 50
 
+    console.log("[trigger-analysis] Settings loaded:", { 
+      webhookUrl: analysisWebhookUrl, 
+      minSamples 
+    })
+
     if (!analysisWebhookUrl) {
       console.log("[trigger-analysis] analysis_webhook_url not configured")
       return new Response(
@@ -97,6 +107,8 @@ serve(async (req: Request) => {
     }
 
     // Get ready variables (RPC already exists in your DB)
+    console.log("[trigger-analysis] Calling get_variables_ready_for_analysis RPC...")
+    
     const { data: ready, error: readyError } = await supabase.rpc(
       "get_variables_ready_for_analysis",
       { p_site_identifier: siteIdentifier, p_min_samples: minSamples },
@@ -112,9 +124,10 @@ serve(async (req: Request) => {
 
     const readyVars = (ready || []) as ReadyVar[]
 
-    console.log("[trigger-analysis] Ready vars", { count: readyVars.length, minSamples })
+    console.log("[trigger-analysis] Ready vars count:", readyVars.length)
 
     if (readyVars.length === 0) {
+      console.log("[trigger-analysis] No variables ready for analysis")
       return new Response(
         JSON.stringify({ ok: true, message: "No variables ready for analysis", count: 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -122,6 +135,8 @@ serve(async (req: Request) => {
     }
 
     // Create analysis job for tracking
+    console.log("[trigger-analysis] Creating analysis job...")
+    
     const { data: job, error: jobError } = await supabase
       .from('analysis_jobs')
       .insert({
@@ -140,10 +155,11 @@ serve(async (req: Request) => {
       )
     }
 
-    console.log("[trigger-analysis] Created job:", job.id)
+    console.log("[trigger-analysis] Job created:", job.id)
 
     // Call n8n webhook and WAIT for response (synchronous with Respond to Webhook)
     console.log("[trigger-analysis] Calling n8n webhook:", analysisWebhookUrl)
+    console.log("[trigger-analysis] Sending", readyVars.length, "variables to analyze")
     
     const webhookResp = await fetch(analysisWebhookUrl, {
       method: "POST",
@@ -159,8 +175,14 @@ serve(async (req: Request) => {
     console.log("[trigger-analysis] Webhook response status:", webhookResp.status)
 
     // Parse response from n8n
-    const webhookData = await webhookResp.json().catch(() => ({}))
-    console.log("[trigger-analysis] Webhook response data:", webhookData)
+    let webhookData: Record<string, unknown> = {}
+    try {
+      webhookData = await webhookResp.json()
+      console.log("[trigger-analysis] Webhook response data:", JSON.stringify(webhookData, null, 2))
+    } catch (parseError) {
+      console.error("[trigger-analysis] Failed to parse webhook response:", parseError)
+      webhookData = {}
+    }
 
     if (!webhookResp.ok) {
       console.log("[trigger-analysis] Webhook failed", { 
@@ -178,6 +200,8 @@ serve(async (req: Request) => {
         })
         .eq('id', job.id)
       
+      console.log("[trigger-analysis] Job marked as error:", job.id)
+      
       return new Response(
         JSON.stringify({ 
           error: "Analysis failed", 
@@ -191,7 +215,12 @@ serve(async (req: Request) => {
     const variablesAnalyzed = (webhookData as { variables_analyzed?: number }).variables_analyzed || readyVars.length
     const suggestionsCount = (webhookData as { suggestions_count?: number }).suggestions_count || 0
 
-    await supabase
+    console.log("[trigger-analysis] Analysis completed successfully!")
+    console.log("[trigger-analysis] Variables analyzed:", variablesAnalyzed)
+    console.log("[trigger-analysis] Suggestions count:", suggestionsCount)
+    console.log("[trigger-analysis] Updating job status to 'completed'...")
+
+    const { error: updateError } = await supabase
       .from('analysis_jobs')
       .update({
         status: 'completed',
@@ -201,11 +230,13 @@ serve(async (req: Request) => {
       })
       .eq('id', job.id)
 
-    console.log("[trigger-analysis] Analysis completed successfully", {
-      job_id: job.id,
-      variables_analyzed: variablesAnalyzed,
-      suggestions_count: suggestionsCount,
-    })
+    if (updateError) {
+      console.error("[trigger-analysis] Failed to update job status:", updateError)
+    } else {
+      console.log("[trigger-analysis] Job status updated successfully:", job.id)
+    }
+
+    console.log("[trigger-analysis] ========================================")
 
     return new Response(
       JSON.stringify({
@@ -219,8 +250,9 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
   } catch (error) {
-    console.error("[trigger-analysis] Error", { error })
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
+    console.error("[trigger-analysis] FATAL ERROR:", error)
+    console.error("[trigger-analysis] Error stack:", (error as Error).stack)
+    return new Response(JSON.stringify({ error: "Internal server error", details: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
