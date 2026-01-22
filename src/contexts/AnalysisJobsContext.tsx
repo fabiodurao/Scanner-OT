@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode,
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 
 export interface ActiveAnalysisJob {
   id: string;
@@ -24,7 +23,6 @@ const AnalysisJobsContext = createContext<AnalysisJobsContextType | undefined>(u
 
 export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [activeJobs, setActiveJobs] = useState<ActiveAnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
   const previousJobsRef = useRef<Set<string>>(new Set());
@@ -119,19 +117,24 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
               const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
               
               if (updatedJob.status === 'completed') {
+                // Dispatch custom event for navigation
+                const navigationEvent = new CustomEvent('navigate-to-analysis', {
+                  detail: { siteIdentifier: updatedJob.site_identifier }
+                });
+                window.dispatchEvent(navigationEvent);
+                
                 toast.success(
                   `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
                   {
-                    duration: 8000,
+                    duration: 10000,
                     action: {
                       label: 'View Results',
                       onClick: () => {
-                        // Navigate to historical analysis tab
-                        navigate(`/discovery/${updatedJob.site_identifier}?tab=historical`);
-                        // Force page reload to ensure fresh data
-                        setTimeout(() => {
-                          window.location.reload();
-                        }, 100);
+                        // Dispatch navigation event
+                        const navEvent = new CustomEvent('navigate-to-analysis', {
+                          detail: { siteIdentifier: updatedJob.site_identifier }
+                        });
+                        window.dispatchEvent(navEvent);
                       },
                     },
                   }
@@ -162,7 +165,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, navigate]);
+  }, [user]);
 
   return (
     <AnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>
