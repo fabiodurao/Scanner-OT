@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface ActiveAnalysisJob {
   id: string;
   site_identifier: string;
+  site_name: string | null;
   status: 'processing' | 'completed' | 'error';
   started_at: string;
   variables_analyzed: number | null;
@@ -37,9 +38,29 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
       .eq('status', 'processing')
       .order('started_at', { ascending: false });
 
-    if (!error && data) {
-      setActiveJobs(data as ActiveAnalysisJob[]);
+    if (error || !data) {
+      setLoading(false);
+      return;
     }
+
+    // Fetch site names for each job
+    const siteIdentifiers = [...new Set(data.map(job => job.site_identifier))];
+    
+    const { data: sites } = await supabase
+      .from('sites')
+      .select('unique_id, name')
+      .in('unique_id', siteIdentifiers);
+
+    const siteNameMap = new Map(
+      (sites || []).map(s => [s.unique_id, s.name])
+    );
+
+    const jobsWithNames = data.map(job => ({
+      ...job,
+      site_name: siteNameMap.get(job.site_identifier) || null,
+    }));
+
+    setActiveJobs(jobsWithNames as ActiveAnalysisJob[]);
     setLoading(false);
   }, [user]);
 
@@ -66,25 +87,9 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           schema: 'public',
           table: 'analysis_jobs',
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newJob = payload.new as ActiveAnalysisJob;
-            if (newJob.status === 'processing') {
-              setActiveJobs(prev => [newJob, ...prev]);
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedJob = payload.new as ActiveAnalysisJob;
-            
-            if (updatedJob.status !== 'processing') {
-              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
-            } else {
-              setActiveJobs(prev => prev.map(job => 
-                job.id === updatedJob.id ? updatedJob : job
-              ));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setActiveJobs(prev => prev.filter(job => job.id !== payload.old.id));
-          }
+        () => {
+          // Refresh jobs when any change happens
+          fetchActiveJobs();
         }
       )
       .subscribe();
@@ -92,7 +97,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, fetchActiveJobs]);
 
   return (
     <AnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>

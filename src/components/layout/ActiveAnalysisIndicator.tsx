@@ -35,7 +35,7 @@ export const ActiveAnalysisIndicator = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white truncate font-medium">
-                    Site: {job.site_identifier.slice(0, 8)}...
+                    {job.site_name || `Site ${job.site_identifier.slice(0, 8)}...`}
                   </div>
                   <div className="text-[10px] text-gray-400">
                     Analyzing variables...

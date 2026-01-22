@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalysisJobs } from "@/contexts/AnalysisJobsContext";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,18 +9,22 @@ import { toast } from "sonner";
 const SUPABASE_PROJECT_ID = "jgclhfwigmxmqyhqngcm";
 
 export function RunAnalysisButton({ siteId }: { siteId: string }) {
-  const [running, setRunning] = useState(false);
   const navigate = useNavigate();
+  const { activeJobs } = useAnalysisJobs();
+  const [localRunning, setLocalRunning] = useState(false);
+
+  // Check if there's an active job for this site
+  const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
   const run = async () => {
-    setRunning(true);
+    setLocalRunning(true);
 
     const { data: sess } = await supabase.auth.getSession();
     const token = sess.session?.access_token;
 
     if (!token) {
       toast.error("Not authenticated");
-      setRunning(false);
+      setLocalRunning(false);
       return;
     }
 
@@ -44,13 +49,15 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           (json as { message?: string })?.message ||
           "Failed to run analysis";
         toast.error(msg);
-        setRunning(false);
+        setLocalRunning(false);
         return;
       }
 
       // Success! Show results
       const variablesAnalyzed = (json as { variables_analyzed?: number }).variables_analyzed || 0;
       const suggestionsCount = (json as { suggestions_count?: number }).suggestions_count || 0;
+
+      setLocalRunning(false);
 
       if (variablesAnalyzed === 0) {
         toast.info("No variables ready for analysis (need more samples)");
@@ -68,19 +75,18 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     } catch (error) {
       console.error('[RunAnalysisButton] Error:', error);
       toast.error("Failed to run analysis");
+      setLocalRunning(false);
     }
-
-    setRunning(false);
   };
 
   return (
     <Button
       variant="outline"
       onClick={run}
-      disabled={running}
+      disabled={isRunning}
       className="border-purple-200 hover:bg-purple-50"
     >
-      {running ? (
+      {isRunning ? (
         <>
           <Loader2 className="h-4 w-4 mr-2 animate-spin text-purple-600" />
           Running...
