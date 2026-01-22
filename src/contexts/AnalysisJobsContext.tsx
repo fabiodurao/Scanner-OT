@@ -122,12 +122,16 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
                 toast.success(
                   `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
                   {
-                    duration: 5000,
+                    duration: 8000,
                     action: {
                       label: 'View Results',
                       onClick: () => {
+                        // Navigate to historical analysis tab
                         navigate(`/discovery/${updatedJob.site_identifier}?tab=historical`);
-                        window.location.reload();
+                        // Force page reload to ensure fresh data
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 100);
                       },
                     },
                   }
