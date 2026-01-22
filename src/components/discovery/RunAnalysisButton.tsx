@@ -15,6 +15,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const [localRunning, setLocalRunning] = useState(false);
   const [totalSamples, setTotalSamples] = useState(0);
   const [variablesReady, setVariablesReady] = useState(0);
+  const [totalVariables, setTotalVariables] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const minSamples = settings.sample_threshold_for_analysis || 50;
@@ -22,12 +23,22 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   // Check if there's an active job for this site
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
-  // Fetch total samples count for variables ready for analysis
+  // Fetch ALL samples count for this site
   useEffect(() => {
     const fetchSampleCount = async () => {
       setLoading(true);
       
-      // Get variables ready for analysis (with sample counts)
+      // Count ALL samples for this site (not just ready ones)
+      const { count: sampleCount, error: countError } = await supabase
+        .from('learning_samples')
+        .select('*', { count: 'exact', head: true })
+        .eq('Identifier', siteId);
+
+      if (!countError && sampleCount !== null) {
+        setTotalSamples(sampleCount);
+      }
+
+      // Get variables ready for analysis (>= minSamples)
       const { data, error } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
@@ -35,13 +46,20 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         });
 
       if (!error && data) {
-        // Count total samples across all ready variables
-        const total = data.reduce((sum: number, v: { sample_count: number }) => sum + (v.sample_count || 0), 0);
-        setTotalSamples(total);
         setVariablesReady(data.length);
-      } else {
-        setTotalSamples(0);
-        setVariablesReady(0);
+      }
+
+      // Count total unique variables (for progress calculation)
+      const { data: allVars, error: varsError } = await supabase
+        .from('learning_samples')
+        .select('SourceIp, DestinationIp, Address, FC')
+        .eq('Identifier', siteId);
+
+      if (!varsError && allVars) {
+        const uniqueVars = new Set(
+          allVars.map(v => `${v.SourceIp}-${v.DestinationIp}-${v.Address}-${v.FC}`)
+        );
+        setTotalVariables(uniqueVars.size);
       }
       
       setLoading(false);
@@ -118,10 +136,12 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
   const isReady = variablesReady > 0;
   
-  // Progress based on total samples collected vs minimum needed
-  // We need at least minSamples per variable, so calculate average
-  const avgSamplesPerVariable = variablesReady > 0 ? totalSamples / variablesReady : 0;
-  const progressPercent = Math.min(100, (avgSamplesPerVariable / minSamples) * 100);
+  // Progress: how many samples we have vs how many we need
+  // We need minSamples * totalVariables to have all variables ready
+  const samplesNeeded = totalVariables * minSamples;
+  const progressPercent = samplesNeeded > 0 
+    ? Math.min(100, (totalSamples / samplesNeeded) * 100)
+    : 0;
 
   if (loading) {
     return (
@@ -167,15 +187,9 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           <>
             <Sparkles className="h-4 w-4 mr-2" />
             Run AI Analysis
-            {isReady ? (
-              <span className="ml-2 text-xs font-normal">
-                ({totalSamples} samples)
-              </span>
-            ) : (
-              <span className="ml-2 text-xs font-normal">
-                ({totalSamples}/{minSamples} samples)
-              </span>
-            )}
+            <span className="ml-2 text-xs font-normal">
+              ({totalSamples.toLocaleString()} samples)
+            </span>
           </>
         )}
       </div>
