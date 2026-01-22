@@ -117,11 +117,15 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
               const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
               
               if (updatedJob.status === 'completed') {
-                // Dispatch custom event for navigation
-                const navigationEvent = new CustomEvent('navigate-to-analysis', {
-                  detail: { siteIdentifier: updatedJob.site_identifier }
-                });
-                window.dispatchEvent(navigationEvent);
+                console.log('[AnalysisJobsContext] Analysis completed for site:', updatedJob.site_identifier);
+                
+                // Store navigation intent in localStorage
+                localStorage.setItem('navigate-to-analysis', JSON.stringify({
+                  siteIdentifier: updatedJob.site_identifier,
+                  timestamp: Date.now(),
+                }));
+                
+                console.log('[AnalysisJobsContext] Stored navigation intent in localStorage');
                 
                 toast.success(
                   `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
@@ -130,15 +134,20 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
                     action: {
                       label: 'View Results',
                       onClick: () => {
-                        // Dispatch navigation event
-                        const navEvent = new CustomEvent('navigate-to-analysis', {
-                          detail: { siteIdentifier: updatedJob.site_identifier }
-                        });
-                        window.dispatchEvent(navEvent);
+                        console.log('[AnalysisJobsContext] User clicked View Results');
+                        // Navigate directly using window.location
+                        window.location.href = `/discovery/${updatedJob.site_identifier}?tab=historical`;
                       },
                     },
                   }
                 );
+                
+                // Auto-navigate after 2 seconds if user doesn't click
+                setTimeout(() => {
+                  console.log('[AnalysisJobsContext] Auto-navigating to results...');
+                  window.location.href = `/discovery/${updatedJob.site_identifier}?tab=historical`;
+                }, 2000);
+                
               } else {
                 toast.error(`Analysis failed for ${siteName}`);
               }
