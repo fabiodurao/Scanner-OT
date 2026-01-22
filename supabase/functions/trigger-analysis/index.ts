@@ -162,11 +162,6 @@ serve(async (req: Request) => {
 
     console.log("[trigger-analysis] Job created:", job.id)
 
-    // Build callback URL for n8n to call when done
-    const callbackUrl = `${supabaseUrl}/functions/v1/analysis-callback`
-    
-    console.log("[trigger-analysis] Callback URL:", callbackUrl)
-
     // Call n8n webhook asynchronously (fire and forget)
     console.log("[trigger-analysis] Calling n8n webhook (async):", analysisWebhookUrl)
     console.log("[trigger-analysis] Sending", readyVars.length, "variables to analyze")
@@ -180,23 +175,22 @@ serve(async (req: Request) => {
         min_samples: minSamples,
         variables: readyVars,
         job_id: job.id,
-        callback_url: callbackUrl,
       }),
     }).catch(error => {
       console.error("[trigger-analysis] Error calling webhook:", error)
     })
 
     console.log("[trigger-analysis] Webhook called, returning immediately")
-    console.log("[trigger-analysis] n8n will call callback when done")
+    console.log("[trigger-analysis] n8n will update job status directly in database")
     console.log("[trigger-analysis] ========================================")
 
-    // Return immediately - n8n will call the callback when done
+    // Return immediately - n8n will update the job directly
     return new Response(
       JSON.stringify({
         ok: true,
         job_id: job.id,
         status: 'processing',
-        message: 'Analysis started - processing in background',
+        message: 'Analysis started - n8n will update status when complete',
         variables_count: readyVars.length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
