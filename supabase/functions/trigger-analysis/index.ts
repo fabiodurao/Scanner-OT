@@ -142,10 +142,9 @@ serve(async (req: Request) => {
 
     console.log("[trigger-analysis] Created job:", job.id)
 
-    // Construir callback URL
-    const callbackUrl = `${supabaseUrl}/functions/v1/analysis-callback`
-
-    // Call external webhook (n8n) with callback info
+    // Call n8n webhook and WAIT for response (synchronous with Respond to Webhook)
+    console.log("[trigger-analysis] Calling n8n webhook:", analysisWebhookUrl)
+    
     const webhookResp = await fetch(analysisWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -153,41 +152,69 @@ serve(async (req: Request) => {
         site_identifier: siteIdentifier,
         min_samples: minSamples,
         variables: readyVars,
-        callback_url: callbackUrl,  // URL para n8n chamar quando terminar
-        job_id: job.id,              // ID do job para rastreamento
+        job_id: job.id,
       }),
     })
 
+    console.log("[trigger-analysis] Webhook response status:", webhookResp.status)
+
+    // Parse response from n8n
+    const webhookData = await webhookResp.json().catch(() => ({}))
+    console.log("[trigger-analysis] Webhook response data:", webhookData)
+
     if (!webhookResp.ok) {
-      const text = await webhookResp.text()
-      console.log("[trigger-analysis] Webhook failed", { status: webhookResp.status, text })
+      console.log("[trigger-analysis] Webhook failed", { 
+        status: webhookResp.status, 
+        data: webhookData 
+      })
       
-      // Marcar job como erro
+      // Update job as error
       await supabase
         .from('analysis_jobs')
         .update({
           status: 'error',
           completed_at: new Date().toISOString(),
-          error_message: `Webhook call failed: ${webhookResp.status}`,
+          error_message: (webhookData as { error_message?: string }).error_message || `Webhook failed: ${webhookResp.status}`,
         })
         .eq('id', job.id)
       
       return new Response(
-        JSON.stringify({ error: "Webhook call failed", status: webhookResp.status, details: text }),
+        JSON.stringify({ 
+          error: "Analysis failed", 
+          details: (webhookData as { error_message?: string }).error_message || 'Unknown error'
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
 
-    console.log("[trigger-analysis] Webhook called successfully, job is processing")
+    // Success! Update job with data from n8n response
+    const variablesAnalyzed = (webhookData as { variables_analyzed?: number }).variables_analyzed || readyVars.length
+    const suggestionsCount = (webhookData as { suggestions_count?: number }).suggestions_count || 0
 
-    // Retornar job_id para o frontend poder rastrear
+    await supabase
+      .from('analysis_jobs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        variables_analyzed: variablesAnalyzed,
+        suggestions_count: suggestionsCount,
+      })
+      .eq('id', job.id)
+
+    console.log("[trigger-analysis] Analysis completed successfully", {
+      job_id: job.id,
+      variables_analyzed: variablesAnalyzed,
+      suggestions_count: suggestionsCount,
+    })
+
     return new Response(
       JSON.stringify({
         ok: true,
         job_id: job.id,
-        status: 'processing',
-        readyCount: readyVars.length,
-        message: 'Analysis started, you will be notified when complete',
+        status: 'completed',
+        variables_analyzed: variablesAnalyzed,
+        suggestions_count: suggestionsCount,
+        message: 'Analysis completed successfully',
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
