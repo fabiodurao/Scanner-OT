@@ -102,16 +102,32 @@ const formatScore = (score: number | null): string => {
   return (score * 100).toFixed(0) + '%';
 };
 
-// Get interpreted value based on winner type
+// Get interpreted value based on winner type WITH SCALE
 const getInterpretedValue = (variable: DiscoveredVariable): string => {
   const winner = variable.winner;
   if (!winner) return '-';
   
   // Map winner to the corresponding value column
   const valueKey = winner as keyof DiscoveredVariable;
-  const value = variable[valueKey] as number | null;
+  const rawValue = variable[valueKey] as number | null;
   
-  return formatValue(value, winner);
+  if (rawValue === null || rawValue === undefined) return '-';
+  
+  // Apply scale (default to 1 if not set)
+  const scale = (variable as any).scale || 1;
+  const scaledValue = rawValue * scale;
+  
+  return formatValue(scaledValue, winner);
+};
+
+// Get winner's confidence score
+const getWinnerConfidence = (variable: DiscoveredVariable): number | null => {
+  const winner = variable.winner;
+  if (!winner) return null;
+  
+  // Map winner to the corresponding score column
+  const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
+  return variable[scoreKey] as number | null;
 };
 
 // Compact filter button component
@@ -203,7 +219,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     semantic_unit: '',
     semantic_category: '',
     data_type: '',
-    scale: '',
+    scale: '1',
   });
   const [saving, setSaving] = useState(false);
 
@@ -266,12 +282,14 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     
     setConfirmingId(variable.id);
     
+    const winnerConfidence = getWinnerConfidence(variable);
+    
     const { error } = await supabase
       .from('discovered_variables')
       .update({
         data_type: variable.winner.toLowerCase(),
         learning_state: 'confirmed',
-        confidence_score: variable.historical_scores_uint16 || 0.95,
+        confidence_score: winnerConfidence || 0.95,
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -327,7 +345,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       semantic_unit: variable.semantic_unit || '',
       semantic_category: variable.semantic_category || '',
       data_type: variable.data_type || variable.winner?.toLowerCase() || variable.ai_suggested_type || '',
-      scale: '', // TODO: Add scale field to database
+      scale: ((variable as any).scale || 1).toString(),
     });
     setEditDialogOpen(true);
   };
@@ -343,6 +361,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     
     setSaving(true);
     
+    const scale = parseFloat(editForm.scale) || 1;
+    
     const { error } = await supabase
       .from('discovered_variables')
       .update({
@@ -350,6 +370,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
         semantic_label: editForm.semantic_label.trim() || null,
         semantic_unit: editForm.semantic_unit.trim() || null,
         semantic_category: editForm.semantic_category.trim() || null,
+        scale: scale,
         learning_state: 'confirmed',
         confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
         confirmed_by: user.id,
@@ -633,6 +654,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   const canConfirm = suggestedType && variable.learning_state !== 'confirmed' && variable.learning_state !== 'published';
                   const canUndo = variable.learning_state === 'confirmed' || variable.learning_state === 'published';
                   const interpretedValue = getInterpretedValue(variable);
+                  const scale = (variable as any).scale || 1;
                   
                   return (
                     <tr key={variable.id} className="hover:bg-slate-50 border-b text-xs">
@@ -663,7 +685,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
-                          <span className="text-muted-foreground italic text-xs">-</span>
+                          <span className="font-mono text-xs">{scale}</span>
                         </td>
                       )}
                       <td className="px-2 py-1.5">
@@ -746,6 +768,16 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                       <td className="px-2 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => handleOpenEdit(variable)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          
                           {canConfirm ? (
                             <Button
                               size="sm"
@@ -763,35 +795,25 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                 </>
                               )}
                             </Button>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => handleOpenEdit(variable)}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" />
-                                Edit
-                              </Button>
-                              {canUndo && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                  onClick={() => handleUndo(variable)}
-                                  disabled={undoingId === variable.id}
-                                  title="Reset to unknown"
-                                >
-                                  {undoingId === variable.id ? (
-                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                                  ) : (
-                                    <Undo className="h-3 w-3" />
-                                  )}
-                                </Button>
+                          ) : canUndo ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              onClick={() => handleUndo(variable)}
+                              disabled={undoingId === variable.id}
+                              title="Reset to unknown"
+                            >
+                              {undoingId === variable.id ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                              ) : (
+                                <>
+                                  <Undo className="h-3 w-3 mr-1" />
+                                  Undo
+                                </>
                               )}
-                            </>
-                          )}
+                            </Button>
+                          ) : null}
                         </div>
                       </td>
 
@@ -1002,11 +1024,17 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   <Badge className="bg-purple-600 text-white font-mono">
                     {getSuggestedType(editingVariable)}
                   </Badge>
-                  {editingVariable.ai_confidence !== null && (
-                    <span className="text-xs text-purple-800">
-                      {Math.round((editingVariable.ai_confidence || 0) * 100)}% confidence
-                    </span>
-                  )}
+                  {(() => {
+                    const winnerConf = getWinnerConfidence(editingVariable);
+                    const aiConf = editingVariable.ai_confidence;
+                    const displayConf = winnerConf !== null ? winnerConf : aiConf;
+                    
+                    return displayConf !== null && (
+                      <span className="text-xs text-purple-800">
+                        {Math.round(displayConf * 100)}% confidence
+                      </span>
+                    );
+                  })()}
                 </div>
                 {(editingVariable.explanation || editingVariable.ai_reasoning) && (
                   <p className="text-xs text-purple-800 mt-2 leading-relaxed">

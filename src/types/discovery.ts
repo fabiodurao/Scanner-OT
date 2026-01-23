@@ -56,6 +56,7 @@ export interface DiscoveredVariable {
   semantic_label: string | null;
   semantic_unit: string | null;
   semantic_category: string | null;
+  scale: number | null; // NEW: Scaling factor (default: 1)
   
   // Learning
   learning_state: LearningState;
