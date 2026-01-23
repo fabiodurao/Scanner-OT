@@ -189,6 +189,11 @@ const Discovery = () => {
     loadData();
   };
 
+  // Handle variable updated from historical table
+  const handleVariableUpdated = () => {
+    loadData();
+  };
+
   // Count unique variables
   const uniqueVariableCount = countUniqueVariables(variables);
 
@@ -418,7 +423,10 @@ const Discovery = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <HistoricalHeatmapTable variables={discoveredVariables} />
+                <HistoricalHeatmapTable 
+                  variables={discoveredVariables} 
+                  onVariableUpdated={handleVariableUpdated}
+                />
               </CardContent>
             </Card>
           </TabsContent>

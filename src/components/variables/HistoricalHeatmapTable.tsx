@@ -6,11 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface HistoricalHeatmapTableProps {
   variables: DiscoveredVariable[];
+  onVariableUpdated?: () => void;
 }
 
 interface ColumnFilters {
@@ -18,6 +22,7 @@ interface ColumnFilters {
   address: string;
   fc: string;
   winner: string;
+  learningState: string;
 }
 
 const emptyFilters: ColumnFilters = {
@@ -25,6 +30,7 @@ const emptyFilters: ColumnFilters = {
   address: '',
   fc: '',
   winner: '',
+  learningState: '',
 };
 
 const dataTypeColumns = [
@@ -45,6 +51,13 @@ const dataTypeColumns = [
 ] as const;
 
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500, 1000];
+
+const learningStateConfig = {
+  unknown: { label: 'Unknown', icon: HelpCircle, color: 'bg-slate-100 text-slate-700' },
+  hypothesis: { label: 'Hypothesis', icon: Lightbulb, color: 'bg-amber-100 text-amber-700' },
+  confirmed: { label: 'Confirmed', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
+  published: { label: 'Published', icon: Upload, color: 'bg-blue-100 text-blue-700' },
+};
 
 const getScoreColor = (score: number | null): string => {
   if (score === null || score === undefined) return 'bg-gray-200 text-gray-500';
@@ -159,11 +172,13 @@ const FilterButton = ({
   );
 };
 
-export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProps) => {
+export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: HistoricalHeatmapTableProps) => {
+  const { user } = useAuth();
   const [filters, setFilters] = useState<ColumnFilters>(emptyFilters);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(200);
   const [isCompactView, setIsCompactView] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Filter to only show variables with historical data
   const varsWithHistory = useMemo(() => 
@@ -176,6 +191,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
     addresses: [...new Set(varsWithHistory.map(v => v.address?.toString()).filter((addr): addr is string => Boolean(addr)))].sort((a, b) => parseInt(a) - parseInt(b)),
     fcs: [...new Set(varsWithHistory.map(v => v.function_code?.toString()).filter((fc): fc is string => Boolean(fc)))].sort((a, b) => parseInt(a) - parseInt(b)),
     winners: [...new Set(varsWithHistory.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
+    learningStates: ['unknown', 'hypothesis', 'confirmed', 'published'],
   }), [varsWithHistory]);
 
   const filteredVariables = useMemo(() => {
@@ -184,6 +200,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
       if (filters.address && !v.address?.toString().includes(filters.address)) return false;
       if (filters.fc && v.function_code?.toString() !== filters.fc) return false;
       if (filters.winner && !v.winner?.toLowerCase().includes(filters.winner.toLowerCase())) return false;
+      if (filters.learningState && v.learning_state !== filters.learningState) return false;
       return true;
     });
   }, [varsWithHistory, filters]);
@@ -216,8 +233,41 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
+  // Confirm winner as data_type
+  const handleConfirm = async (variable: DiscoveredVariable) => {
+    if (!variable.winner || !user) return;
+    
+    setConfirmingId(variable.id);
+    
+    const { error } = await supabase
+      .from('discovered_variables')
+      .update({
+        data_type: variable.winner.toLowerCase(),
+        learning_state: 'confirmed',
+        confidence_score: variable.historical_scores_uint16 || 0.95, // Use best score
+        confirmed_by: user.id,
+        confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', variable.id);
+    
+    if (error) {
+      toast.error('Error confirming: ' + error.message);
+    } else {
+      toast.success('Variable confirmed!');
+      onVariableUpdated?.();
+    }
+    
+    setConfirmingId(null);
+  };
+
+  // Get suggested type (winner or ai_suggested_type)
+  const getSuggestedType = (variable: DiscoveredVariable): string | null => {
+    return variable.winner || variable.ai_suggested_type;
+  };
+
   // Calculate column count for colspan
-  const visibleColumnCount = isCompactView ? 4 + dataTypeColumns.length : 5 + dataTypeColumns.length;
+  const visibleColumnCount = isCompactView ? 7 + dataTypeColumns.length : 9 + dataTypeColumns.length;
 
   if (varsWithHistory.length === 0) {
     return (
@@ -285,7 +335,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {isCompactView ? 'Show explanation column' : 'Hide explanation column for compact view'}
+              {isCompactView ? 'Show explanation and unit columns' : 'Hide extra columns for compact view'}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -363,7 +413,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
 
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn("w-full", isCompactView ? "min-w-[1400px]" : "min-w-[1800px]")}>
+          <table className={cn("w-full", isCompactView ? "min-w-[1600px]" : "min-w-[2200px]")}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
                 <th className="px-2 py-2 text-left whitespace-nowrap">
@@ -400,10 +450,29 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                   </div>
                 </th>
                 <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <span className="font-medium">Label</span>
+                </th>
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap">
+                    <span className="font-medium">Unit</span>
+                  </th>
+                )}
+                <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
-                    <span className="font-medium">Winner</span>
+                    <span className="font-medium">State</span>
                     <FilterButton 
-                      label="Winner Type" 
+                      label="Learning State" 
+                      value={filters.learningState} 
+                      onChange={(v) => updateFilter('learningState', v)}
+                      options={uniqueValues.learningStates}
+                    />
+                  </div>
+                </th>
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">AI Type</span>
+                    <FilterButton 
+                      label="AI Suggested Type" 
                       value={filters.winner} 
                       onChange={(v) => updateFilter('winner', v)}
                       options={uniqueValues.winners}
@@ -411,10 +480,13 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                   </div>
                 </th>
                 {!isCompactView && (
-                  <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <th className="px-2 py-2 text-left whitespace-nowrap w-48">
                     <span className="font-medium">Explanation</span>
                   </th>
                 )}
+                <th className="px-2 py-2 text-center whitespace-nowrap">
+                  <span className="font-medium">Actions</span>
+                </th>
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
@@ -438,6 +510,11 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                 </tr>
               ) : (
                 paginatedVariables.map((variable) => {
+                  const suggestedType = getSuggestedType(variable);
+                  const stateConfig = learningStateConfig[variable.learning_state as keyof typeof learningStateConfig] || learningStateConfig.unknown;
+                  const StateIcon = stateConfig.icon;
+                  const canConfirm = suggestedType && variable.learning_state !== 'confirmed' && variable.learning_state !== 'published';
+                  
                   return (
                     <tr key={variable.id} className="hover:bg-slate-50 border-b text-xs">
                       <td className="px-2 py-1.5 font-mono text-xs">{variable.source_ip}</td>
@@ -448,16 +525,61 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                         </Badge>
                       </td>
                       <td className="px-2 py-1.5">
-                        {variable.winner ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 font-mono text-[10px] px-1 py-0">
-                            {variable.winner}
-                          </Badge>
+                        {variable.semantic_label ? (
+                          <span className="text-xs font-medium">{variable.semantic_label}</span>
+                        ) : (
+                          <span className="text-muted-foreground italic text-xs">-</span>
+                        )}
+                      </td>
+                      {!isCompactView && (
+                        <td className="px-2 py-1.5">
+                          {variable.semantic_unit ? (
+                            <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
+                              {variable.semantic_unit}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-2 py-1.5">
+                        <Badge className={stateConfig.color}>
+                          <StateIcon className="h-3 w-3 mr-1" />
+                          {stateConfig.label}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {suggestedType ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge className="bg-purple-100 text-purple-800 font-mono text-[10px] px-1 py-0 cursor-help">
+                                {suggestedType}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs p-3 bg-white border-2 border-purple-200 shadow-xl">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 pb-2 border-b">
+                                  <Badge className="bg-purple-600 text-white font-mono">
+                                    {suggestedType}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {variable.winner ? 'Historical Winner' : 'AI Suggestion'}
+                                  </span>
+                                </div>
+                                {(variable.explanation || variable.ai_reasoning) && (
+                                  <p className="text-xs leading-relaxed text-slate-700">
+                                    {variable.explanation || variable.ai_reasoning}
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
                       {!isCompactView && (
-                        <td className="px-2 py-1.5 max-w-xs">
+                        <td className="px-2 py-1.5 max-w-[200px]">
                           {variable.explanation ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -465,13 +587,13 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                   {variable.explanation}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-md p-4 bg-white border-2 border-slate-200 shadow-xl">
-                                <div className="space-y-2">
+                              <TooltipContent className="max-w-md p-4 bg-white border-2 border-emerald-200 shadow-xl">
+                                <div className="space-y-3">
                                   <div className="flex items-center gap-2 pb-2 border-b">
                                     <Badge className="bg-emerald-600 text-white font-mono">
                                       {variable.winner}
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">AI Explanation</span>
+                                    <span className="text-xs font-medium text-emerald-700">AI Explanation</span>
                                   </div>
                                   <p className="text-sm leading-relaxed text-slate-700">
                                     {variable.explanation}
@@ -484,6 +606,37 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                           )}
                         </td>
                       )}
+                      <td className="px-2 py-1.5 text-center">
+                        {canConfirm ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300"
+                            onClick={() => handleConfirm(variable)}
+                            disabled={confirmingId === variable.id}
+                          >
+                            {confirmingId === variable.id ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                            ) : (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Confirm
+                              </>
+                            )}
+                          </Button>
+                        ) : variable.learning_state === 'confirmed' || variable.learning_state === 'published' ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
 
                       {dataTypeColumns.map(col => {
                         const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
@@ -509,6 +662,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                         const avgScore = variable[avgScoreKey] as number | null;
                         
                         const hasStats = count !== null;
+                        const isWinner = variable.winner?.toUpperCase() === col.key;
                         
                         return (
                           <td key={col.key} className="px-0.5 py-0.5">
@@ -517,7 +671,8 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                 <div 
                                   className={cn(
                                     "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105",
-                                    getScoreColor(score)
+                                    getScoreColor(score),
+                                    isWinner && "ring-2 ring-emerald-500 ring-offset-1"
                                   )}
                                 >
                                   <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">
@@ -532,13 +687,13 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                 {hasStats ? (
                                   <div className="p-4 space-y-3">
                                     {/* Header */}
-                                    <div className="flex items-center justify-between pb-2 border-b">
-                                      <Badge className="bg-blue-600 text-white font-mono text-sm">
+                                    <div className="flex items-center justify-between pb-3 border-b-2">
+                                      <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">
                                         {col.key}
                                       </Badge>
                                       <Badge 
                                         className={cn(
-                                          "font-bold",
+                                          "font-bold text-sm px-2 py-1",
                                           score && score >= 0.8 ? "bg-emerald-600 text-white" :
                                           score && score >= 0.5 ? "bg-amber-500 text-white" :
                                           "bg-red-600 text-white"
@@ -548,67 +703,81 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                       </Badge>
                                     </div>
 
+                                    {/* Winner badge if this is the winner */}
+                                    {isWinner && (
+                                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
+                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                        <span className="text-xs font-semibold text-emerald-800">AI Winner</span>
+                                      </div>
+                                    )}
+
                                     {/* Current Value */}
-                                    <div className="bg-slate-50 rounded-lg p-2">
-                                      <div className="text-xs text-muted-foreground mb-1">Current Value</div>
-                                      <div className="font-mono font-bold text-lg text-slate-900">
+                                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
+                                      <div className="text-xs text-muted-foreground mb-1 font-medium">Current Value</div>
+                                      <div className="font-mono font-bold text-xl text-slate-900">
                                         {formatValue(value, col.key)}
                                       </div>
                                     </div>
 
                                     {/* Historical Statistics */}
                                     <div className="space-y-2">
-                                      <div className="text-xs font-semibold text-slate-700 border-b pb-1">
-                                        Historical Statistics
+                                      <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
+                                        <span>Historical Statistics</span>
+                                        <Badge variant="secondary" className="text-[10px]">{count} samples</Badge>
                                       </div>
                                       
                                       <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div className="bg-blue-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Samples</div>
-                                          <div className="font-mono font-bold text-blue-900">{count}</div>
-                                        </div>
-                                        
-                                        <div className="bg-purple-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Score</div>
+                                        <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
+                                          <div className="text-purple-700 text-[10px] mb-0.5 font-medium">Avg Score</div>
                                           <div className="font-mono font-bold text-purple-900">{formatScore(avgScore)}</div>
                                         </div>
                                         
-                                        <div className="bg-slate-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Value</div>
-                                          <div className="font-mono font-bold text-slate-900 truncate">
+                                        <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
+                                          <div className="text-blue-700 text-[10px] mb-0.5 font-medium">Avg Value</div>
+                                          <div className="font-mono font-bold text-blue-900 truncate">
                                             {avgValue !== null ? avgValue.toFixed(3) : '-'}
                                           </div>
                                         </div>
                                         
-                                        <div className="bg-slate-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Std Dev</div>
+                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Std Dev</div>
                                           <div className="font-mono font-bold text-slate-900 truncate">
                                             {std !== null ? std.toFixed(3) : '-'}
                                           </div>
                                         </div>
                                         
-                                        <div className="bg-amber-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Jump</div>
+                                        <div className="bg-amber-50 rounded-lg p-2 border border-amber-100">
+                                          <div className="text-amber-700 text-[10px] mb-0.5 font-medium">Avg Jump</div>
                                           <div className="font-mono font-bold text-amber-900 truncate">
                                             {avgJump !== null ? avgJump.toFixed(3) : '-'}
                                           </div>
                                         </div>
                                         
-                                        <div className="bg-red-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Max Jump</div>
+                                        <div className="bg-red-50 rounded-lg p-2 border border-red-100">
+                                          <div className="text-red-700 text-[10px] mb-0.5 font-medium">Max Jump</div>
                                           <div className="font-mono font-bold text-red-900 truncate">
                                             {maxJump !== null ? maxJump.toFixed(3) : '-'}
                                           </div>
                                         </div>
                                         
-                                        <div className="bg-slate-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Nulls</div>
+                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Nulls</div>
                                           <div className="font-mono font-bold text-slate-900">{nulls ?? '-'}</div>
                                         </div>
                                         
-                                        <div className="bg-slate-50 rounded p-2">
-                                          <div className="text-muted-foreground text-[10px] mb-0.5">Zeros</div>
+                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Zeros</div>
                                           <div className="font-mono font-bold text-slate-900">{zeros ?? '-'}</div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Data Quality</div>
+                                          <div className="font-mono font-bold text-slate-900">
+                                            {count && nulls !== null && zeros !== null 
+                                              ? `${Math.round(((count - nulls - zeros) / count) * 100)}%`
+                                              : '-'
+                                            }
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
@@ -652,7 +821,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
       <div className="text-xs text-muted-foreground">
         {paginatedVariables.length} of {filteredVariables.length} variables
         {hasActiveFilters && ` • filtered from ${varsWithHistory.length}`}
-        {isCompactView && ' • Compact view (explanation hidden)'}
+        {isCompactView && ' • Compact view (unit & explanation hidden)'}
       </div>
     </div>
   );
