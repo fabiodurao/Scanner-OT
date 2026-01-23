@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProcessingJobsProvider } from "@/contexts/ProcessingJobsContext";
 import { AnalysisJobsProvider } from "@/contexts/AnalysisJobsContext";
+import { PhotoAnalysisJobsProvider } from "@/contexts/PhotoAnalysisJobsContext";
 import { UploadProvider } from "@/contexts/UploadContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Loader2 } from "lucide-react";
@@ -73,9 +74,11 @@ const AppWithProviders = () => {
     <AuthProvider>
       <ProcessingJobsProvider>
         <AnalysisJobsProvider>
-          <UploadProvider>
-            <AppRoutes />
-          </UploadProvider>
+          <PhotoAnalysisJobsProvider>
+            <UploadProvider>
+              <AppRoutes />
+            </UploadProvider>
+          </PhotoAnalysisJobsProvider>
         </AnalysisJobsProvider>
       </ProcessingJobsProvider>
     </AuthProvider>

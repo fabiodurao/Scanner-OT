@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable, History, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable, History, RefreshCw, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -58,7 +58,6 @@ const Settings = () => {
   const { settings, loading, saving, saveSettings } = useUserSettings();
   const { profile } = useAuth();
   
-  // Local form state
   const [formData, setFormData] = useState({
     auto_publish: false,
     notifications_enabled: true,
@@ -71,16 +70,15 @@ const Settings = () => {
     analysis_webhook_url: '',
     sample_threshold_for_analysis: '50',
     auto_confirm_threshold: '0.95',
+    photo_webhook_url: '',
   });
 
-  // Danger zone state
   const [dataCounts, setDataCounts] = useState<AllDataCounts | null>(null);
   const [loadingCounts, setLoadingCounts] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // Audit log state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
   const [auditPage, setAuditPage] = useState(0);
@@ -90,7 +88,6 @@ const Settings = () => {
   const isAdmin = profile?.is_admin === true;
   const confirmRequired = 'DELETE ALL';
 
-  // Update form when settings load
   useEffect(() => {
     if (!loading) {
       setFormData({
@@ -105,11 +102,11 @@ const Settings = () => {
         analysis_webhook_url: (settings as any).analysis_webhook_url || '',
         sample_threshold_for_analysis: ((settings as any).sample_threshold_for_analysis || 50).toString(),
         auto_confirm_threshold: ((settings as any).auto_confirm_threshold || 0.95).toString(),
+        photo_webhook_url: settings.photo_webhook_url || '',
       });
     }
   }, [loading, settings]);
 
-  // Fetch data counts for danger zone
   const fetchDataCounts = async () => {
     if (!isAdmin) return;
     
@@ -126,20 +123,17 @@ const Settings = () => {
     setLoadingCounts(false);
   };
 
-  // Fetch audit logs
   const fetchAuditLogs = async () => {
     if (!isAdmin) return;
     
     setLoadingAudit(true);
     
-    // Get total count
     const { count } = await supabase
       .from('audit_logs')
       .select('*', { count: 'exact', head: true });
     
     setAuditTotalCount(count || 0);
     
-    // Get paginated logs
     const { data, error } = await supabase
       .from('audit_logs')
       .select('*')
@@ -152,7 +146,6 @@ const Settings = () => {
       return;
     }
     
-    // Fetch user emails for the logs
     const userIds = [...new Set((data || []).map(log => log.performed_by).filter(Boolean))];
     
     let emailMap = new Map<string, string>();
@@ -165,7 +158,6 @@ const Settings = () => {
       emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
     }
     
-    // Get unique site identifiers from logs that target a site
     const uniqueSiteIds = [...new Set((data || [])
       .filter(log => log.target_type === 'site' && log.target_identifier)
       .map(log => log.target_identifier)
@@ -211,6 +203,7 @@ const Settings = () => {
       analysis_webhook_url: formData.analysis_webhook_url || null,
       sample_threshold_for_analysis: parseInt(formData.sample_threshold_for_analysis) || 50,
       auto_confirm_threshold: parseFloat(formData.auto_confirm_threshold) || 0.95,
+      photo_webhook_url: formData.photo_webhook_url || null,
     } as any);
 
     if (success) {
@@ -248,7 +241,6 @@ const Settings = () => {
     setConfirmText('');
     setDeleting(false);
     
-    // Refresh counts and audit logs
     await fetchDataCounts();
     await fetchAuditLogs();
   };
@@ -308,7 +300,6 @@ const Settings = () => {
         </div>
 
         <div className="space-y-6">
-          {/* General Settings */}
           <Card>
             <CardHeader>
               <CardTitle>General Settings</CardTitle>
@@ -345,7 +336,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* AI Analysis Settings */}
           <Card>
             <CardHeader>
               <CardTitle>AI Analysis Settings</CardTitle>
@@ -356,7 +346,7 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="analysis-webhook">
-                  Analysis Webhook URL
+                  Historical Analysis Webhook URL
                 </Label>
                 <Input
                   id="analysis-webhook"
@@ -365,7 +355,23 @@ const Settings = () => {
                   onChange={(e) => setFormData(prev => ({ ...prev, analysis_webhook_url: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Webhook endpoint for AI analysis (n8n workflow). Used by "Run AI Analysis" button.
+                  Webhook for temporal/statistical analysis (n8n workflow)
+                </p>
+              </div>
+              <Separator />
+              <div className="grid gap-2">
+                <Label htmlFor="photo-webhook" className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  Photo Analysis Webhook URL
+                </Label>
+                <Input
+                  id="photo-webhook"
+                  placeholder="https://n8n.otscanner.qzz.io/webhook/..."
+                  value={formData.photo_webhook_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, photo_webhook_url: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Webhook for photo-based semantic analysis (OCR + matching)
                 </p>
               </div>
               <Separator />
@@ -407,7 +413,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Inference Settings */}
           <Card>
             <CardHeader>
               <CardTitle>Inference Settings</CardTitle>
@@ -452,7 +457,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* mbsniffer Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -501,7 +505,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Integration Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -557,7 +560,6 @@ const Settings = () => {
             </Button>
           </div>
 
-          {/* Audit Log - Admin Only */}
           {isAdmin && (
             <Card>
               <CardHeader>
@@ -640,7 +642,6 @@ const Settings = () => {
                       </Table>
                     </div>
                     
-                    {/* Pagination */}
                     {totalAuditPages > 1 && (
                       <div className="flex items-center justify-between mt-4">
                         <div className="text-sm text-muted-foreground">
@@ -674,7 +675,6 @@ const Settings = () => {
             </Card>
           )}
 
-          {/* Danger Zone - Admin Only */}
           {isAdmin && (
             <Card className="border-red-200 bg-red-50/30">
               <CardHeader>
@@ -687,7 +687,6 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Data Overview */}
                 {loadingCounts ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -748,7 +747,6 @@ const Settings = () => {
           )}
         </div>
 
-        {/* Confirmation Dialog */}
         <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>

@@ -16,6 +16,7 @@ export interface UserSettings {
   analysis_webhook_url: string | null;
   sample_threshold_for_analysis: number;
   auto_confirm_threshold: number;
+  photo_webhook_url: string | null;
 }
 
 const defaultSettings: UserSettings = {
@@ -30,6 +31,7 @@ const defaultSettings: UserSettings = {
   analysis_webhook_url: 'https://n8n.otscanner.qzz.io/webhook-test/26d1b1b8-1713-4332-91da-151bebf35d5d',
   sample_threshold_for_analysis: 50,
   auto_confirm_threshold: 0.95,
+  photo_webhook_url: 'https://n8n.otscanner.qzz.io/webhook/9118e601-ae51-446f-8f44-fdbc7037f2ad',
 };
 
 export const useUserSettings = () => {
@@ -53,7 +55,6 @@ export const useUserSettings = () => {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows returned, which is fine for new users
       console.error('Error fetching settings:', error);
     }
 
@@ -85,7 +86,6 @@ export const useUserSettings = () => {
       updated_at: new Date().toISOString(),
     };
 
-    // Remove id for upsert
     const { id, ...dataToSave } = settingsToSave;
 
     const { error } = await supabase

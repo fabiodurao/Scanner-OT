@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAnalysisJobs } from "@/contexts/AnalysisJobsContext";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2 } from "lucide-react";
+import { TrendingUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,15 +19,12 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
   const minSamples = settings.sample_threshold_for_analysis || 50;
 
-  // Check if there's an active job for this site
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
-  // Fetch sample count from FIRST register only (all have the same count)
   useEffect(() => {
     const fetchSampleCount = async () => {
       setLoading(true);
       
-      // Get the first variable (any SourceIp + Address combination)
       const { data: firstVar, error: firstError } = await supabase
         .from('learning_samples')
         .select('SourceIp, Address, FC')
@@ -44,7 +41,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         return;
       }
 
-      // Count samples for this specific register
       const { count, error: countError } = await supabase
         .from('learning_samples')
         .select('*', { count: 'exact', head: true })
@@ -57,7 +53,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         setSamplesPerRegister(count);
       }
 
-      // Get variables ready for analysis (>= minSamples)
       const { data, error } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
@@ -73,7 +68,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
     fetchSampleCount();
 
-    // Refresh every 10 seconds
     const interval = setInterval(fetchSampleCount, 10000);
 
     return () => clearInterval(interval);
@@ -124,7 +118,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         toast.info("No variables ready for analysis (need more samples)");
       } else {
         toast.success(
-          `Analysis started! Processing ${variablesCount} variables with ${samplesPerRegister} samples each...`
+          `Historical analysis started! Processing ${variablesCount} variables with ${samplesPerRegister} samples each...`
         );
         
         setTimeout(() => {
@@ -141,13 +135,11 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   };
 
   const isReady = variablesReady > 0;
-  
-  // Progress based on samples per register vs minimum needed
   const progressPercent = Math.min(100, (samplesPerRegister / minSamples) * 100);
 
   if (loading) {
     return (
-      <Button variant="outline" disabled className="relative overflow-hidden min-w-[220px]">
+      <Button variant="outline" disabled className="relative overflow-hidden min-w-[240px]">
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Loading...
       </Button>
@@ -160,13 +152,12 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
       onClick={run}
       disabled={!isReady || isRunning}
       className={cn(
-        "relative overflow-hidden min-w-[220px] transition-all",
+        "relative overflow-hidden min-w-[240px] transition-all",
         !isReady && "text-muted-foreground border-slate-200 bg-slate-50",
         isReady && !isRunning && "border-purple-300 hover:bg-purple-50 text-purple-700 font-medium",
         isRunning && "border-purple-400 bg-purple-50"
       )}
     >
-      {/* Progress bar background - ESCURECIDO */}
       <div 
         className={cn(
           "absolute inset-0 transition-all duration-500",
@@ -178,7 +169,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         }}
       />
       
-      {/* Button content */}
       <div className="relative z-10 flex items-center">
         {isRunning ? (
           <>
@@ -187,8 +177,8 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           </>
         ) : (
           <>
-            <Sparkles className="h-4 w-4 mr-2" />
-            Run AI Analysis
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Historical Analysis
             <span className="ml-2 text-xs font-normal">
               ({samplesPerRegister}/{minSamples} samples)
             </span>

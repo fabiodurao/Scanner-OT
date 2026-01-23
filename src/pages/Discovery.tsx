@@ -11,6 +11,7 @@ import { HistoricalHeatmapTable } from '@/components/variables/HistoricalHeatmap
 import { EquipmentList } from '@/components/discovery/EquipmentList';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
 import { RunAnalysisButton } from '@/components/discovery/RunAnalysisButton';
+import { PhotoAnalysisButton } from '@/components/discovery/PhotoAnalysisButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,6 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
-// Helper function to count unique variables (same logic as in the table)
 const countUniqueVariables = (variables: LearningSample[]): number => {
   const uniqueKeys = new Set<string>();
   for (const v of variables) {
@@ -61,22 +61,9 @@ const Discovery = () => {
   const [syncing, setSyncing] = useState(false);
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   
-  // Active tab - read from URL params
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'variables');
   
-  // Track if we're showing filtered data
   const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
-
-  // Update URL when tab changes
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    if (value === 'variables') {
-      searchParams.delete('tab');
-    } else {
-      searchParams.set('tab', value);
-    }
-    setSearchParams(searchParams, { replace: true });
-  };
 
   const isAdmin = profile?.is_admin === true;
 
@@ -85,7 +72,6 @@ const Discovery = () => {
     
     setLoading(true);
     
-    // Fetch site details
     const { data: siteData } = await supabase
       .from('sites')
       .select('*')
@@ -96,21 +82,17 @@ const Discovery = () => {
       setSite(siteData);
     }
     
-    // Fetch stats (uses discovered_equipment table)
     const siteStats = await getSiteStats(siteId);
     setStats(siteStats);
     
-    // Fetch equipment from discovered_equipment table (fast!)
     const siteEquipment = await getSiteEquipment(siteId);
     setEquipment(siteEquipment);
     
     console.log(`[Discovery] Loaded ${siteEquipment.length} equipment from table`);
     
-    // Fetch variables (limited for display)
     const siteVariables = await getVariables(siteId);
     setVariables(siteVariables);
     
-    // Fetch discovered variables for historical heatmap
     const discoveredVars = await getDiscoveredVariables(siteId);
     setDiscoveredVariables(discoveredVars);
     
@@ -128,7 +110,6 @@ const Discovery = () => {
     setRefreshing(false);
   };
 
-  // Sync equipment from learning_samples to discovered_equipment table
   const handleSyncEquipment = async () => {
     if (!siteId) return;
     
@@ -137,11 +118,9 @@ const Discovery = () => {
       const count = await syncSiteEquipment(siteId);
       toast.success(`Synced ${count} equipment`);
       
-      // Reload equipment
       const siteEquipment = await getSiteEquipment(siteId);
       setEquipment(siteEquipment);
       
-      // Reload stats
       const siteStats = await getSiteStats(siteId);
       setStats(siteStats);
     } catch (error) {
@@ -151,19 +130,16 @@ const Discovery = () => {
     setSyncing(false);
   };
 
-  // Handle table's internal Source IP filter (from column filter)
   const handleTableSourceIpFilter = async (ip: string | null) => {
     if (!siteId) return;
     
     if (!ip) {
-      // Reset to default
       setActiveSourceIpFilter(null);
       const siteVariables = await getVariables(siteId);
       setVariables(siteVariables);
       return;
     }
     
-    // Fetch data specifically for this Source IP
     setLoadingFiltered(true);
     setActiveSourceIpFilter(ip);
     
@@ -184,23 +160,28 @@ const Discovery = () => {
     setLoadingFiltered(false);
   };
 
-  // Handle data cleared from settings tab
   const handleDataCleared = () => {
     loadData();
   };
 
-  // Handle variable updated from historical table
   const handleVariableUpdated = () => {
     loadData();
   };
 
-  // Count unique variables
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'variables') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', value);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
+
   const uniqueVariableCount = countUniqueVariables(variables);
 
-  // Get slave equipment (those with variables) - Source IP is the slave
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
   
-  // All source IPs from equipment table
   const allSourceIps = slaveEquipment.map(e => e.ip).sort();
 
   if (loading) {
@@ -219,7 +200,6 @@ const Discovery = () => {
   return (
     <MainLayout>
       <div className="p-8">
-        {/* Header */}
         <div className="mb-6">
           <Link
             to="/"
@@ -266,7 +246,6 @@ const Discovery = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
         {stats && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
@@ -326,7 +305,6 @@ const Discovery = () => {
           </div>
         )}
 
-        {/* Activity info */}
         {stats && (
           <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -342,7 +320,6 @@ const Discovery = () => {
           </div>
         )}
 
-        {/* Main Content */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList>
             <TabsTrigger value="variables">
@@ -380,8 +357,10 @@ const Discovery = () => {
                       )}
                     </CardDescription>
                   </div>
-                  {/* Run AI Analysis button */}
-                  {siteId && <RunAnalysisButton siteId={siteId} />}
+                  <div className="flex items-center gap-2">
+                    {siteId && <RunAnalysisButton siteId={siteId} />}
+                    {siteId && <PhotoAnalysisButton siteId={siteId} />}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -418,8 +397,10 @@ const Discovery = () => {
                       Detailed statistical analysis across all data types with AI winner selection
                     </CardDescription>
                   </div>
-                  {/* Run AI Analysis button */}
-                  {siteId && <RunAnalysisButton siteId={siteId} />}
+                  <div className="flex items-center gap-2">
+                    {siteId && <RunAnalysisButton siteId={siteId} />}
+                    {siteId && <PhotoAnalysisButton siteId={siteId} />}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

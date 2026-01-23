@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
 import { ActiveAnalysisIndicator } from './ActiveAnalysisIndicator';
+import { ActivePhotoJobsIndicator } from './ActivePhotoJobsIndicator';
 import {
   LayoutDashboard,
   Upload,
@@ -32,26 +33,21 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-// Persist collapsed state in localStorage
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 const Sidebar = () => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
   
-  // Initialize from localStorage to persist across navigation
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     return saved === 'true';
   });
   
-  // Check if any PCAP route is active
   const isPcapActive = location.pathname === '/upload' || location.pathname === '/processing';
   
-  // Only auto-open PCAP menu on initial mount if route is active, not on every navigation
   const [pcapOpen, setPcapOpen] = useState(isPcapActive);
   
-  // Save collapsed state to localStorage when it changes
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
   }, [isCollapsed]);
@@ -70,7 +66,6 @@ const Sidebar = () => {
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  // Add user management for admins
   if (profile?.is_admin) {
     bottomNavigation.push({ name: 'Users', href: '/users', icon: Users });
   }
@@ -136,7 +131,6 @@ const Sidebar = () => {
         isCollapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Header with logo and collapse button */}
       <div className={cn(
         "flex h-16 items-center border-b border-[hsl(var(--sidebar-border))]",
         isCollapsed ? "justify-center px-2" : "justify-between px-4"
@@ -170,14 +164,11 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
-        {/* Main navigation */}
         {mainNavigation.map((item) => (
           <NavLink key={item.name} item={item} />
         ))}
 
-        {/* PCAP Collapsible Section */}
         {isCollapsed ? (
-          // When collapsed, show PCAP items as individual icons
           <>
             {pcapNavigation.map((item) => {
               const active = isActive(item.href);
@@ -204,7 +195,6 @@ const Sidebar = () => {
             })}
           </>
         ) : (
-          // When expanded, show collapsible PCAP section
           <Collapsible open={pcapOpen} onOpenChange={setPcapOpen}>
             <CollapsibleTrigger asChild>
               <button
@@ -225,7 +215,6 @@ const Sidebar = () => {
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              {/* Highlighted submenu container */}
               <div className="mt-1 ml-2 mr-1 rounded-lg bg-[hsl(220,50%,18%)] border border-[hsl(220,50%,22%)] p-2 space-y-1">
                 {pcapNavigation.map((item) => {
                   const active = isActive(item.href);
@@ -250,7 +239,6 @@ const Sidebar = () => {
           </Collapsible>
         )}
 
-        {/* Bottom navigation */}
         <div className="pt-4">
           <Separator className="bg-[hsl(var(--sidebar-border))] mb-4" />
           {bottomNavigation.map((item) => (
@@ -259,13 +247,9 @@ const Sidebar = () => {
         </div>
       </nav>
       
-      {/* Active AI Analysis Indicator - at the top */}
+      {!isCollapsed && <ActivePhotoJobsIndicator />}
       {!isCollapsed && <ActiveAnalysisIndicator />}
-      
-      {/* Active Uploads Indicator */}
       {!isCollapsed && <ActiveUploadsIndicator />}
-      
-      {/* Active Jobs Indicator - above user info */}
       {!isCollapsed && <ActiveJobsIndicator />}
       
       <div className={cn(
