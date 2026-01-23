@@ -19,6 +19,8 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeft,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -32,6 +34,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -44,6 +47,8 @@ const Sidebar = () => {
     return saved === 'true';
   });
   
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
   const isPcapActive = location.pathname === '/upload' || location.pathname === '/processing';
   
   const [pcapOpen, setPcapOpen] = useState(isPcapActive);
@@ -51,6 +56,11 @@ const Sidebar = () => {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
   }, [isCollapsed]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const mainNavigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -124,13 +134,8 @@ const Sidebar = () => {
     return linkContent;
   };
 
-  return (
-    <div 
-      className={cn(
-        "flex h-full flex-col bg-[hsl(var(--sidebar-background))] transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-16" : "w-64"
-      )}
-    >
+  const SidebarContent = () => (
+    <>
       <div className={cn(
         "flex h-16 items-center border-b border-[hsl(var(--sidebar-border))]",
         isCollapsed ? "justify-center px-2" : "justify-between px-4"
@@ -148,7 +153,7 @@ const Sidebar = () => {
               variant="ghost"
               size="sm"
               onClick={handleToggleCollapse}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+              className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))] hidden md:flex"
             >
               {isCollapsed ? (
                 <PanelLeft className="h-5 w-5" />
@@ -302,7 +307,43 @@ const Sidebar = () => {
           </div>
         )}
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile menu button */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-10 p-0 bg-white shadow-lg"
+            >
+              {mobileOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar-background))]">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop sidebar */}
+      <div 
+        className={cn(
+          "hidden md:flex h-full flex-col bg-[hsl(var(--sidebar-background))] transition-all duration-300 ease-in-out",
+          isCollapsed ? "w-16" : "w-64"
+        )}
+      >
+        <SidebarContent />
+      </div>
+    </>
   );
 };
 

@@ -239,46 +239,48 @@ export function PhotoAnalysisButton({ siteId }: { siteId: string }) {
         {isRunning ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Analyzing Photo...
+            <span className="hidden sm:inline">Analyzing Photo...</span>
+            <span className="sm:hidden">Analyzing...</span>
           </>
         ) : (
           <>
             <Camera className="h-4 w-4 mr-2" />
-            Photo Analysis
+            <span className="hidden sm:inline">Photo Analysis</span>
+            <span className="sm:hidden">Photo</span>
           </>
         )}
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Photo Analysis</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg sm:text-xl">Photo Analysis</DialogTitle>
+            <DialogDescription className="text-sm">
               Take or upload a photo of the equipment display to identify variable labels and units
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-2 sm:py-4">
             {mode === 'select' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
                 <Button
                   variant="outline"
-                  className="h-32 flex flex-col gap-2"
+                  className="h-28 sm:h-32 flex flex-col gap-2 text-base sm:text-lg"
                   onClick={startCamera}
                 >
-                  <Camera className="h-8 w-8 text-[#2563EB]" />
+                  <Camera className="h-10 w-10 sm:h-12 sm:w-12 text-[#2563EB]" />
                   <span className="font-medium">Take Photo</span>
-                  <span className="text-xs text-muted-foreground">Use device camera</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">Use device camera</span>
                 </Button>
                 
                 <Button
                   variant="outline"
-                  className="h-32 flex flex-col gap-2"
+                  className="h-28 sm:h-32 flex flex-col gap-2 text-base sm:text-lg"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="h-8 w-8 text-[#2563EB]" />
+                  <Upload className="h-10 w-10 sm:h-12 sm:w-12 text-[#2563EB]" />
                   <span className="font-medium">Upload Photo</span>
-                  <span className="text-xs text-muted-foreground">Select from gallery</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">Select from gallery</span>
                 </Button>
                 
                 <input
@@ -292,22 +294,29 @@ export function PhotoAnalysisButton({ siteId }: { siteId: string }) {
             )}
 
             {mode === 'camera' && (
-              <div className="space-y-4">
-                <div className="relative bg-black rounded-lg overflow-hidden">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-auto"
+                    className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={capturePhoto} className="flex-1 bg-[#2563EB]">
-                    <Camera className="h-4 w-4 mr-2" />
+                  <Button 
+                    onClick={capturePhoto} 
+                    className="flex-1 bg-[#2563EB] h-12 sm:h-10 text-base sm:text-sm"
+                  >
+                    <Camera className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                     Capture
                   </Button>
-                  <Button variant="outline" onClick={handleRetake}>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleRetake}
+                    className="h-12 sm:h-10 px-4 sm:px-3"
+                  >
                     Cancel
                   </Button>
                 </div>
@@ -315,29 +324,29 @@ export function PhotoAnalysisButton({ siteId }: { siteId: string }) {
             )}
 
             {mode === 'upload' && photoPreview && (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="relative border rounded-lg overflow-hidden bg-slate-50">
                   <img
                     src={photoPreview}
                     alt="Preview"
-                    className="w-full h-auto max-h-96 object-contain"
+                    className="w-full h-auto max-h-[50vh] sm:max-h-96 object-contain"
                   />
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white h-8 w-8 sm:h-7 sm:w-7 p-0"
                     onClick={handleRetake}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
                 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 text-sm">
                   <div className="flex items-start gap-2">
-                    <ImageIcon className="h-4 w-4 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="font-medium text-blue-900">Ready to analyze</div>
-                      <div className="text-blue-700 text-xs mt-1">
+                    <ImageIcon className="h-5 w-5 sm:h-4 sm:w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-blue-900 text-sm sm:text-base">Ready to analyze</div>
+                      <div className="text-blue-700 text-xs sm:text-sm mt-1 leading-relaxed">
                         The AI will extract values from the photo and match them with historical data 
                         to identify variable labels, units, and scaling factors.
                       </div>
@@ -353,25 +362,29 @@ export function PhotoAnalysisButton({ siteId }: { siteId: string }) {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             {mode === 'upload' && photoPreview && (
               <>
-                <Button variant="outline" onClick={handleRetake}>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRetake}
+                  className="w-full sm:w-auto h-12 sm:h-10 order-2 sm:order-1"
+                >
                   Retake
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
                   disabled={submitting}
-                  className="bg-[#2563EB] hover:bg-[#1d4ed8]"
+                  className="w-full sm:w-auto bg-[#2563EB] hover:bg-[#1d4ed8] h-12 sm:h-10 order-1 sm:order-2 text-base sm:text-sm"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 mr-2 animate-spin" />
                       Analyzing...
                     </>
                   ) : (
                     <>
-                      <Camera className="h-4 w-4 mr-2" />
+                      <Camera className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                       Analyze Photo
                     </>
                   )}

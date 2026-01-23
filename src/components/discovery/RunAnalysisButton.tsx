@@ -139,9 +139,10 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
   if (loading) {
     return (
-      <Button variant="outline" disabled className="relative overflow-hidden min-w-[240px]">
+      <Button variant="outline" disabled className="relative overflow-hidden min-w-[140px] sm:min-w-[240px]">
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        Loading...
+        <span className="hidden sm:inline">Loading...</span>
+        <span className="sm:hidden">...</span>
       </Button>
     );
   }
@@ -152,7 +153,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
       onClick={run}
       disabled={!isReady || isRunning}
       className={cn(
-        "relative overflow-hidden min-w-[240px] transition-all",
+        "relative overflow-hidden min-w-[140px] sm:min-w-[240px] transition-all",
         !isReady && "text-muted-foreground border-slate-200 bg-slate-50",
         isReady && !isRunning && "border-purple-300 hover:bg-purple-50 text-purple-700 font-medium",
         isRunning && "border-purple-400 bg-purple-50"
@@ -173,14 +174,16 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         {isRunning ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Running...
+            <span className="hidden sm:inline">Running...</span>
+            <span className="sm:hidden">Running...</span>
           </>
         ) : (
           <>
             <TrendingUp className="h-4 w-4 mr-2" />
-            Historical Analysis
-            <span className="ml-2 text-xs font-normal">
-              ({samplesPerRegister}/{minSamples} samples)
+            <span className="hidden sm:inline">Historical Analysis</span>
+            <span className="sm:hidden">Analysis</span>
+            <span className="ml-1 sm:ml-2 text-xs font-normal">
+              ({samplesPerRegister}/{minSamples})
             </span>
           </>
         )}

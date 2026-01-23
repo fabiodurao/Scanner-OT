@@ -187,10 +187,10 @@ const Discovery = () => {
   if (loading) {
     return (
       <MainLayout>
-        <div className="p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="p-4 sm:p-8 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-[#2563EB] mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading discovery data...</p>
+            <p className="text-muted-foreground text-sm sm:text-base">Loading discovery data...</p>
           </div>
         </div>
       </MainLayout>
@@ -199,105 +199,119 @@ const Discovery = () => {
 
   return (
     <MainLayout>
-      <div className="p-8">
-        <div className="mb-6">
+      <div className="p-4 sm:p-8">
+        <div className="mb-4 sm:mb-6">
           <Link
             to="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-4"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-3 sm:mb-4"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
           
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-[#1a2744]">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-bold text-[#1a2744] truncate">
                   {site?.name || `Site ${siteId?.slice(0, 8)}...`}
                 </h1>
                 {!site && (
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">
                     Unregistered
                   </Badge>
                 )}
               </div>
               {site && (site.city || site.state) && (
-                <div className="flex items-center gap-1 text-muted-foreground mt-1">
-                  <MapPin className="h-4 w-4" />
-                  {[site.city, site.state, site.country].filter(Boolean).join(', ')}
+                <div className="flex items-center gap-1 text-muted-foreground mt-1 text-sm">
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{[site.city, site.state, site.country].filter(Boolean).join(', ')}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 mt-2">
-                <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
+                <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono truncate max-w-full">
                   {siteId}
                 </code>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Button variant="outline" onClick={handleSyncEquipment} disabled={syncing}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleSyncEquipment} 
+                disabled={syncing}
+                className="flex-1 sm:flex-none"
+              >
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                Sync Equipment
+                <span className="hidden sm:inline">Sync Equipment</span>
+                <span className="sm:hidden">Sync</span>
               </Button>
-              <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                className="flex-1 sm:flex-none"
+              >
                 <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
+                <span className="sm:hidden">Refresh</span>
               </Button>
             </div>
           </div>
         </div>
 
         {stats && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-4 sm:mb-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Equipment</CardTitle>
-                <Server className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Equipment</CardTitle>
+                <Server className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalEquipment}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {slaveEquipment.length} slave devices
+                <div className="text-xl sm:text-2xl font-bold">{stats.totalEquipment}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                  {slaveEquipment.length} slaves
                 </p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Variables</CardTitle>
-                <Variable className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Variables</CardTitle>
+                <Variable className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalVariables}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.totalVariables}</div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Unknown</CardTitle>
-                <HelpCircle className="h-4 w-4 text-slate-400" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Unknown</CardTitle>
+                <HelpCircle className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-600">{stats.variablesByState.unknown}</div>
+                <div className="text-xl sm:text-2xl font-bold text-slate-600">{stats.variablesByState.unknown}</div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Hypothesis</CardTitle>
-                <Lightbulb className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Hypothesis</CardTitle>
+                <Lightbulb className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{stats.variablesByState.hypothesis}</div>
+                <div className="text-xl sm:text-2xl font-bold text-amber-600">{stats.variablesByState.hypothesis}</div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="col-span-2 sm:col-span-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Confirmed</CardTitle>
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
+                <div className="text-xl sm:text-2xl font-bold text-emerald-600">
                   {stats.variablesByState.confirmed + stats.variablesByState.published}
                 </div>
               </CardContent>
@@ -306,38 +320,42 @@ const Discovery = () => {
         )}
 
         {stats && (
-          <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 mb-4 sm:mb-6 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              <span>{stats.sampleCount.toLocaleString()} samples collected</span>
+              <Database className="h-4 w-4 flex-shrink-0" />
+              <span>{stats.sampleCount.toLocaleString()} samples</span>
             </div>
             {stats.lastActivity && (
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Last: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
               </div>
             )}
           </div>
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="variables">
-              <Variable className="h-4 w-4 mr-2" />
-              Discovered Variables ({uniqueVariableCount})
+          <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto">
+            <TabsTrigger value="variables" className="text-xs sm:text-sm py-2 sm:py-1.5">
+              <Variable className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Discovered Variables ({uniqueVariableCount})</span>
+              <span className="sm:hidden">Variables</span>
             </TabsTrigger>
-            <TabsTrigger value="historical">
-              <Grid3x3 className="h-4 w-4 mr-2" />
-              Historical Analysis
+            <TabsTrigger value="historical" className="text-xs sm:text-sm py-2 sm:py-1.5">
+              <Grid3x3 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Historical Analysis</span>
+              <span className="sm:hidden">Analysis</span>
             </TabsTrigger>
-            <TabsTrigger value="equipment">
-              <Server className="h-4 w-4 mr-2" />
-              Equipment ({equipment.length})
+            <TabsTrigger value="equipment" className="text-xs sm:text-sm py-2 sm:py-1.5">
+              <Server className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Equipment ({equipment.length})</span>
+              <span className="sm:hidden">Equipment</span>
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
+              <TabsTrigger value="settings" className="text-xs sm:text-sm py-2 sm:py-1.5">
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Settings</span>
+                <span className="sm:hidden">Settings</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -345,19 +363,19 @@ const Discovery = () => {
           <TabsContent value="variables">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Discovered Variables</CardTitle>
-                    <CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="text-base sm:text-lg">Discovered Variables</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Modbus registers with type inference scores
                       {activeSourceIpFilter && (
-                        <span className="ml-2 text-blue-600">
+                        <span className="ml-2 text-blue-600 block sm:inline mt-1 sm:mt-0">
                           (filtered by: {activeSourceIpFilter})
                         </span>
                       )}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {siteId && <RunAnalysisButton siteId={siteId} />}
                     {siteId && <PhotoAnalysisButton siteId={siteId} />}
                   </div>
@@ -365,10 +383,10 @@ const Discovery = () => {
               </CardHeader>
               <CardContent>
                 {variables.length === 0 && !loadingFiltered ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Variable className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No variables found</p>
-                    <p className="text-sm mt-2">
+                  <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                    <Variable className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-sm sm:text-base">No variables found</p>
+                    <p className="text-xs sm:text-sm mt-2">
                       Upload and process a PCAP file to discover variables
                     </p>
                   </div>
@@ -387,17 +405,17 @@ const Discovery = () => {
           <TabsContent value="historical">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Grid3x3 className="h-5 w-5" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
                       Historical Analysis
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       Detailed statistical analysis across all data types with AI winner selection
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {siteId && <RunAnalysisButton siteId={siteId} />}
                     {siteId && <PhotoAnalysisButton siteId={siteId} />}
                   </div>
@@ -415,25 +433,37 @@ const Discovery = () => {
           <TabsContent value="equipment">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Discovered Equipment</CardTitle>
-                    <CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="text-base sm:text-lg">Discovered Equipment</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Network devices identified in the OT traffic ({slaveEquipment.length} slave devices, {equipment.filter(e => e.role === 'master').length} master devices)
                     </CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleSyncEquipment} disabled={syncing}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSyncEquipment} 
+                    disabled={syncing}
+                    className="w-full sm:w-auto"
+                  >
                     <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    Sync Equipment
+                    <span className="hidden sm:inline">Sync Equipment</span>
+                    <span className="sm:hidden">Sync</span>
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {equipment.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No equipment discovered yet</p>
-                    <Button variant="outline" className="mt-4" onClick={handleSyncEquipment} disabled={syncing}>
+                  <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                    <Server className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-sm sm:text-base">No equipment discovered yet</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4 w-full sm:w-auto" 
+                      onClick={handleSyncEquipment} 
+                      disabled={syncing}
+                    >
                       <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                       Sync Equipment
                     </Button>
