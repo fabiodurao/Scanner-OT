@@ -52,11 +52,29 @@ export interface DiscoveredVariable {
   last_raw_value: string | null;
   last_interpreted_value: number | null;
   
+  // RAW VALUES - Uppercase columns (from learning_samples)
+  UINT16: number | null;
+  INT16: number | null;
+  UINT32BE: number | null;
+  INT32BE: number | null;
+  UINT32LE: number | null;
+  INT32LE: number | null;
+  FLOAT32BE: number | null;
+  FLOAT32LE: number | null;
+  UINT64BE: number | null;
+  INT64BE: number | null;
+  UINT64LE: number | null;
+  INT64LE: number | null;
+  FLOAT64BE: number | null;
+  FLOAT64LE: number | null;
+  HEX: string | null;
+  BIN: string | null;
+  
   // Semantic (for future use - not in JSON yet)
   semantic_label: string | null;
   semantic_unit: string | null;
   semantic_category: string | null;
-  scale: number | null; // NEW: Scaling factor (default: 1)
+  scale: number | null; // Scaling factor (default: 1)
   
   // Learning
   learning_state: LearningState;
