@@ -386,17 +386,27 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     return (data || []) as LearningSample[];
   }, []);
 
-  // Get consolidated discovered variables
+  // Get consolidated discovered variables - BUSCAR TODAS AS COLUNAS
   const getDiscoveredVariables = useCallback(async (siteIdentifier: string): Promise<DiscoveredVariable[]> => {
+    console.log(`[getDiscoveredVariables] Fetching ALL columns for ${siteIdentifier}`);
+    
     const { data, error } = await supabase
       .from('discovered_variables')
-      .select('*')
+      .select('*') // Busca TODAS as colunas
       .eq('site_identifier', siteIdentifier)
       .order('address', { ascending: true });
     
     if (error) {
       console.error('Error fetching discovered variables:', error);
       return [];
+    }
+    
+    console.log(`[getDiscoveredVariables] Fetched ${data?.length || 0} variables`);
+    if (data && data.length > 0) {
+      console.log('[getDiscoveredVariables] Sample variable:', data[0]);
+      console.log('[getDiscoveredVariables] Has UINT16?', 'UINT16' in data[0], data[0].UINT16);
+      console.log('[getDiscoveredVariables] Has winner?', data[0].winner);
+      console.log('[getDiscoveredVariables] Has scale?', data[0].scale);
     }
     
     return (data || []) as DiscoveredVariable[];
