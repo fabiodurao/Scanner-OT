@@ -200,20 +200,28 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     const winner = variable.winner;
     if (!winner) return '-';
     
-    const rawValue = (variable as any)[winner] as number | null;
+    // Convert winner to UPPERCASE to match column names (UINT16, INT16, etc.)
+    const winnerUppercase = winner.toUpperCase();
+    
+    // Access the value from the uppercase column
+    const rawValue = (variable as any)[winnerUppercase] as number | null;
+    
+    console.log(`[getInterpretedValue] winner=${winner}, uppercase=${winnerUppercase}, rawValue=${rawValue}`);
     
     if (rawValue === null || rawValue === undefined) return '-';
     
+    // Apply scale (default to 1 if not set)
     const scale = (variable as any).scale || 1;
     const scaledValue = rawValue * scale;
     
-    return formatValue(scaledValue, winner);
+    return formatValue(scaledValue, winnerUppercase);
   };
 
   const getWinnerConfidence = (variable: DiscoveredVariable): number | null => {
     const winner = variable.winner;
     if (!winner) return null;
     
+    // Map winner to the corresponding score column
     const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
     return variable[scoreKey] as number | null;
   };
