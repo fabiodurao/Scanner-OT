@@ -422,7 +422,9 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                         {col.label}
                       </th>
                     </TooltipTrigger>
-                    <TooltipContent>{col.key}</TooltipContent>
+                    <TooltipContent>
+                      <span className="font-mono font-medium">{col.key}</span>
+                    </TooltipContent>
                   </Tooltip>
                 ))}
               </tr>
@@ -459,12 +461,22 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                           {variable.explanation ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-xs text-muted-foreground truncate cursor-help">
+                                <div className="text-xs text-muted-foreground truncate cursor-help hover:text-foreground transition-colors">
                                   {variable.explanation}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-md">
-                                <p className="text-xs">{variable.explanation}</p>
+                              <TooltipContent className="max-w-md p-4 bg-white border-2 border-slate-200 shadow-xl">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 pb-2 border-b">
+                                    <Badge className="bg-emerald-600 text-white font-mono">
+                                      {variable.winner}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">AI Explanation</span>
+                                  </div>
+                                  <p className="text-sm leading-relaxed text-slate-700">
+                                    {variable.explanation}
+                                  </p>
+                                </div>
                               </TooltipContent>
                             </Tooltip>
                           ) : (
@@ -504,7 +516,7 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                               <TooltipTrigger asChild>
                                 <div 
                                   className={cn(
-                                    "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help",
+                                    "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105",
                                     getScoreColor(score)
                                   )}
                                 >
@@ -516,27 +528,110 @@ export const HistoricalHeatmapTable = ({ variables }: HistoricalHeatmapTableProp
                                   </span>
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
+                              <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
                                 {hasStats ? (
-                                  <div className="space-y-1 text-xs">
-                                    <p className="font-medium border-b pb-1">{col.key}</p>
-                                    <p>Value: {formatValue(value, col.key)}</p>
-                                    <p>Score: {score !== null ? (score * 100).toFixed(1) + '%' : 'N/A'}</p>
-                                    <p className="border-t pt-1 mt-1 font-medium">Historical Stats:</p>
-                                    <p>Count: <span className="font-mono">{count}</span></p>
-                                    <p>Avg Value: <span className="font-mono">{avgValue?.toFixed(3) || '-'}</span></p>
-                                    <p>Std Dev: <span className="font-mono">{std?.toFixed(3) || '-'}</span></p>
-                                    <p>Avg Jump: <span className="font-mono">{avgJump?.toFixed(3) || '-'}</span></p>
-                                    <p>Max Jump: <span className="font-mono">{maxJump?.toFixed(3) || '-'}</span></p>
-                                    <p>Nulls: <span className="font-mono">{nulls ?? '-'}</span></p>
-                                    <p>Zeros: <span className="font-mono">{zeros ?? '-'}</span></p>
-                                    <p className="border-t pt-1 mt-1">Avg Score: <span className="font-mono font-bold">{formatScore(avgScore)}</span></p>
+                                  <div className="p-4 space-y-3">
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between pb-2 border-b">
+                                      <Badge className="bg-blue-600 text-white font-mono text-sm">
+                                        {col.key}
+                                      </Badge>
+                                      <Badge 
+                                        className={cn(
+                                          "font-bold",
+                                          score && score >= 0.8 ? "bg-emerald-600 text-white" :
+                                          score && score >= 0.5 ? "bg-amber-500 text-white" :
+                                          "bg-red-600 text-white"
+                                        )}
+                                      >
+                                        {formatScore(score)}
+                                      </Badge>
+                                    </div>
+
+                                    {/* Current Value */}
+                                    <div className="bg-slate-50 rounded-lg p-2">
+                                      <div className="text-xs text-muted-foreground mb-1">Current Value</div>
+                                      <div className="font-mono font-bold text-lg text-slate-900">
+                                        {formatValue(value, col.key)}
+                                      </div>
+                                    </div>
+
+                                    {/* Historical Statistics */}
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-semibold text-slate-700 border-b pb-1">
+                                        Historical Statistics
+                                      </div>
+                                      
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-blue-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Samples</div>
+                                          <div className="font-mono font-bold text-blue-900">{count}</div>
+                                        </div>
+                                        
+                                        <div className="bg-purple-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Score</div>
+                                          <div className="font-mono font-bold text-purple-900">{formatScore(avgScore)}</div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Value</div>
+                                          <div className="font-mono font-bold text-slate-900 truncate">
+                                            {avgValue !== null ? avgValue.toFixed(3) : '-'}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Std Dev</div>
+                                          <div className="font-mono font-bold text-slate-900 truncate">
+                                            {std !== null ? std.toFixed(3) : '-'}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="bg-amber-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Avg Jump</div>
+                                          <div className="font-mono font-bold text-amber-900 truncate">
+                                            {avgJump !== null ? avgJump.toFixed(3) : '-'}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="bg-red-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Max Jump</div>
+                                          <div className="font-mono font-bold text-red-900 truncate">
+                                            {maxJump !== null ? maxJump.toFixed(3) : '-'}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Nulls</div>
+                                          <div className="font-mono font-bold text-slate-900">{nulls ?? '-'}</div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-50 rounded p-2">
+                                          <div className="text-muted-foreground text-[10px] mb-0.5">Zeros</div>
+                                          <div className="font-mono font-bold text-slate-900">{zeros ?? '-'}</div>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 ) : (
-                                  <div className="space-y-1 text-xs">
-                                    <p className="font-medium">{col.key}</p>
-                                    <p>Value: {formatValue(value, col.key)}</p>
-                                    <p>Score: {score !== null ? (score * 100).toFixed(1) + '%' : 'N/A'}</p>
+                                  <div className="p-4 space-y-2">
+                                    <div className="flex items-center justify-between pb-2 border-b">
+                                      <Badge className="bg-blue-600 text-white font-mono">
+                                        {col.key}
+                                      </Badge>
+                                      <Badge className="bg-slate-500 text-white">
+                                        {formatScore(score)}
+                                      </Badge>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-lg p-2">
+                                      <div className="text-xs text-muted-foreground mb-1">Value</div>
+                                      <div className="font-mono font-bold text-slate-900">
+                                        {formatValue(value, col.key)}
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground italic">
+                                      No historical statistics available
+                                    </p>
                                   </div>
                                 )}
                               </TooltipContent>
