@@ -3,10 +3,12 @@ import { DiscoveredVariable } from '@/types/discovery';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -179,6 +181,17 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   const [pageSize, setPageSize] = useState(200);
   const [isCompactView, setIsCompactView] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingVariable, setEditingVariable] = useState<DiscoveredVariable | null>(null);
+  const [editForm, setEditForm] = useState({
+    semantic_label: '',
+    semantic_unit: '',
+    semantic_category: '',
+    data_type: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   // Filter to only show variables with historical data
   const varsWithHistory = useMemo(() => 
@@ -244,7 +257,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       .update({
         data_type: variable.winner.toLowerCase(),
         learning_state: 'confirmed',
-        confidence_score: variable.historical_scores_uint16 || 0.95, // Use best score
+        confidence_score: variable.historical_scores_uint16 || 0.95,
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -259,6 +272,56 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     }
     
     setConfirmingId(null);
+  };
+
+  // Open edit dialog
+  const handleOpenEdit = (variable: DiscoveredVariable) => {
+    setEditingVariable(variable);
+    setEditForm({
+      semantic_label: variable.semantic_label || '',
+      semantic_unit: variable.semantic_unit || '',
+      semantic_category: variable.semantic_category || '',
+      data_type: variable.data_type || variable.winner?.toLowerCase() || variable.ai_suggested_type || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Save edited variable
+  const handleSaveEdit = async () => {
+    if (!editingVariable || !user) return;
+    
+    if (!editForm.data_type) {
+      toast.error('Data type is required');
+      return;
+    }
+    
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('discovered_variables')
+      .update({
+        data_type: editForm.data_type.toLowerCase(),
+        semantic_label: editForm.semantic_label.trim() || null,
+        semantic_unit: editForm.semantic_unit.trim() || null,
+        semantic_category: editForm.semantic_category.trim() || null,
+        learning_state: 'confirmed',
+        confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
+        confirmed_by: user.id,
+        confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', editingVariable.id);
+    
+    if (error) {
+      toast.error('Error saving: ' + error.message);
+      setSaving(false);
+      return;
+    }
+    
+    toast.success('Variable updated & confirmed!');
+    setSaving(false);
+    setEditDialogOpen(false);
+    onVariableUpdated?.();
   };
 
   // Get suggested type (winner or ai_suggested_type)
@@ -624,17 +687,16 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               </>
                             )}
                           </Button>
-                        ) : variable.learning_state === 'confirmed' || variable.learning_state === 'published' ? (
+                        ) : (
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-6 px-2 text-xs"
+                            onClick={() => handleOpenEdit(variable)}
                           >
                             <Pencil className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
 
@@ -711,10 +773,10 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                       </div>
                                     )}
 
-                                    {/* Current Value */}
-                                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
-                                      <div className="text-xs text-muted-foreground mb-1 font-medium">Current Value</div>
-                                      <div className="font-mono font-bold text-xl text-slate-900">
+                                    {/* Current Value - COM GRADIENTE */}
+                                    <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
+                                      <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
+                                      <div className="font-mono font-bold text-2xl text-blue-900">
                                         {formatValue(value, col.key)}
                                       </div>
                                     </div>
@@ -770,9 +832,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                           <div className="font-mono font-bold text-slate-900">{zeros ?? '-'}</div>
                                         </div>
                                         
-                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
-                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Data Quality</div>
-                                          <div className="font-mono font-bold text-slate-900">
+                                        <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-200">
+                                          <div className="text-emerald-700 text-[10px] mb-0.5 font-medium">Data Quality</div>
+                                          <div className="font-mono font-bold text-emerald-900">
                                             {count && nulls !== null && zeros !== null 
                                               ? `${Math.round(((count - nulls - zeros) / count) * 100)}%`
                                               : '-'
@@ -792,9 +854,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                         {formatScore(score)}
                                       </Badge>
                                     </div>
-                                    <div className="bg-slate-50 rounded-lg p-2">
-                                      <div className="text-xs text-muted-foreground mb-1">Value</div>
-                                      <div className="font-mono font-bold text-slate-900">
+                                    <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
+                                      <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
+                                      <div className="font-mono font-bold text-xl text-blue-900">
                                         {formatValue(value, col.key)}
                                       </div>
                                     </div>
@@ -823,6 +885,118 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
         {hasActiveFilters && ` • filtered from ${varsWithHistory.length}`}
         {isCompactView && ' • Compact view (unit & explanation hidden)'}
       </div>
+
+      {/* Edit Dialog - Inspirado no print */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Variable</DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{editingVariable?.source_ip}</span> • Address{' '}
+              <span className="font-mono">{editingVariable?.address}</span> • FC{' '}
+              <span className="font-mono">{editingVariable?.function_code}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* AI Suggestion box */}
+            {editingVariable && getSuggestedType(editingVariable) && (
+              <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-3">
+                <div className="text-sm font-semibold text-purple-900 mb-2">AI Suggestion</div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-purple-600 text-white font-mono">
+                    {getSuggestedType(editingVariable)}
+                  </Badge>
+                  {editingVariable.ai_confidence !== null && (
+                    <span className="text-xs text-purple-800">
+                      {Math.round((editingVariable.ai_confidence || 0) * 100)}% confidence
+                    </span>
+                  )}
+                </div>
+                {(editingVariable.explanation || editingVariable.ai_reasoning) && (
+                  <p className="text-xs text-purple-800 mt-2 leading-relaxed">
+                    {editingVariable.explanation || editingVariable.ai_reasoning}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Parameter Name (Label) */}
+            <div className="space-y-2">
+              <Label htmlFor="label">Parameter Name</Label>
+              <Input
+                id="label"
+                placeholder="e.g., Active Power, Wind Speed"
+                value={editForm.semantic_label}
+                onChange={(e) => setEditForm(prev => ({ ...prev, semantic_label: e.target.value }))}
+              />
+            </div>
+
+            {/* Data Type */}
+            <div className="space-y-2">
+              <Label htmlFor="data-type">Parameter Data Type *</Label>
+              <Select 
+                value={editForm.data_type} 
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, data_type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select data type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dataTypeColumns.map(col => (
+                    <SelectItem key={col.key} value={col.key.toLowerCase()}>
+                      <span className="font-mono">{col.key}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Unit and Category */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit</Label>
+                <Input
+                  id="unit"
+                  placeholder="e.g., kW, m/s, °C"
+                  value={editForm.semantic_unit}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, semantic_unit: e.target.value }))}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
+                  placeholder="e.g., Power, Temperature"
+                  value={editForm.semantic_category}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, semantic_category: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveEdit} 
+              disabled={!editForm.data_type || saving}
+              className="bg-[#2563EB] hover:bg-[#1d4ed8]"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Confirm'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
