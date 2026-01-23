@@ -87,19 +87,32 @@ const getScoreColor = (score: number | null): string => {
   return 'bg-gray-200 text-gray-500';
 };
 
+// Format number with English locale (dot as decimal separator)
+const formatNumber = (value: number, decimals: number = 3): string => {
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
 const formatValue = (value: number | null, type: string): string => {
   if (value === null || value === undefined) return '-';
   if (type.includes('FLOAT')) {
     if (!isFinite(value) || Math.abs(value) > 1e15) return 'Invalid';
-    if (Math.abs(value) < 0.01 && value !== 0) return value.toExponential(2);
-    return value.toFixed(3);
+    if (Math.abs(value) < 0.01 && value !== 0) {
+      // For scientific notation, manually format to ensure dot
+      const exp = value.toExponential(2);
+      return exp.replace(',', '.');
+    }
+    return formatNumber(value, 3);
   }
-  return value.toLocaleString();
+  // For integers, use en-US locale
+  return value.toLocaleString('en-US');
 };
 
 const formatScore = (score: number | null): string => {
   if (score === null || score === undefined) return '-';
-  return (score * 100).toFixed(0) + '%';
+  return Math.round(score * 100) + '%';
 };
 
 // Compact filter button component
@@ -205,8 +218,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     
     // Access the value from the uppercase column
     const rawValue = (variable as any)[winnerUppercase] as number | null;
-    
-    console.log(`[getInterpretedValue] winner=${winner}, uppercase=${winnerUppercase}, rawValue=${rawValue}`);
     
     if (rawValue === null || rawValue === undefined) return '-';
     
@@ -347,12 +358,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   // Open edit dialog
   const handleOpenEdit = (variable: DiscoveredVariable) => {
     setEditingVariable(variable);
+    const currentScale = (variable as any).scale || 1;
     setEditForm({
       semantic_label: variable.semantic_label || '',
       semantic_unit: variable.semantic_unit || '',
       semantic_category: variable.semantic_category || '',
       data_type: variable.data_type || variable.winner?.toLowerCase() || variable.ai_suggested_type || '',
-      scale: ((variable as any).scale || 1).toString(),
+      scale: currentScale.toString().replace(',', '.'), // Ensure dot decimal
     });
     setEditDialogOpen(true);
   };
@@ -368,7 +380,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     
     setSaving(true);
     
-    const scale = parseFloat(editForm.scale) || 1;
+    // Parse scale with dot decimal
+    const scaleStr = editForm.scale.replace(',', '.');
+    const scale = parseFloat(scaleStr) || 1;
     
     const { error } = await supabase
       .from('discovered_variables')
@@ -687,7 +701,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
-                          <span className="font-mono text-xs">{scale}</span>
+                          <span className="font-mono text-xs">{formatNumber(scale, 1)}</span>
                         </td>
                       )}
                       <td className="px-2 py-1.5">
@@ -899,7 +913,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                     <div className="space-y-2">
                                       <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
                                         <span>Historical Statistics</span>
-                                        <Badge variant="secondary" className="text-[10px]">{count} samples</Badge>
+                                        <Badge variant="secondary" className="text-[10px]">{count?.toLocaleString('en-US')} samples</Badge>
                                       </div>
                                       
                                       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -911,39 +925,39 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                         <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
                                           <div className="text-blue-700 text-[10px] mb-0.5 font-medium">Avg Value</div>
                                           <div className="font-mono font-bold text-blue-900 truncate">
-                                            {avgValue !== null ? avgValue.toFixed(3) : '-'}
+                                            {avgValue !== null ? formatNumber(avgValue, 3) : '-'}
                                           </div>
                                         </div>
                                         
                                         <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
                                           <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Std Dev</div>
                                           <div className="font-mono font-bold text-slate-900 truncate">
-                                            {std !== null ? std.toFixed(3) : '-'}
+                                            {std !== null ? formatNumber(std, 3) : '-'}
                                           </div>
                                         </div>
                                         
                                         <div className="bg-amber-50 rounded-lg p-2 border border-amber-100">
                                           <div className="text-amber-700 text-[10px] mb-0.5 font-medium">Avg Jump</div>
                                           <div className="font-mono font-bold text-amber-900 truncate">
-                                            {avgJump !== null ? avgJump.toFixed(3) : '-'}
+                                            {avgJump !== null ? formatNumber(avgJump, 3) : '-'}
                                           </div>
                                         </div>
                                         
                                         <div className="bg-red-50 rounded-lg p-2 border border-red-100">
                                           <div className="text-red-700 text-[10px] mb-0.5 font-medium">Max Jump</div>
                                           <div className="font-mono font-bold text-red-900 truncate">
-                                            {maxJump !== null ? maxJump.toFixed(3) : '-'}
+                                            {maxJump !== null ? formatNumber(maxJump, 3) : '-'}
                                           </div>
                                         </div>
                                         
                                         <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
                                           <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Nulls</div>
-                                          <div className="font-mono font-bold text-slate-900">{nulls ?? '-'}</div>
+                                          <div className="font-mono font-bold text-slate-900">{nulls?.toLocaleString('en-US') ?? '-'}</div>
                                         </div>
                                         
                                         <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
                                           <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Zeros</div>
-                                          <div className="font-mono font-bold text-slate-900">{zeros ?? '-'}</div>
+                                          <div className="font-mono font-bold text-slate-900">{zeros?.toLocaleString('en-US') ?? '-'}</div>
                                         </div>
                                         
                                         <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-200">
@@ -1092,11 +1106,14 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 <Label htmlFor="scale">Scale</Label>
                 <Input
                   id="scale"
-                  type="number"
-                  step="any"
+                  type="text"
                   placeholder="e.g., 0.1, 10"
                   value={editForm.scale}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, scale: e.target.value }))}
+                  onChange={(e) => {
+                    // Allow only numbers and dot
+                    const value = e.target.value.replace(',', '.');
+                    setEditForm(prev => ({ ...prev, scale: value }));
+                  }}
                 />
               </div>
             </div>
