@@ -102,34 +102,6 @@ const formatScore = (score: number | null): string => {
   return (score * 100).toFixed(0) + '%';
 };
 
-// Get interpreted value based on winner type WITH SCALE
-const getInterpretedValue = (variable: DiscoveredVariable): string => {
-  const winner = variable.winner;
-  if (!winner) return '-';
-  
-  // Map winner to the corresponding value column
-  const valueKey = winner as keyof DiscoveredVariable;
-  const rawValue = variable[valueKey] as number | null;
-  
-  if (rawValue === null || rawValue === undefined) return '-';
-  
-  // Apply scale (default to 1 if not set)
-  const scale = (variable as any).scale || 1;
-  const scaledValue = rawValue * scale;
-  
-  return formatValue(scaledValue, winner);
-};
-
-// Get winner's confidence score
-const getWinnerConfidence = (variable: DiscoveredVariable): number | null => {
-  const winner = variable.winner;
-  if (!winner) return null;
-  
-  // Map winner to the corresponding score column
-  const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
-  return variable[scoreKey] as number | null;
-};
-
 // Compact filter button component
 const FilterButton = ({ 
   label, 
@@ -222,6 +194,33 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     scale: '1',
   });
   const [saving, setSaving] = useState(false);
+
+  // Helper functions
+  const getInterpretedValue = (variable: DiscoveredVariable): string => {
+    const winner = variable.winner;
+    if (!winner) return '-';
+    
+    const rawValue = (variable as any)[winner] as number | null;
+    
+    if (rawValue === null || rawValue === undefined) return '-';
+    
+    const scale = (variable as any).scale || 1;
+    const scaledValue = rawValue * scale;
+    
+    return formatValue(scaledValue, winner);
+  };
+
+  const getWinnerConfidence = (variable: DiscoveredVariable): number | null => {
+    const winner = variable.winner;
+    if (!winner) return null;
+    
+    const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
+    return variable[scoreKey] as number | null;
+  };
+
+  const getSuggestedType = (variable: DiscoveredVariable): string | null => {
+    return variable.winner || variable.ai_suggested_type;
+  };
 
   // Filter to only show variables with historical data
   const varsWithHistory = useMemo(() => 
@@ -389,11 +388,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     setSaving(false);
     setEditDialogOpen(false);
     onVariableUpdated?.();
-  };
-
-  // Get suggested type (winner or ai_suggested_type)
-  const getSuggestedType = (variable: DiscoveredVariable): string | null => {
-    return variable.winner || variable.ai_suggested_type;
   };
 
   // Calculate column count for colspan
@@ -821,7 +815,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
                         const value = variable[col.key as keyof DiscoveredVariable] as number | null;
                         
-                        // Get stats from individual columns
                         const countKey = `stats_${col.key}_count` as keyof DiscoveredVariable;
                         const avgValueKey = `stats_${col.key}_avg_value` as keyof DiscoveredVariable;
                         const stdKey = `stats_${col.key}_std` as keyof DiscoveredVariable;
@@ -865,7 +858,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
                                 {hasStats ? (
                                   <div className="p-4 space-y-3">
-                                    {/* Header */}
                                     <div className="flex items-center justify-between pb-3 border-b-2">
                                       <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">
                                         {col.key}
@@ -882,7 +874,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                       </Badge>
                                     </div>
 
-                                    {/* Winner badge if this is the winner */}
                                     {isWinner && (
                                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
                                         <CheckCircle className="h-4 w-4 text-emerald-600" />
@@ -890,7 +881,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                       </div>
                                     )}
 
-                                    {/* Current Value - COM GRADIENTE */}
                                     <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
                                       <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
                                       <div className="font-mono font-bold text-2xl text-blue-900">
@@ -898,7 +888,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                       </div>
                                     </div>
 
-                                    {/* Historical Statistics */}
                                     <div className="space-y-2">
                                       <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
                                         <span>Historical Statistics</span>
@@ -996,14 +985,12 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
         </div>
       </div>
 
-      {/* Footer info */}
       <div className="text-xs text-muted-foreground">
         {paginatedVariables.length} of {filteredVariables.length} variables
         {hasActiveFilters && ` • filtered from ${varsWithHistory.length}`}
         {isCompactView && ' • Compact view (unit, scale & explanation hidden)'}
       </div>
 
-      {/* Edit Dialog - Inspirado no print */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1016,7 +1003,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* AI Suggestion box */}
             {editingVariable && getSuggestedType(editingVariable) && (
               <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-3">
                 <div className="text-sm font-semibold text-purple-900 mb-2">AI Suggestion</div>
@@ -1044,7 +1030,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               </div>
             )}
 
-            {/* Parameter Name (Label) */}
             <div className="space-y-2">
               <Label htmlFor="label">Parameter Name</Label>
               <Input
@@ -1055,7 +1040,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               />
             </div>
 
-            {/* Data Type */}
             <div className="space-y-2">
               <Label htmlFor="data-type">Parameter Data Type *</Label>
               <Select 
@@ -1075,7 +1059,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               </Select>
             </div>
 
-            {/* Unit, Category and Scale */}
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
