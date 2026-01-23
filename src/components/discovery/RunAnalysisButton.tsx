@@ -166,15 +166,15 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         isRunning && "border-purple-400 bg-purple-50"
       )}
     >
-      {/* Progress bar background */}
+      {/* Progress bar background - ESCURECIDO */}
       <div 
         className={cn(
           "absolute inset-0 transition-all duration-500",
-          isReady ? "bg-purple-200" : "bg-slate-200"
+          isReady ? "bg-purple-400" : "bg-slate-300"
         )}
         style={{ 
           width: `${progressPercent}%`,
-          opacity: 0.4,
+          opacity: 0.5,
         }}
       />
       
