@@ -97,7 +97,7 @@ const Sidebar = () => {
     setIsCollapsed(prev => !prev);
   };
 
-  const NavLink = ({ item }: { item: { name: string; href: string; icon: React.ElementType } }) => {
+  const NavLink = ({ item, isMobile = false }: { item: { name: string; href: string; icon: React.ElementType }; isMobile?: boolean }) => {
     const active = isActive(item.href);
     
     const linkContent = (
@@ -108,17 +108,17 @@ const Sidebar = () => {
           active
             ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/25'
             : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-white',
-          isCollapsed && 'justify-center px-2'
+          !isMobile && isCollapsed && 'justify-center px-2'
         )}
       >
         <item.icon className="h-5 w-5 flex-shrink-0" />
-        {!isCollapsed && (
+        {(isMobile || !isCollapsed) && (
           <span className="truncate flex-1">{item.name}</span>
         )}
       </Link>
     );
 
-    if (isCollapsed) {
+    if (!isMobile && isCollapsed) {
       return (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
@@ -134,46 +134,48 @@ const Sidebar = () => {
     return linkContent;
   };
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       <div className={cn(
         "flex h-16 items-center border-b border-[hsl(var(--sidebar-border))]",
-        isCollapsed ? "justify-center px-2" : "justify-between px-4"
+        !isMobile && isCollapsed ? "justify-center px-2" : "justify-between px-4"
       )}>
-        {!isCollapsed && (
+        {(isMobile || !isCollapsed) && (
           <img 
             src="/logo-white.png" 
             alt="Cyber Energia" 
             className="h-8 w-auto object-contain"
           />
         )}
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleCollapse}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))] hidden md:flex"
-            >
-              {isCollapsed ? (
-                <PanelLeft className="h-5 w-5" />
-              ) : (
-                <PanelLeftClose className="h-5 w-5" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          </TooltipContent>
-        </Tooltip>
+        {!isMobile && (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleCollapse}
+                className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+              >
+                {isCollapsed ? (
+                  <PanelLeft className="h-5 w-5" />
+                ) : (
+                  <PanelLeftClose className="h-5 w-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
         {mainNavigation.map((item) => (
-          <NavLink key={item.name} item={item} />
+          <NavLink key={item.name} item={item} isMobile={isMobile} />
         ))}
 
-        {isCollapsed ? (
+        {!isMobile && isCollapsed ? (
           <>
             {pcapNavigation.map((item) => {
               const active = isActive(item.href);
@@ -247,21 +249,21 @@ const Sidebar = () => {
         <div className="pt-4">
           <Separator className="bg-[hsl(var(--sidebar-border))] mb-4" />
           {bottomNavigation.map((item) => (
-            <NavLink key={item.name} item={item} />
+            <NavLink key={item.name} item={item} isMobile={isMobile} />
           ))}
         </div>
       </nav>
       
-      {!isCollapsed && <ActivePhotoJobsIndicator />}
-      {!isCollapsed && <ActiveAnalysisIndicator />}
-      {!isCollapsed && <ActiveUploadsIndicator />}
-      {!isCollapsed && <ActiveJobsIndicator />}
+      {(isMobile || !isCollapsed) && <ActivePhotoJobsIndicator />}
+      {(isMobile || !isCollapsed) && <ActiveAnalysisIndicator />}
+      {(isMobile || !isCollapsed) && <ActiveUploadsIndicator />}
+      {(isMobile || !isCollapsed) && <ActiveJobsIndicator />}
       
       <div className={cn(
         "border-t border-[hsl(var(--sidebar-border))] p-4",
-        isCollapsed && "p-2"
+        !isMobile && isCollapsed && "p-2"
       )}>
-        {profile && !isCollapsed && (
+        {profile && (isMobile || !isCollapsed) && (
           <div className="mb-3">
             <div className="text-sm font-medium text-white truncate">
               {profile.full_name}
@@ -271,9 +273,9 @@ const Sidebar = () => {
             </div>
           </div>
         )}
-        {!isCollapsed && <Separator className="bg-[hsl(var(--sidebar-border))] mb-3" />}
+        {(isMobile || !isCollapsed) && <Separator className="bg-[hsl(var(--sidebar-border))] mb-3" />}
         
-        {isCollapsed ? (
+        {!isMobile && isCollapsed ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <Button
@@ -301,7 +303,7 @@ const Sidebar = () => {
           </Button>
         )}
         
-        {!isCollapsed && (
+        {(isMobile || !isCollapsed) && (
           <div className="text-xs text-gray-500 mt-3">
             OT Scanner v0.3
           </div>
@@ -329,7 +331,7 @@ const Sidebar = () => {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64 bg-[hsl(var(--sidebar-background))]">
-            <SidebarContent />
+            <SidebarContent isMobile={true} />
           </SheetContent>
         </Sheet>
       </div>
@@ -341,7 +343,7 @@ const Sidebar = () => {
           isCollapsed ? "w-16" : "w-64"
         )}
       >
-        <SidebarContent />
+        <SidebarContent isMobile={false} />
       </div>
     </>
   );
