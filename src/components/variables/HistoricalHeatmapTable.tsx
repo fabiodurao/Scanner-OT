@@ -95,6 +95,27 @@ const formatNumber = (value: number, decimals: number = 3): string => {
   });
 };
 
+// Format scale with appropriate decimal places
+const formatScale = (scale: number): string => {
+  // If scale is 1, show as "1.0"
+  if (scale === 1) return '1.0';
+  
+  // If scale has decimals, show up to 3 decimal places (removing trailing zeros)
+  if (scale % 1 !== 0) {
+    const formatted = scale.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 3,
+    });
+    return formatted;
+  }
+  
+  // If scale is integer, show with .0
+  return scale.toLocaleString('en-US', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+};
+
 const formatValue = (value: number | null, type: string): string => {
   if (value === null || value === undefined) return '-';
   if (type.includes('FLOAT')) {
@@ -419,7 +440,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     return (
       <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
         <p>No variables with AI historical analysis yet.</p>
-        <p className="text-sm mt-2">Click "Run AI Analysis" to generate historical scores.</p>
+        <p className="text-sm mt-2">Click "Historical Analysis" to generate historical scores.</p>
       </div>
     );
   }
@@ -701,7 +722,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
-                          <span className="font-mono text-xs">{formatNumber(scale, 1)}</span>
+                          <span className="font-mono text-xs">{formatScale(scale)}</span>
                         </td>
                       )}
                       <td className="px-2 py-1.5">
