@@ -66,13 +66,29 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
       site_name: siteNameMap.get(job.site_identifier) || null,
     }));
 
+    // IMPORTANT: Track all processing jobs
+    jobsWithNames.forEach(job => {
+      if (!previousJobsRef.current.has(job.id)) {
+        console.log('[PhotoAnalysisJobsContext] 📌 Adding job to tracking:', job.id);
+        previousJobsRef.current.add(job.id);
+        lastCheckRef.current.set(job.id, 'processing');
+      }
+    });
+
+    console.log('[PhotoAnalysisJobsContext] Currently tracking:', Array.from(previousJobsRef.current));
+
     setActiveJobs(jobsWithNames as ActivePhotoJob[]);
     setLoading(false);
   }, [user]);
 
   // Check for completed jobs by polling
   const checkForCompletedJobs = useCallback(async () => {
-    if (!user || previousJobsRef.current.size === 0) return;
+    if (!user || previousJobsRef.current.size === 0) {
+      if (previousJobsRef.current.size === 0) {
+        console.log('[PhotoAnalysisJobsContext] ⏭️ No jobs being tracked, skipping check');
+      }
+      return;
+    }
 
     console.log('[PhotoAnalysisJobsContext] 🔍 Checking for completed jobs...');
     console.log('[PhotoAnalysisJobsContext] Tracking:', Array.from(previousJobsRef.current));
@@ -95,7 +111,7 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
     for (const job of jobs) {
       const lastStatus = lastCheckRef.current.get(job.id);
       
-      console.log('[PhotoAnalysisJobsContext] Job', job.id, '- Status:', job.status, '(was:', lastStatus, ')');
+      console.log('[PhotoAnalysisJobsContext] Job', job.id.slice(0, 8), '- Status:', job.status, '(was:', lastStatus, ')');
       
       // Detect status change from processing to completed/error
       if (lastStatus === 'processing' && (job.status === 'completed' || job.status === 'error')) {
@@ -159,6 +175,8 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
   useEffect(() => {
     if (!user) return;
 
+    console.log('[PhotoAnalysisJobsContext] 🚀 Starting polling interval...');
+    
     fetchActiveJobs();
     checkForCompletedJobs();
     
@@ -167,7 +185,10 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
       checkForCompletedJobs();
     }, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('[PhotoAnalysisJobsContext] 🛑 Stopping polling interval');
+      clearInterval(interval);
+    };
   }, [user, fetchActiveJobs, checkForCompletedJobs]);
 
   // Real-time subscription (backup method)
@@ -187,7 +208,6 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
         },
         async (payload) => {
           console.log('[PhotoAnalysisJobsContext] 📨 Real-time event:', payload.eventType);
-          console.log('[PhotoAnalysisJobsContext] Payload:', payload);
           
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActivePhotoJob;
@@ -199,7 +219,7 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActivePhotoJob;
-            console.log('[PhotoAnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id, updatedJob.status);
+            console.log('[PhotoAnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id.slice(0, 8), updatedJob.status);
             
             // Trigger completion check
             checkForCompletedJobs();

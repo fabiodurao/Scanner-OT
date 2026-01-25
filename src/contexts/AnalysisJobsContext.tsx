@@ -65,13 +65,29 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
       site_name: siteNameMap.get(job.site_identifier) || null,
     }));
 
+    // IMPORTANT: Track all processing jobs
+    jobsWithNames.forEach(job => {
+      if (!previousJobsRef.current.has(job.id)) {
+        console.log('[AnalysisJobsContext] 📌 Adding job to tracking:', job.id);
+        previousJobsRef.current.add(job.id);
+        lastCheckRef.current.set(job.id, 'processing');
+      }
+    });
+
+    console.log('[AnalysisJobsContext] Currently tracking:', Array.from(previousJobsRef.current));
+
     setActiveJobs(jobsWithNames as ActiveAnalysisJob[]);
     setLoading(false);
   }, [user]);
 
   // Check for completed jobs by polling
   const checkForCompletedJobs = useCallback(async () => {
-    if (!user || previousJobsRef.current.size === 0) return;
+    if (!user || previousJobsRef.current.size === 0) {
+      if (previousJobsRef.current.size === 0) {
+        console.log('[AnalysisJobsContext] ⏭️ No jobs being tracked, skipping check');
+      }
+      return;
+    }
 
     console.log('[AnalysisJobsContext] 🔍 Checking for completed jobs...');
     console.log('[AnalysisJobsContext] Tracking:', Array.from(previousJobsRef.current));
@@ -94,7 +110,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     for (const job of jobs) {
       const lastStatus = lastCheckRef.current.get(job.id);
       
-      console.log('[AnalysisJobsContext] Job', job.id, '- Status:', job.status, '(was:', lastStatus, ')');
+      console.log('[AnalysisJobsContext] Job', job.id.slice(0, 8), '- Status:', job.status, '(was:', lastStatus, ')');
       
       // Detect status change from processing to completed/error
       if (lastStatus === 'processing' && (job.status === 'completed' || job.status === 'error')) {
@@ -158,6 +174,8 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!user) return;
 
+    console.log('[AnalysisJobsContext] 🚀 Starting polling interval...');
+    
     fetchActiveJobs();
     checkForCompletedJobs();
     
@@ -166,7 +184,10 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
       checkForCompletedJobs();
     }, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('[AnalysisJobsContext] 🛑 Stopping polling interval');
+      clearInterval(interval);
+    };
   }, [user, fetchActiveJobs, checkForCompletedJobs]);
 
   // Real-time subscription (backup method)
@@ -186,7 +207,6 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
         },
         async (payload) => {
           console.log('[AnalysisJobsContext] 📨 Real-time event:', payload.eventType);
-          console.log('[AnalysisJobsContext] Payload:', payload);
           
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActiveAnalysisJob;
@@ -198,7 +218,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActiveAnalysisJob;
-            console.log('[AnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id, updatedJob.status);
+            console.log('[AnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id.slice(0, 8), updatedJob.status);
             
             // Trigger completion check
             checkForCompletedJobs();
