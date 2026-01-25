@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import ReactFlow, {
-  Node,
-  Edge,
   Background,
   Controls,
   MiniMap,
@@ -25,35 +23,31 @@ const nodeTypes = {
   device: DeviceNode,
 };
 
-// Calculate layout positions based on zone (Purdue model)
-const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone: number): { x: number; y: number } => {
+const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone: number) => {
   const zone = asset.zone || 'Unknown';
   
-  // Determine Y position based on zone (Purdue levels)
   let yBase = 0;
   if (zone.includes('Level 1') || zone.includes('Control Network')) {
-    yBase = 100; // Field devices at top
+    yBase = 100;
   } else if (zone.includes('Level 2') || zone.includes('Cell/Area')) {
-    yBase = 300; // Control level
+    yBase = 300;
   } else if (zone.includes('Level 3') || zone.includes('SCADA') || zone.includes('Site/Area')) {
-    yBase = 500; // Supervisory level
+    yBase = 500;
   } else if (zone.includes('Level 4')) {
-    yBase = 700; // Enterprise level
+    yBase = 700;
   } else if (zone.includes('DMZ')) {
-    yBase = 400; // DMZ between levels
+    yBase = 400;
   } else if (zone.includes('IT')) {
-    yBase = 800; // IT zone at bottom
+    yBase = 800;
   } else {
-    yBase = 900; // Unknown at very bottom
+    yBase = 900;
   }
   
-  // Spread horizontally within zone
   const spacing = 250;
   const totalWidth = (assetsInZone - 1) * spacing;
   const xStart = -totalWidth / 2;
   const x = xStart + (index * spacing);
   
-  // Add some randomness to avoid perfect alignment
   const xJitter = (Math.random() - 0.5) * 50;
   const yJitter = (Math.random() - 0.5) * 30;
   
@@ -64,7 +58,6 @@ const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone:
 };
 
 export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) => {
-  // Group assets by zone for layout
   const assetsByZone = useMemo(() => {
     const groups = new Map<string, NetworkAsset[]>();
     assets.forEach(asset => {
@@ -77,9 +70,8 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
     return groups;
   }, [assets]);
 
-  // Create nodes
-  const initialNodes: Node[] = useMemo(() => {
-    const nodes: Node[] = [];
+  const initialNodes = useMemo(() => {
+    const nodes: any[] = [];
     
     assetsByZone.forEach((zoneAssets) => {
       zoneAssets.forEach((asset, index) => {
@@ -101,12 +93,9 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
     return nodes;
   }, [assets, assetsByZone, onNodeClick]);
 
-  // Create edges based on flows_peers_by_type
-  const initialEdges: Edge[] = useMemo(() => {
-    const edges: Edge[] = [];
+  const initialEdges = useMemo(() => {
+    const edges: any[] = [];
     
-    // For now, we'll create edges to the SCADA server (the central hub)
-    // Since we don't have specific peer MAC addresses, we'll show conceptual connections
     const scadaAsset = assets.find(a => 
       a.device_type_final?.includes('SCADA') || 
       a.device_type_base?.includes('SCADA')
@@ -117,7 +106,6 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
     assets.forEach(asset => {
       if (asset.mac === scadaAsset.mac) return;
       
-      // Check if this asset communicates with SCADA
       const peerTypes = asset.flows_peers_by_type || {};
       const scadaFlows = peerTypes['SCADA / OT Server'] || 0;
       
@@ -146,7 +134,6 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
-  // Stats
   const stats = useMemo(() => {
     const totalAssets = assets.length;
     const highRisk = assets.filter(a => (a.risk_score || 0) >= 40).length;
@@ -170,8 +157,13 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
     };
   }, [assets]);
 
+  const containerStyle = {
+    height: 'calc(100vh - 300px)',
+    minHeight: '600px',
+  };
+
   return (
-    <div className="h-[calc(100vh-300px)] min-h-[600px] border rounded-lg bg-slate-50 relative">
+    <div style={containerStyle} className="border rounded-lg bg-slate-50 relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -197,7 +189,6 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
           maskColor="rgba(0, 0, 0, 0.1)"
         />
         
-        {/* Stats Panel */}
         <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Server className="h-4 w-4" />
@@ -241,7 +232,6 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
           </div>
         </Panel>
 
-        {/* Legend Panel */}
         <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <Shield className="h-4 w-4" />
