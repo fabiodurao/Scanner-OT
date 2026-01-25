@@ -142,16 +142,20 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
           console.log('[PhotoAnalysisJobsContext] Is on target page?', isOnTargetPage);
           
           if (isOnTargetPage) {
-            console.log('[PhotoAnalysisJobsContext] 🔄 ON TARGET PAGE - RELOADING NOW!');
+            console.log('[PhotoAnalysisJobsContext] 🔄 ON TARGET PAGE - DISPATCHING RELOAD EVENT!');
             
             toast.success(
               `Photo analysis complete! ${job.variables_updated || 0} variables updated`,
               { duration: 3000 }
             );
             
+            // Dispatch custom event instead of window.location.reload()
             setTimeout(() => {
-              console.log('[PhotoAnalysisJobsContext] 🔄 Executing reload...');
-              window.location.reload();
+              console.log('[PhotoAnalysisJobsContext] 🔄 Dispatching reload-discovery-data event...');
+              const event = new CustomEvent('reload-discovery-data', {
+                detail: { siteId: job.site_identifier }
+              });
+              window.dispatchEvent(event);
             }, 500);
           } else {
             console.log('[PhotoAnalysisJobsContext] 📍 Different page, showing notification');

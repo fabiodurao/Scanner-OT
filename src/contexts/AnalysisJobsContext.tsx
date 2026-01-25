@@ -141,16 +141,20 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           console.log('[AnalysisJobsContext] Is on target page?', isOnTargetPage);
           
           if (isOnTargetPage) {
-            console.log('[AnalysisJobsContext] 🔄 ON TARGET PAGE - RELOADING NOW!');
+            console.log('[AnalysisJobsContext] 🔄 ON TARGET PAGE - DISPATCHING RELOAD EVENT!');
             
             toast.success(
               `Analysis complete! ${job.suggestions_count || 0} suggestions for ${job.variables_analyzed || 0} variables`,
               { duration: 3000 }
             );
             
+            // Dispatch custom event instead of window.location.reload()
             setTimeout(() => {
-              console.log('[AnalysisJobsContext] 🔄 Executing reload...');
-              window.location.reload();
+              console.log('[AnalysisJobsContext] 🔄 Dispatching reload-discovery-data event...');
+              const event = new CustomEvent('reload-discovery-data', {
+                detail: { siteId: job.site_identifier }
+              });
+              window.dispatchEvent(event);
             }, 500);
           } else {
             console.log('[AnalysisJobsContext] 📍 Different page, showing notification');

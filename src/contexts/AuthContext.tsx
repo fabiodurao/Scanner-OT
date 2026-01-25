@@ -32,24 +32,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
     console.log('Fetching profile for user:', userId);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    
+    // Add timeout to prevent infinite loading
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        console.error('Profile fetch timeout after 10 seconds');
+        resolve(null);
+      }, 10000);
+    });
+    
+    const fetchPromise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error.message, error.code);
+        if (error) {
+          console.error('Error fetching profile:', error.message, error.code);
+          return null;
+        }
+        
+        console.log('Profile fetched successfully:', data);
+        return data as Profile;
+      } catch (err) {
+        console.error('Exception in fetchProfile:', err);
         return null;
       }
-      
-      console.log('Profile fetched successfully:', data);
-      return data as Profile;
-    } catch (err) {
-      console.error('Exception in fetchProfile:', err);
-      return null;
-    }
+    })();
+    
+    // Race between fetch and timeout
+    return Promise.race([fetchPromise, timeoutPromise]);
   };
 
   const refreshProfile = async () => {
@@ -64,16 +78,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initializeAuth = async () => {
       console.log('Initializing auth...');
+      
+      // Add overall timeout for initialization
+      const initTimeout = setTimeout(() => {
+        console.error('Auth initialization timeout after 15 seconds');
+        if (mounted) {
+          setLoading(false);
+        }
+      }, 15000);
+      
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting session:', error);
           if (mounted) setLoading(false);
+          clearTimeout(initTimeout);
           return;
         }
 
-        if (!mounted) return;
+        if (!mounted) {
+          clearTimeout(initTimeout);
+          return;
+        }
 
         console.log('Initial session:', initialSession ? 'exists' : 'null');
 
@@ -85,16 +112,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (mounted) {
             setProfile(profileData);
             setLoading(false);
+            clearTimeout(initTimeout);
           }
         } else {
           if (mounted) {
             setLoading(false);
+            clearTimeout(initTimeout);
           }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
         if (mounted) {
           setLoading(false);
+          clearTimeout(initTimeout);
         }
       }
     };

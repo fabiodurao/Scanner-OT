@@ -70,6 +70,7 @@ const Discovery = () => {
   const loadData = useCallback(async () => {
     if (!siteId) return;
     
+    console.log('[Discovery] Loading data for site:', siteId);
     setLoading(true);
     
     const { data: siteData } = await supabase
@@ -96,12 +97,31 @@ const Discovery = () => {
     const discoveredVars = await getDiscoveredVariables(siteId);
     setDiscoveredVariables(discoveredVars);
     
+    console.log('[Discovery] Data loading complete');
     setLoading(false);
   }, [siteId, getSiteStats, getSiteEquipment, getVariables, getDiscoveredVariables]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Listen for custom reload event from contexts
+  useEffect(() => {
+    const handleReloadData = (event: CustomEvent) => {
+      console.log('[Discovery] 🔄 Received reload-discovery-data event:', event.detail);
+      
+      if (event.detail.siteId === siteId) {
+        console.log('[Discovery] 🔄 Site matches, reloading data...');
+        loadData();
+      }
+    };
+
+    window.addEventListener('reload-discovery-data', handleReloadData as EventListener);
+
+    return () => {
+      window.removeEventListener('reload-discovery-data', handleReloadData as EventListener);
+    };
+  }, [siteId, loadData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
