@@ -6,12 +6,12 @@ import {
   Server, 
   Cpu, 
   Network, 
-  Shield, 
   Globe,
   HardDrive,
   Monitor,
   Box,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const getDeviceIcon = (deviceType: string | null) => {
@@ -84,7 +84,12 @@ export const DeviceNode = memo(({ data }: NodeProps<{ asset: NetworkAsset; onCli
             )} />
           </div>
           {asset.flows_talks_to_internet && (
-            <Globe className="h-3 w-3 text-red-500" title="Internet exposed" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Globe className="h-3 w-3 text-red-500" />
+              </TooltipTrigger>
+              <TooltipContent>Internet exposed</TooltipContent>
+            </Tooltip>
           )}
         </div>
         

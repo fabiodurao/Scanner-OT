@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -81,7 +81,7 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
   const initialNodes: Node[] = useMemo(() => {
     const nodes: Node[] = [];
     
-    assetsByZone.forEach((zoneAssets, zone) => {
+    assetsByZone.forEach((zoneAssets) => {
       zoneAssets.forEach((asset, index) => {
         const position = calculateNodePosition(asset, index, zoneAssets.length);
         
@@ -259,7 +259,7 @@ export const NetworkTopology = ({ assets, onNodeClick }: NetworkTopologyProps) =
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span>Low (<20)</span>
+              <span>Low (below 20)</span>
             </div>
           </div>
           

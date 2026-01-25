@@ -15,8 +15,6 @@ import {
   Shield, 
   Activity,
   Globe,
-  AlertTriangle,
-  CheckCircle,
   Info,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -48,7 +46,6 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
   const ips = asset.ips?.split(';').filter(Boolean) || [];
   const vlans = asset.vlans?.split(';').filter(Boolean) || [];
   const ports = asset.ports?.split(';').filter(Boolean) || [];
-  const protocols = asset.protocols?.split(';').filter(Boolean) || [];
   const otProtocols = asset.ot_protocols_base?.split(';').filter(Boolean) || [];
   
   const firstSeen = asset.flows_first_seen 
