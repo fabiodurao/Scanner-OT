@@ -2,14 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { useNetworkAssets } from '@/hooks/useNetworkAssets';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment, DiscoveredVariable } from '@/types/discovery';
+import { NetworkAsset } from '@/types/network';
 import { Site } from '@/types/upload';
 import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTable';
 import { HistoricalHeatmapTable } from '@/components/variables/HistoricalHeatmapTable';
 import { EquipmentList } from '@/components/discovery/EquipmentList';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
+import { NetworkTopology } from '@/components/network/NetworkTopology';
+import { AssetDetailSheet } from '@/components/network/AssetDetailSheet';
 import { RunAnalysisButton } from '@/components/discovery/RunAnalysisButton';
 import { PhotoAnalysisButton } from '@/components/discovery/PhotoAnalysisButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -31,6 +35,7 @@ import {
   RefreshCcw,
   Settings,
   Grid3x3,
+  Network as NetworkIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -50,6 +55,7 @@ const Discovery = () => {
   
   const { profile } = useAuth();
   const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables, getDiscoveredVariables } = useDiscoveryData();
+  const { assets: networkAssets, loading: networkLoading, refresh: refreshNetwork } = useNetworkAssets(siteId || '');
   
   const [site, setSite] = useState<Site | null>(null);
   const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
@@ -64,6 +70,10 @@ const Discovery = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'variables');
   
   const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
+  
+  // Network topology state
+  const [selectedAsset, setSelectedAsset] = useState<NetworkAsset | null>(null);
+  const [assetSheetOpen, setAssetSheetOpen] = useState(false);
 
   const isAdmin = profile?.is_admin === true;
 
@@ -105,7 +115,6 @@ const Discovery = () => {
     loadData();
   }, [loadData]);
 
-  // Listen for custom reload event from contexts
   useEffect(() => {
     const handleReloadData = (event: CustomEvent) => {
       console.log('[Discovery] 🔄 Received reload-discovery-data event:', event.detail);
@@ -126,7 +135,7 @@ const Discovery = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     setActiveSourceIpFilter(null);
-    await loadData();
+    await Promise.all([loadData(), refreshNetwork()]);
     setRefreshing(false);
   };
 
@@ -196,6 +205,11 @@ const Discovery = () => {
       searchParams.set('tab', value);
     }
     setSearchParams(searchParams, { replace: true });
+  };
+
+  const handleAssetClick = (asset: NetworkAsset) => {
+    setSelectedAsset(asset);
+    setAssetSheetOpen(true);
   };
 
   const uniqueVariableCount = countUniqueVariables(variables);
@@ -355,27 +369,32 @@ const Discovery = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto">
+          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 h-auto">
             <TabsTrigger value="variables" className="text-xs sm:text-sm py-2 sm:py-1.5">
               <Variable className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Discovered Variables ({uniqueVariableCount})</span>
-              <span className="sm:hidden">Variables</span>
+              <span className="hidden sm:inline">Variables ({uniqueVariableCount})</span>
+              <span className="sm:hidden">Vars</span>
             </TabsTrigger>
             <TabsTrigger value="historical" className="text-xs sm:text-sm py-2 sm:py-1.5">
               <Grid3x3 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Historical Analysis</span>
-              <span className="sm:hidden">Analysis</span>
+              <span className="hidden sm:inline">Historical</span>
+              <span className="sm:hidden">Hist</span>
             </TabsTrigger>
             <TabsTrigger value="equipment" className="text-xs sm:text-sm py-2 sm:py-1.5">
               <Server className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Equipment ({equipment.length})</span>
-              <span className="sm:hidden">Equipment</span>
+              <span className="sm:hidden">Equip</span>
+            </TabsTrigger>
+            <TabsTrigger value="network" className="text-xs sm:text-sm py-2 sm:py-1.5">
+              <NetworkIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Network ({networkAssets.length})</span>
+              <span className="sm:hidden">Net</span>
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="settings" className="text-xs sm:text-sm py-2 sm:py-1.5">
                 <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Settings</span>
-                <span className="sm:hidden">Settings</span>
+                <span className="sm:hidden">Set</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -495,6 +514,54 @@ const Discovery = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="network">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <NetworkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                      Network Topology
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      IT/OT network visualization from traffic analysis ({networkAssets.length} assets discovered)
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={refreshNetwork} 
+                    disabled={networkLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${networkLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {networkLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : networkAssets.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
+                    <NetworkIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-sm sm:text-base">No network assets discovered yet</p>
+                    <p className="text-xs sm:text-sm mt-2">
+                      Process a PCAP file with IT network analysis to see the topology
+                    </p>
+                  </div>
+                ) : (
+                  <NetworkTopology 
+                    assets={networkAssets} 
+                    onNodeClick={handleAssetClick}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {isAdmin && (
             <TabsContent value="settings">
               <SiteSettingsTab 
@@ -505,6 +572,13 @@ const Discovery = () => {
             </TabsContent>
           )}
         </Tabs>
+
+        {/* Asset Detail Sheet */}
+        <AssetDetailSheet
+          asset={selectedAsset}
+          open={assetSheetOpen}
+          onOpenChange={setAssetSheetOpen}
+        />
       </div>
     </MainLayout>
   );
