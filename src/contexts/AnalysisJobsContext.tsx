@@ -93,30 +93,35 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           table: 'analysis_jobs',
         },
         async (payload) => {
-          console.log('[AnalysisJobsContext] Received event:', payload.eventType, payload);
+          console.log('[AnalysisJobsContext] ========================================');
+          console.log('[AnalysisJobsContext] Received event:', payload.eventType);
+          console.log('[AnalysisJobsContext] Payload:', JSON.stringify(payload, null, 2));
           
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActiveAnalysisJob;
             if (newJob.status === 'processing') {
-              console.log('[AnalysisJobsContext] New job started:', newJob.id);
+              console.log('[AnalysisJobsContext] ✅ New job started:', newJob.id);
               setActiveJobs(prev => [newJob, ...prev]);
               previousJobsRef.current.add(newJob.id);
+              console.log('[AnalysisJobsContext] Added to tracking. Total tracked:', previousJobsRef.current.size);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActiveAnalysisJob;
             
-            console.log('[AnalysisJobsContext] Job updated:', {
-              id: updatedJob.id,
-              status: updatedJob.status,
-              wasTracking: previousJobsRef.current.has(updatedJob.id),
-            });
+            console.log('[AnalysisJobsContext] UPDATE event received:');
+            console.log('[AnalysisJobsContext]   - Job ID:', updatedJob.id);
+            console.log('[AnalysisJobsContext]   - Status:', updatedJob.status);
+            console.log('[AnalysisJobsContext]   - Was tracking?', previousJobsRef.current.has(updatedJob.id));
+            console.log('[AnalysisJobsContext]   - Current location:', location.pathname);
+            console.log('[AnalysisJobsContext]   - Site identifier:', updatedJob.site_identifier);
             
             // Check if job just completed
             if (
               (updatedJob.status === 'completed' || updatedJob.status === 'error') &&
               previousJobsRef.current.has(updatedJob.id)
             ) {
-              console.log('[AnalysisJobsContext] ✅ Job completed! Status:', updatedJob.status);
+              console.log('[AnalysisJobsContext] 🎯 JOB COMPLETION DETECTED!');
+              console.log('[AnalysisJobsContext] Status:', updatedJob.status);
               
               // Job completed! Show notification
               previousJobsRef.current.delete(updatedJob.id);
@@ -131,30 +136,35 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
               const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
               
               if (updatedJob.status === 'completed') {
-                console.log('[AnalysisJobsContext] 🎉 Analysis completed successfully!');
+                console.log('[AnalysisJobsContext] ✅ SUCCESS - Analysis completed!');
                 console.log('[AnalysisJobsContext] Site:', siteName);
                 console.log('[AnalysisJobsContext] Variables analyzed:', updatedJob.variables_analyzed);
                 console.log('[AnalysisJobsContext] Suggestions:', updatedJob.suggestions_count);
                 
-                const targetUrl = `/discovery/${updatedJob.site_identifier}?tab=historical`;
-                console.log('[AnalysisJobsContext] Target URL:', targetUrl);
-                console.log('[AnalysisJobsContext] Current location:', location.pathname);
+                const targetPath = `/discovery/${updatedJob.site_identifier}`;
+                const isOnTargetPage = location.pathname === targetPath;
                 
-                // Check if we're already on the target page
-                const isOnTargetPage = location.pathname === `/discovery/${updatedJob.site_identifier}`;
+                console.log('[AnalysisJobsContext] Target path:', targetPath);
+                console.log('[AnalysisJobsContext] Current path:', location.pathname);
+                console.log('[AnalysisJobsContext] Is on target page?', isOnTargetPage);
                 
                 if (isOnTargetPage) {
-                  console.log('[AnalysisJobsContext] 🔄 Already on target page - forcing reload');
+                  console.log('[AnalysisJobsContext] 🔄 RELOADING PAGE NOW!');
                   
                   toast.success(
                     `Analysis complete! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
                     { duration: 5000 }
                   );
                   
-                  // Force page reload to refresh data
-                  window.location.reload();
+                  // Small delay to ensure toast is visible, then reload
+                  setTimeout(() => {
+                    console.log('[AnalysisJobsContext] 🔄 Executing window.location.reload()...');
+                    window.location.reload();
+                  }, 500);
                 } else {
-                  console.log('[AnalysisJobsContext] 🚀 Navigating to target page');
+                  console.log('[AnalysisJobsContext] 🚀 Different page - will navigate');
+                  
+                  const targetUrl = `${targetPath}?tab=historical`;
                   
                   toast.success(
                     `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
@@ -163,7 +173,7 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
                       action: {
                         label: 'View Results',
                         onClick: () => {
-                          console.log('[AnalysisJobsContext] 🖱️ User clicked View Results button');
+                          console.log('[AnalysisJobsContext] 🖱️ User clicked View Results');
                           navigate(targetUrl, { replace: true });
                           setTimeout(() => window.location.reload(), 100);
                         },
@@ -172,11 +182,13 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
                   );
                   
                   // Auto-navigate after 3 seconds
-                  console.log('[AnalysisJobsContext] ⏱️ Starting 3-second countdown for auto-navigation...');
                   setTimeout(() => {
-                    console.log('[AnalysisJobsContext] 🚀 Auto-navigating NOW to:', targetUrl);
+                    console.log('[AnalysisJobsContext] 🚀 Auto-navigating to:', targetUrl);
                     navigate(targetUrl, { replace: true });
-                    setTimeout(() => window.location.reload(), 100);
+                    setTimeout(() => {
+                      console.log('[AnalysisJobsContext] 🔄 Reloading after navigation...');
+                      window.location.reload();
+                    }, 100);
                   }, 3000);
                 }
                 
@@ -188,18 +200,23 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
               // Remove from active jobs
               setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
             } else if (updatedJob.status === 'processing') {
+              console.log('[AnalysisJobsContext] Still processing, updating job state');
               // Update existing job
               setActiveJobs(prev => prev.map(job => 
                 job.id === updatedJob.id ? updatedJob : job
               ));
             } else {
+              console.log('[AnalysisJobsContext] Job finished but was not tracked, removing');
               // Remove completed/error jobs
               setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
             }
           } else if (payload.eventType === 'DELETE') {
+            console.log('[AnalysisJobsContext] DELETE event for job:', payload.old.id);
             setActiveJobs(prev => prev.filter(job => job.id !== payload.old.id));
             previousJobsRef.current.delete(payload.old.id);
           }
+          
+          console.log('[AnalysisJobsContext] ========================================');
         }
       )
       .subscribe();
