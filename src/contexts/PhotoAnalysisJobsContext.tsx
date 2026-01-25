@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export interface ActivePhotoJob {
@@ -23,6 +24,8 @@ const PhotoAnalysisJobsContext = createContext<PhotoAnalysisJobsContextType | un
 
 export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeJobs, setActiveJobs] = useState<ActivePhotoJob[]>([]);
   const [loading, setLoading] = useState(true);
   const previousJobsRef = useRef<Set<string>>(new Set());
@@ -135,27 +138,47 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
                 
                 const targetUrl = `/discovery/${updatedJob.site_identifier}?tab=historical`;
                 console.log('[PhotoAnalysisJobsContext] Target URL:', targetUrl);
+                console.log('[PhotoAnalysisJobsContext] Current location:', location.pathname);
                 
-                toast.success(
-                  `Photo analysis complete for ${siteName}! ${updatedJob.variables_updated || 0} variables updated`,
-                  {
-                    duration: 10000,
-                    action: {
-                      label: 'View Results',
-                      onClick: () => {
-                        console.log('[PhotoAnalysisJobsContext] 🖱️ User clicked View Results');
-                        window.location.href = targetUrl;
+                // Check if we're already on the target page
+                const isOnTargetPage = location.pathname === `/discovery/${updatedJob.site_identifier}`;
+                
+                if (isOnTargetPage) {
+                  console.log('[PhotoAnalysisJobsContext] 🔄 Already on target page - forcing reload');
+                  
+                  toast.success(
+                    `Photo analysis complete! ${updatedJob.variables_updated || 0} variables updated`,
+                    { duration: 5000 }
+                  );
+                  
+                  // Force page reload to refresh data
+                  window.location.reload();
+                } else {
+                  console.log('[PhotoAnalysisJobsContext] 🚀 Navigating to target page');
+                  
+                  toast.success(
+                    `Photo analysis complete for ${siteName}! ${updatedJob.variables_updated || 0} variables updated`,
+                    {
+                      duration: 10000,
+                      action: {
+                        label: 'View Results',
+                        onClick: () => {
+                          console.log('[PhotoAnalysisJobsContext] 🖱️ User clicked View Results');
+                          navigate(targetUrl, { replace: true });
+                          setTimeout(() => window.location.reload(), 100);
+                        },
                       },
-                    },
-                  }
-                );
-                
-                // Auto-navigate after 3 seconds
-                console.log('[PhotoAnalysisJobsContext] ⏱️ Starting 3-second countdown for auto-navigation...');
-                setTimeout(() => {
-                  console.log('[PhotoAnalysisJobsContext] 🚀 Auto-navigating NOW to:', targetUrl);
-                  window.location.href = targetUrl;
-                }, 3000);
+                    }
+                  );
+                  
+                  // Auto-navigate after 3 seconds
+                  console.log('[PhotoAnalysisJobsContext] ⏱️ Starting 3-second countdown for auto-navigation...');
+                  setTimeout(() => {
+                    console.log('[PhotoAnalysisJobsContext] 🚀 Auto-navigating NOW to:', targetUrl);
+                    navigate(targetUrl, { replace: true });
+                    setTimeout(() => window.location.reload(), 100);
+                  }, 3000);
+                }
                 
               } else {
                 console.log('[PhotoAnalysisJobsContext] ❌ Photo analysis failed');
@@ -184,7 +207,7 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, navigate, location.pathname]);
 
   return (
     <PhotoAnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>
