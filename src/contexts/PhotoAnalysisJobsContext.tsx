@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export interface ActivePhotoJob {
@@ -24,11 +24,11 @@ const PhotoAnalysisJobsContext = createContext<PhotoAnalysisJobsContextType | un
 
 export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const [activeJobs, setActiveJobs] = useState<ActivePhotoJob[]>([]);
   const [loading, setLoading] = useState(true);
   const previousJobsRef = useRef<Set<string>>(new Set());
+  const lastCheckRef = useRef<Map<string, string>>(new Map());
 
   const fetchActiveJobs = useCallback(async () => {
     if (!user) {
@@ -70,22 +70,114 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
     setLoading(false);
   }, [user]);
 
-  // Poll every 5 seconds
+  // Check for completed jobs by polling
+  const checkForCompletedJobs = useCallback(async () => {
+    if (!user || previousJobsRef.current.size === 0) return;
+
+    console.log('[PhotoAnalysisJobsContext] 🔍 Checking for completed jobs...');
+    console.log('[PhotoAnalysisJobsContext] Tracking:', Array.from(previousJobsRef.current));
+
+    // Check all tracked jobs
+    const trackedIds = Array.from(previousJobsRef.current);
+    
+    const { data: jobs, error } = await supabase
+      .from('photo_analysis_jobs')
+      .select('id, site_identifier, status, variables_identified, variables_updated')
+      .in('id', trackedIds);
+
+    if (error || !jobs) {
+      console.error('[PhotoAnalysisJobsContext] Error checking jobs:', error);
+      return;
+    }
+
+    console.log('[PhotoAnalysisJobsContext] Found jobs:', jobs.length);
+
+    for (const job of jobs) {
+      const lastStatus = lastCheckRef.current.get(job.id);
+      
+      console.log('[PhotoAnalysisJobsContext] Job', job.id, '- Status:', job.status, '(was:', lastStatus, ')');
+      
+      // Detect status change from processing to completed/error
+      if (lastStatus === 'processing' && (job.status === 'completed' || job.status === 'error')) {
+        console.log('[PhotoAnalysisJobsContext] 🎯 COMPLETION DETECTED via polling!');
+        console.log('[PhotoAnalysisJobsContext] Job ID:', job.id);
+        console.log('[PhotoAnalysisJobsContext] New status:', job.status);
+        
+        previousJobsRef.current.delete(job.id);
+        lastCheckRef.current.delete(job.id);
+        
+        // Fetch site name
+        const { data: site } = await supabase
+          .from('sites')
+          .select('name')
+          .eq('unique_id', job.site_identifier)
+          .single();
+        
+        const siteName = site?.name || `Site ${job.site_identifier.slice(0, 8)}...`;
+        
+        if (job.status === 'completed') {
+          console.log('[PhotoAnalysisJobsContext] ✅ SUCCESS!');
+          
+          const targetPath = `/discovery/${job.site_identifier}`;
+          const isOnTargetPage = location.pathname === targetPath;
+          
+          console.log('[PhotoAnalysisJobsContext] Current path:', location.pathname);
+          console.log('[PhotoAnalysisJobsContext] Target path:', targetPath);
+          console.log('[PhotoAnalysisJobsContext] Is on target page?', isOnTargetPage);
+          
+          if (isOnTargetPage) {
+            console.log('[PhotoAnalysisJobsContext] 🔄 ON TARGET PAGE - RELOADING NOW!');
+            
+            toast.success(
+              `Photo analysis complete! ${job.variables_updated || 0} variables updated`,
+              { duration: 3000 }
+            );
+            
+            setTimeout(() => {
+              console.log('[PhotoAnalysisJobsContext] 🔄 Executing reload...');
+              window.location.reload();
+            }, 500);
+          } else {
+            console.log('[PhotoAnalysisJobsContext] 📍 Different page, showing notification');
+            toast.success(
+              `Photo analysis complete for ${siteName}! Click to view results.`,
+              { duration: 10000 }
+            );
+          }
+        } else {
+          console.log('[PhotoAnalysisJobsContext] ❌ Job failed');
+          toast.error(`Photo analysis failed for ${siteName}`);
+        }
+      }
+      
+      // Update last known status
+      lastCheckRef.current.set(job.id, job.status);
+    }
+  }, [user, location.pathname]);
+
+  // Poll every 3 seconds for active jobs AND check for completion
   useEffect(() => {
     if (!user) return;
 
     fetchActiveJobs();
-    const interval = setInterval(fetchActiveJobs, 5000);
+    checkForCompletedJobs();
+    
+    const interval = setInterval(() => {
+      fetchActiveJobs();
+      checkForCompletedJobs();
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [user, fetchActiveJobs]);
+  }, [user, fetchActiveJobs, checkForCompletedJobs]);
 
-  // Real-time subscription with completion detection
+  // Real-time subscription (backup method)
   useEffect(() => {
     if (!user) return;
 
+    console.log('[PhotoAnalysisJobsContext] 📡 Setting up real-time subscription...');
+
     const channel = supabase
-      .channel('photo_jobs_sidebar')
+      .channel('photo_jobs_realtime')
       .on(
         'postgres_changes',
         {
@@ -94,137 +186,35 @@ export const PhotoAnalysisJobsProvider = ({ children }: { children: ReactNode })
           table: 'photo_analysis_jobs',
         },
         async (payload) => {
-          console.log('[PhotoAnalysisJobsContext] ========================================');
-          console.log('[PhotoAnalysisJobsContext] Received event:', payload.eventType);
-          console.log('[PhotoAnalysisJobsContext] Payload:', JSON.stringify(payload, null, 2));
+          console.log('[PhotoAnalysisJobsContext] 📨 Real-time event:', payload.eventType);
+          console.log('[PhotoAnalysisJobsContext] Payload:', payload);
           
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActivePhotoJob;
             if (newJob.status === 'processing') {
-              console.log('[PhotoAnalysisJobsContext] ✅ New photo job started:', newJob.id);
-              setActiveJobs(prev => [newJob, ...prev]);
+              console.log('[PhotoAnalysisJobsContext] ➕ New job via real-time:', newJob.id);
               previousJobsRef.current.add(newJob.id);
-              console.log('[PhotoAnalysisJobsContext] Added to tracking. Total tracked:', previousJobsRef.current.size);
+              lastCheckRef.current.set(newJob.id, 'processing');
+              setActiveJobs(prev => [newJob, ...prev]);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActivePhotoJob;
+            console.log('[PhotoAnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id, updatedJob.status);
             
-            console.log('[PhotoAnalysisJobsContext] UPDATE event received:');
-            console.log('[PhotoAnalysisJobsContext]   - Job ID:', updatedJob.id);
-            console.log('[PhotoAnalysisJobsContext]   - Status:', updatedJob.status);
-            console.log('[PhotoAnalysisJobsContext]   - Was tracking?', previousJobsRef.current.has(updatedJob.id));
-            console.log('[PhotoAnalysisJobsContext]   - Current location:', location.pathname);
-            console.log('[PhotoAnalysisJobsContext]   - Site identifier:', updatedJob.site_identifier);
-            
-            // Check if job just completed
-            if (
-              (updatedJob.status === 'completed' || updatedJob.status === 'error') &&
-              previousJobsRef.current.has(updatedJob.id)
-            ) {
-              console.log('[PhotoAnalysisJobsContext] 🎯 JOB COMPLETION DETECTED!');
-              console.log('[PhotoAnalysisJobsContext] Status:', updatedJob.status);
-              
-              previousJobsRef.current.delete(updatedJob.id);
-              
-              // Fetch site name
-              const { data: site } = await supabase
-                .from('sites')
-                .select('name')
-                .eq('unique_id', updatedJob.site_identifier)
-                .single();
-              
-              const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
-              
-              if (updatedJob.status === 'completed') {
-                console.log('[PhotoAnalysisJobsContext] ✅ SUCCESS - Photo analysis completed!');
-                console.log('[PhotoAnalysisJobsContext] Site:', siteName);
-                console.log('[PhotoAnalysisJobsContext] Variables identified:', updatedJob.variables_identified);
-                console.log('[PhotoAnalysisJobsContext] Variables updated:', updatedJob.variables_updated);
-                
-                const targetPath = `/discovery/${updatedJob.site_identifier}`;
-                const isOnTargetPage = location.pathname === targetPath;
-                
-                console.log('[PhotoAnalysisJobsContext] Target path:', targetPath);
-                console.log('[PhotoAnalysisJobsContext] Current path:', location.pathname);
-                console.log('[PhotoAnalysisJobsContext] Is on target page?', isOnTargetPage);
-                
-                if (isOnTargetPage) {
-                  console.log('[PhotoAnalysisJobsContext] 🔄 RELOADING PAGE NOW!');
-                  
-                  toast.success(
-                    `Photo analysis complete! ${updatedJob.variables_updated || 0} variables updated`,
-                    { duration: 5000 }
-                  );
-                  
-                  // Small delay to ensure toast is visible, then reload
-                  setTimeout(() => {
-                    console.log('[PhotoAnalysisJobsContext] 🔄 Executing window.location.reload()...');
-                    window.location.reload();
-                  }, 500);
-                } else {
-                  console.log('[PhotoAnalysisJobsContext] 🚀 Different page - will navigate');
-                  
-                  const targetUrl = `${targetPath}?tab=historical`;
-                  
-                  toast.success(
-                    `Photo analysis complete for ${siteName}! ${updatedJob.variables_updated || 0} variables updated`,
-                    {
-                      duration: 10000,
-                      action: {
-                        label: 'View Results',
-                        onClick: () => {
-                          console.log('[PhotoAnalysisJobsContext] 🖱️ User clicked View Results');
-                          navigate(targetUrl, { replace: true });
-                          setTimeout(() => window.location.reload(), 100);
-                        },
-                      },
-                    }
-                  );
-                  
-                  // Auto-navigate after 3 seconds
-                  setTimeout(() => {
-                    console.log('[PhotoAnalysisJobsContext] 🚀 Auto-navigating to:', targetUrl);
-                    navigate(targetUrl, { replace: true });
-                    setTimeout(() => {
-                      console.log('[PhotoAnalysisJobsContext] 🔄 Reloading after navigation...');
-                      window.location.reload();
-                    }, 100);
-                  }, 3000);
-                }
-                
-              } else {
-                console.log('[PhotoAnalysisJobsContext] ❌ Photo analysis failed');
-                toast.error(`Photo analysis failed for ${siteName}`);
-              }
-              
-              // Remove from active jobs
-              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
-            } else if (updatedJob.status === 'processing') {
-              console.log('[PhotoAnalysisJobsContext] Still processing, updating job state');
-              // Update existing job
-              setActiveJobs(prev => prev.map(job => 
-                job.id === updatedJob.id ? updatedJob : job
-              ));
-            } else {
-              console.log('[PhotoAnalysisJobsContext] Job finished but was not tracked, removing');
-              // Remove completed/error jobs
-              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            console.log('[PhotoAnalysisJobsContext] DELETE event for job:', payload.old.id);
-            setActiveJobs(prev => prev.filter(job => job.id !== payload.old.id));
-            previousJobsRef.current.delete(payload.old.id);
+            // Trigger completion check
+            checkForCompletedJobs();
           }
-          
-          console.log('[PhotoAnalysisJobsContext] ========================================');
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[PhotoAnalysisJobsContext] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[PhotoAnalysisJobsContext] 🔌 Unsubscribing from real-time...');
       supabase.removeChannel(channel);
     };
-  }, [user, navigate, location.pathname]);
+  }, [user, checkForCompletedJobs]);
 
   return (
     <PhotoAnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>

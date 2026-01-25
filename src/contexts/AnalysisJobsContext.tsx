@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export interface ActiveAnalysisJob {
@@ -24,11 +24,11 @@ const AnalysisJobsContext = createContext<AnalysisJobsContextType | undefined>(u
 
 export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const [activeJobs, setActiveJobs] = useState<ActiveAnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
   const previousJobsRef = useRef<Set<string>>(new Set());
+  const lastCheckRef = useRef<Map<string, string>>(new Map());
 
   const fetchActiveJobs = useCallback(async () => {
     if (!user) {
@@ -69,22 +69,114 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, [user]);
 
-  // Poll every 5 seconds for active jobs
+  // Check for completed jobs by polling
+  const checkForCompletedJobs = useCallback(async () => {
+    if (!user || previousJobsRef.current.size === 0) return;
+
+    console.log('[AnalysisJobsContext] 🔍 Checking for completed jobs...');
+    console.log('[AnalysisJobsContext] Tracking:', Array.from(previousJobsRef.current));
+
+    // Check all tracked jobs
+    const trackedIds = Array.from(previousJobsRef.current);
+    
+    const { data: jobs, error } = await supabase
+      .from('analysis_jobs')
+      .select('id, site_identifier, status, variables_analyzed, suggestions_count')
+      .in('id', trackedIds);
+
+    if (error || !jobs) {
+      console.error('[AnalysisJobsContext] Error checking jobs:', error);
+      return;
+    }
+
+    console.log('[AnalysisJobsContext] Found jobs:', jobs.length);
+
+    for (const job of jobs) {
+      const lastStatus = lastCheckRef.current.get(job.id);
+      
+      console.log('[AnalysisJobsContext] Job', job.id, '- Status:', job.status, '(was:', lastStatus, ')');
+      
+      // Detect status change from processing to completed/error
+      if (lastStatus === 'processing' && (job.status === 'completed' || job.status === 'error')) {
+        console.log('[AnalysisJobsContext] 🎯 COMPLETION DETECTED via polling!');
+        console.log('[AnalysisJobsContext] Job ID:', job.id);
+        console.log('[AnalysisJobsContext] New status:', job.status);
+        
+        previousJobsRef.current.delete(job.id);
+        lastCheckRef.current.delete(job.id);
+        
+        // Fetch site name
+        const { data: site } = await supabase
+          .from('sites')
+          .select('name')
+          .eq('unique_id', job.site_identifier)
+          .single();
+        
+        const siteName = site?.name || `Site ${job.site_identifier.slice(0, 8)}...`;
+        
+        if (job.status === 'completed') {
+          console.log('[AnalysisJobsContext] ✅ SUCCESS!');
+          
+          const targetPath = `/discovery/${job.site_identifier}`;
+          const isOnTargetPage = location.pathname === targetPath;
+          
+          console.log('[AnalysisJobsContext] Current path:', location.pathname);
+          console.log('[AnalysisJobsContext] Target path:', targetPath);
+          console.log('[AnalysisJobsContext] Is on target page?', isOnTargetPage);
+          
+          if (isOnTargetPage) {
+            console.log('[AnalysisJobsContext] 🔄 ON TARGET PAGE - RELOADING NOW!');
+            
+            toast.success(
+              `Analysis complete! ${job.suggestions_count || 0} suggestions for ${job.variables_analyzed || 0} variables`,
+              { duration: 3000 }
+            );
+            
+            setTimeout(() => {
+              console.log('[AnalysisJobsContext] 🔄 Executing reload...');
+              window.location.reload();
+            }, 500);
+          } else {
+            console.log('[AnalysisJobsContext] 📍 Different page, showing notification');
+            toast.success(
+              `Analysis complete for ${siteName}! Click to view results.`,
+              { duration: 10000 }
+            );
+          }
+        } else {
+          console.log('[AnalysisJobsContext] ❌ Job failed');
+          toast.error(`Analysis failed for ${siteName}`);
+        }
+      }
+      
+      // Update last known status
+      lastCheckRef.current.set(job.id, job.status);
+    }
+  }, [user, location.pathname]);
+
+  // Poll every 3 seconds for active jobs AND check for completion
   useEffect(() => {
     if (!user) return;
 
     fetchActiveJobs();
-    const interval = setInterval(fetchActiveJobs, 5000);
+    checkForCompletedJobs();
+    
+    const interval = setInterval(() => {
+      fetchActiveJobs();
+      checkForCompletedJobs();
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [user, fetchActiveJobs]);
+  }, [user, fetchActiveJobs, checkForCompletedJobs]);
 
-  // Real-time subscription with completion detection
+  // Real-time subscription (backup method)
   useEffect(() => {
     if (!user) return;
 
+    console.log('[AnalysisJobsContext] 📡 Setting up real-time subscription...');
+
     const channel = supabase
-      .channel('analysis_jobs_sidebar')
+      .channel('analysis_jobs_realtime')
       .on(
         'postgres_changes',
         {
@@ -93,138 +185,35 @@ export const AnalysisJobsProvider = ({ children }: { children: ReactNode }) => {
           table: 'analysis_jobs',
         },
         async (payload) => {
-          console.log('[AnalysisJobsContext] ========================================');
-          console.log('[AnalysisJobsContext] Received event:', payload.eventType);
-          console.log('[AnalysisJobsContext] Payload:', JSON.stringify(payload, null, 2));
+          console.log('[AnalysisJobsContext] 📨 Real-time event:', payload.eventType);
+          console.log('[AnalysisJobsContext] Payload:', payload);
           
           if (payload.eventType === 'INSERT') {
             const newJob = payload.new as ActiveAnalysisJob;
             if (newJob.status === 'processing') {
-              console.log('[AnalysisJobsContext] ✅ New job started:', newJob.id);
-              setActiveJobs(prev => [newJob, ...prev]);
+              console.log('[AnalysisJobsContext] ➕ New job via real-time:', newJob.id);
               previousJobsRef.current.add(newJob.id);
-              console.log('[AnalysisJobsContext] Added to tracking. Total tracked:', previousJobsRef.current.size);
+              lastCheckRef.current.set(newJob.id, 'processing');
+              setActiveJobs(prev => [newJob, ...prev]);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedJob = payload.new as ActiveAnalysisJob;
+            console.log('[AnalysisJobsContext] 🔄 Update via real-time:', updatedJob.id, updatedJob.status);
             
-            console.log('[AnalysisJobsContext] UPDATE event received:');
-            console.log('[AnalysisJobsContext]   - Job ID:', updatedJob.id);
-            console.log('[AnalysisJobsContext]   - Status:', updatedJob.status);
-            console.log('[AnalysisJobsContext]   - Was tracking?', previousJobsRef.current.has(updatedJob.id));
-            console.log('[AnalysisJobsContext]   - Current location:', location.pathname);
-            console.log('[AnalysisJobsContext]   - Site identifier:', updatedJob.site_identifier);
-            
-            // Check if job just completed
-            if (
-              (updatedJob.status === 'completed' || updatedJob.status === 'error') &&
-              previousJobsRef.current.has(updatedJob.id)
-            ) {
-              console.log('[AnalysisJobsContext] 🎯 JOB COMPLETION DETECTED!');
-              console.log('[AnalysisJobsContext] Status:', updatedJob.status);
-              
-              // Job completed! Show notification
-              previousJobsRef.current.delete(updatedJob.id);
-              
-              // Fetch site name for notification
-              const { data: site } = await supabase
-                .from('sites')
-                .select('name')
-                .eq('unique_id', updatedJob.site_identifier)
-                .single();
-              
-              const siteName = site?.name || `Site ${updatedJob.site_identifier.slice(0, 8)}...`;
-              
-              if (updatedJob.status === 'completed') {
-                console.log('[AnalysisJobsContext] ✅ SUCCESS - Analysis completed!');
-                console.log('[AnalysisJobsContext] Site:', siteName);
-                console.log('[AnalysisJobsContext] Variables analyzed:', updatedJob.variables_analyzed);
-                console.log('[AnalysisJobsContext] Suggestions:', updatedJob.suggestions_count);
-                
-                const targetPath = `/discovery/${updatedJob.site_identifier}`;
-                const isOnTargetPage = location.pathname === targetPath;
-                
-                console.log('[AnalysisJobsContext] Target path:', targetPath);
-                console.log('[AnalysisJobsContext] Current path:', location.pathname);
-                console.log('[AnalysisJobsContext] Is on target page?', isOnTargetPage);
-                
-                if (isOnTargetPage) {
-                  console.log('[AnalysisJobsContext] 🔄 RELOADING PAGE NOW!');
-                  
-                  toast.success(
-                    `Analysis complete! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
-                    { duration: 5000 }
-                  );
-                  
-                  // Small delay to ensure toast is visible, then reload
-                  setTimeout(() => {
-                    console.log('[AnalysisJobsContext] 🔄 Executing window.location.reload()...');
-                    window.location.reload();
-                  }, 500);
-                } else {
-                  console.log('[AnalysisJobsContext] 🚀 Different page - will navigate');
-                  
-                  const targetUrl = `${targetPath}?tab=historical`;
-                  
-                  toast.success(
-                    `Analysis complete for ${siteName}! ${updatedJob.suggestions_count || 0} suggestions for ${updatedJob.variables_analyzed || 0} variables`,
-                    {
-                      duration: 10000,
-                      action: {
-                        label: 'View Results',
-                        onClick: () => {
-                          console.log('[AnalysisJobsContext] 🖱️ User clicked View Results');
-                          navigate(targetUrl, { replace: true });
-                          setTimeout(() => window.location.reload(), 100);
-                        },
-                      },
-                    }
-                  );
-                  
-                  // Auto-navigate after 3 seconds
-                  setTimeout(() => {
-                    console.log('[AnalysisJobsContext] 🚀 Auto-navigating to:', targetUrl);
-                    navigate(targetUrl, { replace: true });
-                    setTimeout(() => {
-                      console.log('[AnalysisJobsContext] 🔄 Reloading after navigation...');
-                      window.location.reload();
-                    }, 100);
-                  }, 3000);
-                }
-                
-              } else {
-                console.log('[AnalysisJobsContext] ❌ Analysis failed');
-                toast.error(`Analysis failed for ${siteName}`);
-              }
-              
-              // Remove from active jobs
-              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
-            } else if (updatedJob.status === 'processing') {
-              console.log('[AnalysisJobsContext] Still processing, updating job state');
-              // Update existing job
-              setActiveJobs(prev => prev.map(job => 
-                job.id === updatedJob.id ? updatedJob : job
-              ));
-            } else {
-              console.log('[AnalysisJobsContext] Job finished but was not tracked, removing');
-              // Remove completed/error jobs
-              setActiveJobs(prev => prev.filter(job => job.id !== updatedJob.id));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            console.log('[AnalysisJobsContext] DELETE event for job:', payload.old.id);
-            setActiveJobs(prev => prev.filter(job => job.id !== payload.old.id));
-            previousJobsRef.current.delete(payload.old.id);
+            // Trigger completion check
+            checkForCompletedJobs();
           }
-          
-          console.log('[AnalysisJobsContext] ========================================');
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[AnalysisJobsContext] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[AnalysisJobsContext] 🔌 Unsubscribing from real-time...');
       supabase.removeChannel(channel);
     };
-  }, [user, navigate, location.pathname]);
+  }, [user, checkForCompletedJobs]);
 
   return (
     <AnalysisJobsContext.Provider value={{ activeJobs, loading, refreshJobs: fetchActiveJobs }}>
