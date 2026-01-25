@@ -23,37 +23,51 @@ const nodeTypes = {
   device: DeviceNode,
 };
 
+// Improved layout algorithm - vertical zones with better spacing
 const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone: number) => {
   const zone = asset.zone || 'Unknown';
   
+  // Determine Y position based on zone (Purdue levels) - top to bottom
   let yBase = 0;
-  if (zone.includes('Level 1') || zone.includes('Control Network')) {
-    yBase = 100;
-  } else if (zone.includes('Level 2') || zone.includes('Cell/Area')) {
-    yBase = 300;
-  } else if (zone.includes('Level 3') || zone.includes('SCADA') || zone.includes('Site/Area')) {
-    yBase = 500;
-  } else if (zone.includes('Level 4')) {
-    yBase = 700;
+  
+  if (zone.includes('Level 4') || zone.includes('Enterprise')) {
+    yBase = 50;
+  } else if (zone.includes('Level 3') || zone.includes('SCADA') || zone.includes('Site')) {
+    yBase = 250;
   } else if (zone.includes('DMZ')) {
-    yBase = 400;
+    yBase = 450;
+  } else if (zone.includes('Level 2') || zone.includes('Cell') || zone.includes('Area')) {
+    yBase = 650;
+  } else if (zone.includes('Level 1') || zone.includes('Control Network') || zone.includes('Process')) {
+    yBase = 850;
   } else if (zone.includes('IT')) {
-    yBase = 800;
+    yBase = 1050;
   } else {
-    yBase = 900;
+    yBase = 1250;
   }
   
-  const spacing = 250;
-  const totalWidth = (assetsInZone - 1) * spacing;
-  const xStart = -totalWidth / 2;
-  const x = xStart + (index * spacing);
+  // Calculate horizontal position - grid layout within zone
+  const columns = Math.ceil(Math.sqrt(assetsInZone)); // Square-ish grid
+  const row = Math.floor(index / columns);
+  const col = index % columns;
   
-  const xJitter = (Math.random() - 0.5) * 50;
-  const yJitter = (Math.random() - 0.5) * 30;
+  const horizontalSpacing = 280;
+  const verticalSpacing = 150;
+  
+  // Center the grid
+  const totalWidth = (columns - 1) * horizontalSpacing;
+  const xStart = -totalWidth / 2;
+  
+  const x = xStart + (col * horizontalSpacing);
+  const y = yBase + (row * verticalSpacing);
+  
+  // Small random offset for visual variety
+  const xJitter = (Math.random() - 0.5) * 20;
+  const yJitter = (Math.random() - 0.5) * 20;
   
   return {
     x: x + xJitter,
-    y: yBase + yJitter,
+    y: y + yJitter,
   };
 };
 
