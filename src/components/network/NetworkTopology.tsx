@@ -23,7 +23,7 @@ const nodeTypes = {
   device: DeviceNode,
 };
 
-// Improved layout algorithm - vertical zones with better spacing
+// Improved layout algorithm - vertical zones with much better spacing
 const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone: number) => {
   const zone = asset.zone || 'Unknown';
   
@@ -31,28 +31,29 @@ const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone:
   let yBase = 0;
   
   if (zone.includes('Level 4') || zone.includes('Enterprise')) {
-    yBase = 50;
+    yBase = 100;
   } else if (zone.includes('Level 3') || zone.includes('SCADA') || zone.includes('Site')) {
-    yBase = 250;
+    yBase = 400;
   } else if (zone.includes('DMZ')) {
-    yBase = 450;
+    yBase = 700;
   } else if (zone.includes('Level 2') || zone.includes('Cell') || zone.includes('Area')) {
-    yBase = 650;
+    yBase = 1000;
   } else if (zone.includes('Level 1') || zone.includes('Control Network') || zone.includes('Process')) {
-    yBase = 850;
+    yBase = 1300;
   } else if (zone.includes('IT')) {
-    yBase = 1050;
+    yBase = 1600;
   } else {
-    yBase = 1250;
+    yBase = 1900;
   }
   
   // Calculate horizontal position - grid layout within zone
-  const columns = Math.ceil(Math.sqrt(assetsInZone)); // Square-ish grid
+  // Use fewer columns for more horizontal spread
+  const columns = Math.max(3, Math.ceil(Math.sqrt(assetsInZone * 1.5))); // More columns = more horizontal spread
   const row = Math.floor(index / columns);
   const col = index % columns;
   
-  const horizontalSpacing = 280;
-  const verticalSpacing = 150;
+  const horizontalSpacing = 350; // Increased from 280
+  const verticalSpacing = 200; // Increased from 150
   
   // Center the grid
   const totalWidth = (columns - 1) * horizontalSpacing;
@@ -61,9 +62,9 @@ const calculateNodePosition = (asset: NetworkAsset, index: number, assetsInZone:
   const x = xStart + (col * horizontalSpacing);
   const y = yBase + (row * verticalSpacing);
   
-  // Small random offset for visual variety
-  const xJitter = (Math.random() - 0.5) * 20;
-  const yJitter = (Math.random() - 0.5) * 20;
+  // Smaller random offset for cleaner look
+  const xJitter = (Math.random() - 0.5) * 15;
+  const yJitter = (Math.random() - 0.5) * 15;
   
   return {
     x: x + xJitter,
