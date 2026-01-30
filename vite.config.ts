@@ -5,8 +5,9 @@ import path from "path";
 
 export default defineConfig(() => ({
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 55118,
+    allowedHosts: ["app.otscanner.qzz.io", "18.219.214.45"],
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {
