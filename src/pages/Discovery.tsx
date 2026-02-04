@@ -406,7 +406,7 @@ const Discovery = () => {
                   <div className="min-w-0">
                     <CardTitle className="text-base sm:text-lg">Discovered Variables</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
-                      Modbus registers with type inference scores
+                      Protocol registers with type inference scores
                       {activeSourceIpFilter && (
                         <span className="ml-2 text-blue-600 block sm:inline mt-1 sm:mt-0">
                           (filtered by: {activeSourceIpFilter})
