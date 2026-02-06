@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   PURDUE_ZONES,
+  PurdueZoneKey,
   getFirstVlan,
   groupAssetsByZoneAndVlan,
   sortAssetsByDeviceType,
@@ -42,12 +43,12 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-const VLAN_GROUP_WIDTH = 320;
-const VLAN_GROUP_PADDING = 20;
-const DEVICE_WIDTH = 200;
-const DEVICE_HEIGHT = 120;
-const HORIZONTAL_SPACING = 80;
-const VERTICAL_SPACING = 40;
+const VLAN_GROUP_WIDTH = 340;
+const VLAN_GROUP_PADDING = 25;
+const DEVICE_WIDTH = 220;
+const DEVICE_HEIGHT = 140;
+const HORIZONTAL_SPACING = 100;
+const VERTICAL_SPACING = 50;
 
 export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Props) => {
   const [showTurbines, setShowTurbines] = useState(true);
@@ -83,7 +84,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     const edges: Edge[] = [];
     
     // Track VLAN positions by zone
-    const vlanCountByZone = new Map<string, number>();
+    const vlanCountByZone = new Map<PurdueZoneKey, number>();
     
     // Sort groups by zone level
     const sortedGroups = [...zoneVlanGroups].sort((a, b) => 
@@ -106,10 +107,9 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       // Sort assets within VLAN by device type
       const sortedAssets = sortAssetsByDeviceType(group.assets);
       
-      // Calculate group height based on number of assets
-      const columns = 2;
-      const rows = Math.ceil(sortedAssets.length / columns);
-      const groupHeight = VLAN_GROUP_PADDING * 2 + 60 + (rows * (DEVICE_HEIGHT + VERTICAL_SPACING));
+      // Calculate group dimensions
+      const rows = sortedAssets.length;
+      const groupHeight = VLAN_GROUP_PADDING * 2 + 70 + (rows * (DEVICE_HEIGHT + VERTICAL_SPACING));
       
       // Create VLAN group node
       const groupId = `vlan-${group.zone}-${group.vlanId}`;
@@ -135,11 +135,8 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       
       // Create device nodes inside the group
       sortedAssets.forEach((asset, index) => {
-        const col = index % columns;
-        const row = Math.floor(index / columns);
-        
-        const deviceX = VLAN_GROUP_PADDING + (col * (DEVICE_WIDTH + 20));
-        const deviceY = VLAN_GROUP_PADDING + 60 + (row * (DEVICE_HEIGHT + VERTICAL_SPACING));
+        const deviceX = VLAN_GROUP_PADDING;
+        const deviceY = VLAN_GROUP_PADDING + 70 + (index * (DEVICE_HEIGHT + VERTICAL_SPACING));
         
         nodes.push({
           id: asset.endpoint_key,
@@ -147,6 +144,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           position: { x: deviceX, y: deviceY },
           parentNode: groupId,
           extent: 'parent' as const,
+          draggable: false,
           data: {
             asset,
             onClick: onNodeClick,
@@ -160,7 +158,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     });
     
     // Create edges between devices
-    // Find SCADA/central servers
     const scadaAssets = assets.filter(a => 
       a.device_type_final?.includes('SCADA') || 
       a.device_type_base?.includes('SCADA') ||
@@ -168,7 +165,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     );
     
     assets.forEach(asset => {
-      // Skip if filtering by internet and this asset doesn't talk to internet
       if (showInternetOnly && !asset.flows_talks_to_internet) {
         return;
       }
@@ -270,7 +266,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
-        fitViewOptions={{ padding: 0.15, maxZoom: 0.8 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 0.6 }}
         minZoom={0.05}
         maxZoom={1.5}
         defaultEdgeOptions={{

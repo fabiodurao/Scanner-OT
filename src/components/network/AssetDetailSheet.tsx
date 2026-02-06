@@ -264,11 +264,11 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
               {asset.flows_peers_by_type && Object.keys(asset.flows_peers_by_type).length > 0 && (
                 <div>
                   <div className="text-xs text-muted-foreground mb-2">Communication by Peer Type:</div>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {Object.entries(asset.flows_peers_by_type).map(([type, count]) => (
-                      <div key={type} className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{type}:</span>
-                        <Badge variant="secondary" className="text-xs">{count}</Badge>
+                      <div key={type} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded">
+                        <span className="text-slate-700 flex-1 mr-2">{type}</span>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">{count}</Badge>
                       </div>
                     ))}
                   </div>
