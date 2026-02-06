@@ -43,15 +43,15 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants - HORIZONTAL layout (VLANs side by side)
-const VLAN_GROUP_WIDTH = 280;
-const VLAN_GROUP_MIN_HEIGHT = 200;
+// Layout constants - HORIZONTAL ISA-95 layout (zones left to right)
+const VLAN_GROUP_WIDTH = 300;
+const VLAN_GROUP_MIN_HEIGHT = 180;
 const VLAN_GROUP_PADDING = 20;
-const DEVICE_WIDTH = 240;
-const DEVICE_HEIGHT = 160;
-const HORIZONTAL_SPACING = 60; // Space between VLANs
-const VERTICAL_SPACING = 30; // Space between devices in same VLAN
-const ZONE_VERTICAL_SPACING = 100; // Space between zones
+const DEVICE_WIDTH = 220;
+const DEVICE_HEIGHT = 140;
+const ZONE_HORIZONTAL_SPACING = 150; // Space between zones (left to right)
+const VLAN_VERTICAL_SPACING = 80; // Space between VLANs in same zone (top to bottom)
+const DEVICE_VERTICAL_SPACING = 30; // Space between devices in same VLAN
 
 // Parse flows_peers_by_type - pode vir como objeto ou string JSON
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
@@ -109,22 +109,23 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       groupsByZone.get(group.zone)!.push(group);
     });
     
-    // Sort zones by level (top to bottom)
+    // Sort zones by level REVERSED (Level 1 on left, IT on right)
+    // ISA-95: Field Devices → Controllers → SCADA → DMZ → IT
     const sortedZones = Array.from(groupsByZone.keys()).sort((a, b) => 
-      PURDUE_ZONES[a].level - PURDUE_ZONES[b].level
+      PURDUE_ZONES[b].level - PURDUE_ZONES[a].level // REVERSED!
     );
     
-    let currentY = 0;
+    let currentX = 0;
     
-    // Process each zone
+    // Process each zone (LEFT TO RIGHT)
     sortedZones.forEach((zone) => {
       const zoneGroups = groupsByZone.get(zone)!;
       const zoneConfig = PURDUE_ZONES[zone];
       
-      let currentX = 0;
-      let maxHeightInZone = 0;
+      let currentY = 0;
+      let maxWidthInZone = VLAN_GROUP_WIDTH;
       
-      // Process each VLAN in this zone (horizontal layout)
+      // Process each VLAN in this zone (TOP TO BOTTOM)
       zoneGroups.forEach((group) => {
         const turbineInfo = vlanToTurbine.get(group.vlanId);
         const sortedAssets = sortAssetsByDeviceType(group.assets);
@@ -133,10 +134,8 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         const deviceCount = sortedAssets.length;
         const groupHeight = Math.max(
           VLAN_GROUP_MIN_HEIGHT,
-          VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + VERTICAL_SPACING))
+          VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING))
         );
-        
-        maxHeightInZone = Math.max(maxHeightInZone, groupHeight);
         
         // Create VLAN group node
         const groupId = `vlan-${zone}-${group.vlanId}`;
@@ -163,7 +162,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         // Create device nodes inside the group (vertical stack)
         sortedAssets.forEach((asset, index) => {
           const deviceX = VLAN_GROUP_PADDING;
-          const deviceY = VLAN_GROUP_PADDING + 80 + (index * (DEVICE_HEIGHT + VERTICAL_SPACING));
+          const deviceY = VLAN_GROUP_PADDING + 80 + (index * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
           
           nodes.push({
             id: asset.endpoint_key,
@@ -183,12 +182,12 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           });
         });
         
-        // Move to next VLAN position (horizontal)
-        currentX += VLAN_GROUP_WIDTH + HORIZONTAL_SPACING;
+        // Move to next VLAN position (vertical - down)
+        currentY += groupHeight + VLAN_VERTICAL_SPACING;
       });
       
-      // Move to next zone (vertical)
-      currentY += maxHeightInZone + ZONE_VERTICAL_SPACING;
+      // Move to next zone (horizontal - right)
+      currentX += maxWidthInZone + ZONE_HORIZONTAL_SPACING;
     });
     
     // Create edges between devices
@@ -300,9 +299,9 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 0.6 }}
-        minZoom={0.05}
-        maxZoom={1.5}
+        fitViewOptions={{ padding: 0.2, maxZoom: 0.8 }}
+        minZoom={0.1}
+        maxZoom={2}
         defaultEdgeOptions={{
           type: 'smoothstep',
         }}
@@ -385,12 +384,24 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <NetworkIcon className="h-4 w-4" />
-            Purdue Model Zones
+            ISA-95 / Purdue Model
+          </div>
+          
+          <div className="text-xs text-muted-foreground mb-2">
+            Zones organized left to right:
           </div>
           
           <div className="space-y-1.5 text-xs">
-            {Object.entries(PURDUE_ZONES).map(([key, config]) => (
-              <div key={key} className="flex items-center gap-2">
+            {/* Show in ISA-95 order (field to enterprise) */}
+            {[
+              PURDUE_ZONES.LEVEL_1,
+              PURDUE_ZONES.LEVEL_2,
+              PURDUE_ZONES.LEVEL_3,
+              PURDUE_ZONES.DMZ,
+              PURDUE_ZONES.IT,
+              PURDUE_ZONES.UNKNOWN,
+            ].map((config, idx) => (
+              <div key={idx} className="flex items-center gap-2">
                 <div 
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: config.color }}
