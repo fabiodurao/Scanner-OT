@@ -318,11 +318,18 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
             return '#10b981';
           }}
           maskColor="rgba(0, 0, 0, 0.1)"
-          style={{ backgroundColor: '#f8fafc' }}
+          style={{ 
+            backgroundColor: '#f8fafc',
+            border: '2px solid #cbd5e1',
+            borderRadius: '8px',
+          }}
+          position="bottom-right"
+          zoomable
+          pannable
         />
         
         {/* Top Left Panel - Overview */}
-        <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs">
+        <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Server className="h-4 w-4" />
             Network Overview
@@ -381,7 +388,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         </Panel>
 
         {/* Top Right Panel - Purdue Zones Legend */}
-        <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs">
+        <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <NetworkIcon className="h-4 w-4" />
             ISA-95 / Purdue Model
@@ -431,7 +438,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         </Panel>
 
         {/* Bottom Left Panel - Controls */}
-        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3">
+        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 z-10">
           <div className="text-sm font-medium mb-2">View Options</div>
           
           <div className="flex items-center justify-between gap-3">
@@ -457,9 +464,9 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           </div>
         </Panel>
 
-        {/* Bottom Right Panel - Turbine Patterns */}
+        {/* Turbine Patterns Panel - moved to avoid minimap overlap */}
         {showTurbines && turbinePatterns.filter(p => p.vlans.length > 1).length > 0 && (
-          <Panel position="bottom-right" className="bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm">
+          <Panel position="top-center" className="bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm z-10">
             <div className="flex items-center gap-2 text-sm font-medium mb-2">
               <Layers className="h-4 w-4 text-purple-600" />
               Detected Patterns
