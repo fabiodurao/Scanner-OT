@@ -40,6 +40,27 @@ const getRiskBadge = (riskScore: number | null) => {
   return <Badge className="bg-emerald-500 text-white">Low Risk ({riskScore})</Badge>;
 };
 
+// Parse flows_peers_by_type - pode vir como objeto ou string JSON
+const parsePeerTypes = (peerTypes: any): Record<string, number> => {
+  if (!peerTypes) return {};
+  
+  // Se já é objeto, retorna
+  if (typeof peerTypes === 'object' && !Array.isArray(peerTypes)) {
+    return peerTypes;
+  }
+  
+  // Se é string, tenta fazer parse
+  if (typeof peerTypes === 'string') {
+    try {
+      return JSON.parse(peerTypes);
+    } catch {
+      return {};
+    }
+  }
+  
+  return {};
+};
+
 export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheetProps) => {
   if (!asset) return null;
 
@@ -54,6 +75,10 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
   const lastSeen = asset.flows_last_seen 
     ? new Date(asset.flows_last_seen * 1000) 
     : null;
+
+  // Parse peer types corretamente
+  const peerTypes = parsePeerTypes(asset.flows_peers_by_type);
+  const hasPeerTypes = Object.keys(peerTypes).length > 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -261,13 +286,13 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
                 <div className="font-medium">{asset.flows_unique_peers || 0}</div>
               </div>
               
-              {asset.flows_peers_by_type && Object.keys(asset.flows_peers_by_type).length > 0 && (
+              {hasPeerTypes && (
                 <div>
                   <div className="text-xs text-muted-foreground mb-2">Communication by Peer Type:</div>
                   <div className="space-y-1.5">
-                    {Object.entries(asset.flows_peers_by_type).map(([type, count]) => (
-                      <div key={type} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded">
-                        <span className="text-slate-700 flex-1 mr-2">{type}</span>
+                    {Object.entries(peerTypes).map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between gap-2 text-xs bg-slate-50 p-2 rounded">
+                        <span className="text-slate-700 flex-1 break-words">{type}</span>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">{count}</Badge>
                       </div>
                     ))}

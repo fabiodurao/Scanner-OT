@@ -43,12 +43,29 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-const VLAN_GROUP_WIDTH = 340;
-const VLAN_GROUP_PADDING = 25;
-const DEVICE_WIDTH = 220;
-const DEVICE_HEIGHT = 140;
-const HORIZONTAL_SPACING = 100;
-const VERTICAL_SPACING = 50;
+// Layout constants - HORIZONTAL layout (VLANs side by side)
+const VLAN_GROUP_WIDTH = 280;
+const VLAN_GROUP_MIN_HEIGHT = 200;
+const VLAN_GROUP_PADDING = 20;
+const DEVICE_WIDTH = 240;
+const DEVICE_HEIGHT = 160;
+const HORIZONTAL_SPACING = 60; // Space between VLANs
+const VERTICAL_SPACING = 30; // Space between devices in same VLAN
+const ZONE_VERTICAL_SPACING = 100; // Space between zones
+
+// Parse flows_peers_by_type - pode vir como objeto ou string JSON
+const parsePeerTypes = (peerTypes: any): Record<string, number> => {
+  if (!peerTypes) return {};
+  if (typeof peerTypes === 'object' && !Array.isArray(peerTypes)) return peerTypes;
+  if (typeof peerTypes === 'string') {
+    try {
+      return JSON.parse(peerTypes);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
 
 export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Props) => {
   const [showTurbines, setShowTurbines] = useState(true);
@@ -83,78 +100,95 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     
-    // Track VLAN positions by zone
-    const vlanCountByZone = new Map<PurdueZoneKey, number>();
+    // Group by zone first
+    const groupsByZone = new Map<PurdueZoneKey, ZoneVlanGroup[]>();
+    zoneVlanGroups.forEach(group => {
+      if (!groupsByZone.has(group.zone)) {
+        groupsByZone.set(group.zone, []);
+      }
+      groupsByZone.get(group.zone)!.push(group);
+    });
     
-    // Sort groups by zone level
-    const sortedGroups = [...zoneVlanGroups].sort((a, b) => 
-      PURDUE_ZONES[a.zone].level - PURDUE_ZONES[b.zone].level
+    // Sort zones by level (top to bottom)
+    const sortedZones = Array.from(groupsByZone.keys()).sort((a, b) => 
+      PURDUE_ZONES[a].level - PURDUE_ZONES[b].level
     );
     
-    sortedGroups.forEach((group: ZoneVlanGroup) => {
-      const zoneConfig = PURDUE_ZONES[group.zone];
+    let currentY = 0;
+    
+    // Process each zone
+    sortedZones.forEach((zone) => {
+      const zoneGroups = groupsByZone.get(zone)!;
+      const zoneConfig = PURDUE_ZONES[zone];
       
-      // Get horizontal position for this VLAN within its zone
-      const vlanIndex = vlanCountByZone.get(group.zone) || 0;
-      vlanCountByZone.set(group.zone, vlanIndex + 1);
+      let currentX = 0;
+      let maxHeightInZone = 0;
       
-      const groupX = vlanIndex * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
-      const groupY = zoneConfig.yBase;
-      
-      // Check if this VLAN is part of a turbine
-      const turbineInfo = vlanToTurbine.get(group.vlanId);
-      
-      // Sort assets within VLAN by device type
-      const sortedAssets = sortAssetsByDeviceType(group.assets);
-      
-      // Calculate group dimensions
-      const rows = sortedAssets.length;
-      const groupHeight = VLAN_GROUP_PADDING * 2 + 70 + (rows * (DEVICE_HEIGHT + VERTICAL_SPACING));
-      
-      // Create VLAN group node
-      const groupId = `vlan-${group.zone}-${group.vlanId}`;
-      nodes.push({
-        id: groupId,
-        type: 'vlanGroup',
-        position: { x: groupX, y: groupY },
-        data: {
-          vlanId: group.vlanId,
-          zone: zoneConfig.label,
-          zoneColor: zoneConfig.color,
-          assetCount: group.assets.length,
-          fingerprint: group.fingerprint,
-          isPartOfTurbine: !!turbineInfo,
-          turbineName: turbineInfo?.name,
-        },
-        style: {
-          width: VLAN_GROUP_WIDTH,
-          height: groupHeight,
-          zIndex: 1,
-        },
-      });
-      
-      // Create device nodes inside the group
-      sortedAssets.forEach((asset, index) => {
-        const deviceX = VLAN_GROUP_PADDING;
-        const deviceY = VLAN_GROUP_PADDING + 70 + (index * (DEVICE_HEIGHT + VERTICAL_SPACING));
+      // Process each VLAN in this zone (horizontal layout)
+      zoneGroups.forEach((group) => {
+        const turbineInfo = vlanToTurbine.get(group.vlanId);
+        const sortedAssets = sortAssetsByDeviceType(group.assets);
         
+        // Calculate group height based on number of devices
+        const deviceCount = sortedAssets.length;
+        const groupHeight = Math.max(
+          VLAN_GROUP_MIN_HEIGHT,
+          VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + VERTICAL_SPACING))
+        );
+        
+        maxHeightInZone = Math.max(maxHeightInZone, groupHeight);
+        
+        // Create VLAN group node
+        const groupId = `vlan-${zone}-${group.vlanId}`;
         nodes.push({
-          id: asset.endpoint_key,
-          type: 'device',
-          position: { x: deviceX, y: deviceY },
-          parentNode: groupId,
-          extent: 'parent' as const,
-          draggable: false,
+          id: groupId,
+          type: 'vlanGroup',
+          position: { x: currentX, y: currentY },
           data: {
-            asset,
-            onClick: onNodeClick,
+            vlanId: group.vlanId,
+            zone: zoneConfig.label,
+            zoneColor: zoneConfig.color,
+            assetCount: group.assets.length,
+            fingerprint: group.fingerprint,
+            isPartOfTurbine: !!turbineInfo,
+            turbineName: turbineInfo?.name,
           },
           style: {
-            width: DEVICE_WIDTH,
-            zIndex: 2,
+            width: VLAN_GROUP_WIDTH,
+            height: groupHeight,
+            zIndex: 1,
           },
         });
+        
+        // Create device nodes inside the group (vertical stack)
+        sortedAssets.forEach((asset, index) => {
+          const deviceX = VLAN_GROUP_PADDING;
+          const deviceY = VLAN_GROUP_PADDING + 80 + (index * (DEVICE_HEIGHT + VERTICAL_SPACING));
+          
+          nodes.push({
+            id: asset.endpoint_key,
+            type: 'device',
+            position: { x: deviceX, y: deviceY },
+            parentNode: groupId,
+            extent: 'parent' as const,
+            draggable: false,
+            data: {
+              asset,
+              onClick: onNodeClick,
+            },
+            style: {
+              width: DEVICE_WIDTH,
+              zIndex: 2,
+            },
+          });
+        });
+        
+        // Move to next VLAN position (horizontal)
+        currentX += VLAN_GROUP_WIDTH + HORIZONTAL_SPACING;
       });
+      
+      // Move to next zone (vertical)
+      currentY += maxHeightInZone + ZONE_VERTICAL_SPACING;
     });
     
     // Create edges between devices
@@ -169,7 +203,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         return;
       }
       
-      const peerTypes = asset.flows_peers_by_type || {};
+      const peerTypes = parsePeerTypes(asset.flows_peers_by_type);
       
       // Connect to SCADA servers
       scadaAssets.forEach(scada => {
