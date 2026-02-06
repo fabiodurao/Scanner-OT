@@ -12,6 +12,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NetworkAsset } from '@/types/network';
+import { DeviceNode } from './DeviceNode';
 import { VlanGroupNode } from './VlanGroupNode';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -28,6 +29,7 @@ import {
   detectTurbinePatterns,
   classifyPurdueZone,
   createVlanFingerprint,
+  sortAssetsByDeviceType,
 } from '@/utils/networkTopology';
 
 interface NetworkTopologyV2Props {
@@ -36,17 +38,20 @@ interface NetworkTopologyV2Props {
 }
 
 const nodeTypes = {
+  device: DeviceNode,
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants - LARGER SPACING for visibility
+// Layout constants
+const DEVICE_WIDTH = 220;
+const DEVICE_HEIGHT = 120;
+const GRID_COLUMNS = 6;
+const HORIZONTAL_SPACING = 80;
+const VERTICAL_SPACING = 60;
+
 const VLAN_GROUP_WIDTH = 280;
 const VLAN_GROUP_HEIGHT = 160;
-const GRID_COLUMNS = 4; // 4 VLANs per row
-const HORIZONTAL_SPACING = 350; // Much larger
-const VERTICAL_SPACING = 250; // Much larger
 
-// Parse flows_peers_by_type
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
   if (!peerTypes) return {};
   if (typeof peerTypes === 'object' && !Array.isArray(peerTypes)) return peerTypes;
@@ -85,7 +90,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     
-    // Group assets by VLAN
     const assetsByVlan = new Map<string, NetworkAsset[]>();
     assets.forEach(asset => {
       const vlan = getFirstVlan(asset);
@@ -95,118 +99,159 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       assetsByVlan.get(vlan)!.push(asset);
     });
     
-    // Sort VLANs by ID
-    const sortedVlans = Array.from(assetsByVlan.keys()).sort((a, b) => {
-      const numA = parseInt(a.replace(/\D/g, '')) || 0;
-      const numB = parseInt(b.replace(/\D/g, '')) || 0;
-      return numA - numB;
-    });
+    const vlanCount = assetsByVlan.size;
     
-    console.log('[NetworkTopology] ========================================');
-    console.log('[NetworkTopology] Total VLANs:', sortedVlans.length);
-    console.log('[NetworkTopology] VLANs:', sortedVlans);
-    console.log('[NetworkTopology] Grid: ', GRID_COLUMNS, 'columns');
+    console.log('[NetworkTopology] Total assets:', assets.length);
+    console.log('[NetworkTopology] Total VLANs:', vlanCount);
     
-    // Create VLAN group nodes in SIMPLE GRID
-    sortedVlans.forEach((vlanId, index) => {
-      const vlanAssets = assetsByVlan.get(vlanId)!;
+    if (vlanCount <= 2) {
+      console.log('[NetworkTopology] Showing individual devices');
       
-      // Determine zone from first asset
-      const zone = classifyPurdueZone(vlanAssets[0]);
-      const zoneConfig = PURDUE_ZONES[zone];
+      const sortedAssets = sortAssetsByDeviceType(assets);
       
-      // SIMPLE GRID CALCULATION
-      const row = Math.floor(index / GRID_COLUMNS);
-      const col = index % GRID_COLUMNS;
-      
-      // Calculate position with LARGE spacing
-      const x = col * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
-      const y = row * (VLAN_GROUP_HEIGHT + VERTICAL_SPACING);
-      
-      console.log(`[NetworkTopology] VLAN ${vlanId}:`);
-      console.log(`  - Index: ${index}`);
-      console.log(`  - Row: ${row}, Col: ${col}`);
-      console.log(`  - Position: (${x}, ${y})`);
-      console.log(`  - Assets: ${vlanAssets.length}`);
-      
-      // Get turbine info
-      const turbineInfo = vlanToTurbine.get(vlanId);
-      const fingerprint = createVlanFingerprint(vlanId, vlanAssets);
-      
-      // Create VLAN group node
-      const groupId = `vlan-${vlanId}`;
-      nodes.push({
-        id: groupId,
-        type: 'vlanGroup',
-        position: { x, y },
-        data: {
-          vlanId,
-          zone: zoneConfig.label,
-          zoneColor: zoneConfig.color,
-          assetCount: vlanAssets.length,
-          fingerprint,
-          isPartOfTurbine: !!turbineInfo,
-          turbineName: turbineInfo?.name,
-          onClick: () => {
-            if (onNodeClick && vlanAssets.length > 0) {
-              onNodeClick(vlanAssets[0]);
-            }
+      sortedAssets.forEach((asset, index) => {
+        const row = Math.floor(index / GRID_COLUMNS);
+        const col = index % GRID_COLUMNS;
+        
+        const x = col * (DEVICE_WIDTH + HORIZONTAL_SPACING);
+        const y = row * (DEVICE_HEIGHT + VERTICAL_SPACING);
+        
+        nodes.push({
+          id: asset.endpoint_key,
+          type: 'device',
+          position: { x, y },
+          data: {
+            asset,
+            onClick: onNodeClick,
           },
-        },
-        style: {
-          width: VLAN_GROUP_WIDTH,
-          height: VLAN_GROUP_HEIGHT,
-        },
+          style: {
+            width: DEVICE_WIDTH,
+          },
+        });
       });
-    });
-    
-    console.log('[NetworkTopology] Created', nodes.length, 'VLAN nodes');
-    console.log('[NetworkTopology] ========================================');
-    
-    // Create edges between VLANs
-    const scadaVlans = new Set<string>();
-    assets.forEach(a => {
-      if (a.device_type_final?.includes('SCADA') || a.device_type_base?.includes('SCADA')) {
-        scadaVlans.add(getFirstVlan(a));
-      }
-    });
-    
-    sortedVlans.forEach(vlanId => {
-      const vlanAssets = assetsByVlan.get(vlanId)!;
       
-      vlanAssets.forEach(asset => {
-        if (showInternetOnly && !asset.flows_talks_to_internet) {
-          return;
-        }
+      const scadaAssets = assets.filter(a => 
+        a.device_type_final?.includes('SCADA') || 
+        a.device_type_base?.includes('SCADA')
+      );
+      
+      assets.forEach(asset => {
+        if (showInternetOnly && !asset.flows_talks_to_internet) return;
         
         const peerTypes = parsePeerTypes(asset.flows_peers_by_type);
-        const scadaFlows = peerTypes['SCADA / OT Server'] || 0;
         
-        if (scadaFlows > 0) {
-          scadaVlans.forEach(scadaVlan => {
-            if (scadaVlan !== vlanId) {
-              const edgeId = `vlan-${vlanId}-vlan-${scadaVlan}`;
-              
-              if (!edges.find(e => e.id === edgeId)) {
-                edges.push({
-                  id: edgeId,
-                  source: `vlan-${vlanId}`,
-                  target: `vlan-${scadaVlan}`,
-                  type: 'smoothstep',
-                  animated: asset.flows_talks_to_internet || false,
-                  style: {
-                    stroke: asset.flows_talks_to_internet ? '#ef4444' : '#94a3b8',
-                    strokeWidth: 2,
-                  },
-                });
+        scadaAssets.forEach(scada => {
+          if (asset.endpoint_key === scada.endpoint_key) return;
+          
+          const scadaFlows = peerTypes['SCADA / OT Server'] || 0;
+          
+          if (scadaFlows > 0) {
+            edges.push({
+              id: `${asset.endpoint_key}-${scada.endpoint_key}`,
+              source: asset.endpoint_key,
+              target: scada.endpoint_key,
+              type: 'smoothstep',
+              animated: asset.flows_talks_to_internet || false,
+              style: {
+                stroke: asset.flows_talks_to_internet ? '#ef4444' : '#94a3b8',
+                strokeWidth: Math.min(4, Math.max(1, scadaFlows / 50)),
+              },
+            });
+          }
+        });
+      });
+      
+    } else {
+      console.log('[NetworkTopology] Showing VLAN groups');
+      
+      const sortedVlans = Array.from(assetsByVlan.keys()).sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.replace(/\D/g, '')) || 0;
+        return numA - numB;
+      });
+      
+      sortedVlans.forEach((vlanId, index) => {
+        const vlanAssets = assetsByVlan.get(vlanId)!;
+        
+        const zone = classifyPurdueZone(vlanAssets[0]);
+        const zoneConfig = PURDUE_ZONES[zone];
+        
+        const row = Math.floor(index / GRID_COLUMNS);
+        const col = index % GRID_COLUMNS;
+        
+        const x = col * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
+        const y = row * (VLAN_GROUP_HEIGHT + VERTICAL_SPACING);
+        
+        const turbineInfo = vlanToTurbine.get(vlanId);
+        const fingerprint = createVlanFingerprint(vlanId, vlanAssets);
+        
+        nodes.push({
+          id: `vlan-${vlanId}`,
+          type: 'vlanGroup',
+          position: { x, y },
+          data: {
+            vlanId,
+            zone: zoneConfig.label,
+            zoneColor: zoneConfig.color,
+            assetCount: vlanAssets.length,
+            fingerprint,
+            isPartOfTurbine: !!turbineInfo,
+            turbineName: turbineInfo?.name,
+            onClick: () => {
+              if (onNodeClick && vlanAssets.length > 0) {
+                onNodeClick(vlanAssets[0]);
               }
-            }
-          });
+            },
+          },
+          style: {
+            width: VLAN_GROUP_WIDTH,
+            height: VLAN_GROUP_HEIGHT,
+          },
+        });
+      });
+      
+      const scadaVlans = new Set<string>();
+      assets.forEach(a => {
+        if (a.device_type_final?.includes('SCADA') || a.device_type_base?.includes('SCADA')) {
+          scadaVlans.add(getFirstVlan(a));
         }
       });
-    });
+      
+      sortedVlans.forEach(vlanId => {
+        const vlanAssets = assetsByVlan.get(vlanId)!;
+        
+        vlanAssets.forEach(asset => {
+          if (showInternetOnly && !asset.flows_talks_to_internet) return;
+          
+          const peerTypes = parsePeerTypes(asset.flows_peers_by_type);
+          const scadaFlows = peerTypes['SCADA / OT Server'] || 0;
+          
+          if (scadaFlows > 0) {
+            scadaVlans.forEach(scadaVlan => {
+              if (scadaVlan !== vlanId) {
+                const edgeId = `vlan-${vlanId}-vlan-${scadaVlan}`;
+                
+                if (!edges.find(e => e.id === edgeId)) {
+                  edges.push({
+                    id: edgeId,
+                    source: `vlan-${vlanId}`,
+                    target: `vlan-${scadaVlan}`,
+                    type: 'smoothstep',
+                    animated: asset.flows_talks_to_internet || false,
+                    style: {
+                      stroke: asset.flows_talks_to_internet ? '#ef4444' : '#94a3b8',
+                      strokeWidth: 2,
+                    },
+                  });
+                }
+              }
+            });
+          }
+        });
+      });
+    }
     
-    console.log('[NetworkTopology] Created', edges.length, 'edges');
+    console.log('[NetworkTopology] Created', nodes.length, 'nodes');
     
     return { nodes, edges };
   }, [assets, vlanToTurbine, onNodeClick, showInternetOnly]);
@@ -249,7 +294,8 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
-        defaultViewport={{ x: 100, y: 100, zoom: 0.8 }}
+        fitView
+        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -259,7 +305,14 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         <Background gap={20} size={1} color="#e2e8f0" />
         <Controls />
         <MiniMap 
-          nodeColor={() => '#94a3b8'}
+          nodeColor={(node) => {
+            if (node.type === 'vlanGroup') return '#94a3b8';
+            const asset = (node.data as any).asset as NetworkAsset;
+            const risk = asset?.risk_score || 0;
+            if (risk >= 40) return '#ef4444';
+            if (risk >= 20) return '#f59e0b';
+            return '#10b981';
+          }}
           maskColor="rgba(0, 0, 0, 0.1)"
           style={{ 
             backgroundColor: '#f8fafc',
@@ -271,7 +324,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           pannable
         />
         
-        {/* Top Left Panel - Overview */}
         <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Server className="h-4 w-4" />
@@ -330,7 +382,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           </div>
         </Panel>
 
-        {/* Top Right Panel - Zones Legend */}
         <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <NetworkIcon className="h-4 w-4" />
@@ -375,7 +426,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           </div>
         </Panel>
 
-        {/* Bottom Left Panel - Controls */}
         <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 z-10">
           <div className="text-sm font-medium mb-2">View Options</div>
           
@@ -402,7 +452,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           </div>
         </Panel>
 
-        {/* Turbine Patterns Panel */}
         {showTurbines && turbinePatterns.filter(p => p.vlans.length > 1).length > 0 && (
           <Panel position="top-center" className="bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm z-10">
             <div className="flex items-center gap-2 text-sm font-medium mb-2">
