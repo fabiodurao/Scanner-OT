@@ -42,16 +42,15 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants - SIMPLE GRID
-const VLAN_GROUP_WIDTH = 320;
-const VLAN_GROUP_MIN_HEIGHT = 180;
-const VLAN_GROUP_PADDING = 20;
-const DEVICE_WIDTH = 220;
-const DEVICE_HEIGHT = 120;
-const DEVICE_VERTICAL_SPACING = 25;
-const GRID_COLUMNS = 4; // VLANs per row
-const HORIZONTAL_SPACING = 80;
-const VERTICAL_SPACING = 80;
+// Layout constants - COMPACT GRID
+const VLAN_GROUP_WIDTH = 280;
+const VLAN_GROUP_HEIGHT = 180; // FIXED height for all groups
+const DEVICE_WIDTH = 200;
+const DEVICE_HEIGHT = 80; // Reduced
+const DEVICE_VERTICAL_SPACING = 15; // Reduced
+const GRID_COLUMNS = 5; // More columns for horizontal spread
+const HORIZONTAL_SPACING = 100;
+const VERTICAL_SPACING = 220; // Space between rows
 
 // Parse flows_peers_by_type
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
@@ -109,7 +108,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       return numA - numB;
     });
     
-    // Create nodes in grid layout
+    // Create nodes in SIMPLE GRID layout
     sortedVlans.forEach((vlanId, index) => {
       const vlanAssets = assetsByVlan.get(vlanId)!;
       const sortedAssets = sortAssetsByDeviceType(vlanAssets);
@@ -118,25 +117,18 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       const zone = classifyPurdueZone(vlanAssets[0]);
       const zoneConfig = PURDUE_ZONES[zone];
       
-      // Grid position
+      // SIMPLE GRID POSITION
       const row = Math.floor(index / GRID_COLUMNS);
       const col = index % GRID_COLUMNS;
       
       const x = col * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
-      const y = row * (VLAN_GROUP_MIN_HEIGHT + VERTICAL_SPACING);
-      
-      // Calculate group height
-      const deviceCount = sortedAssets.length;
-      const groupHeight = Math.max(
-        VLAN_GROUP_MIN_HEIGHT,
-        VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING))
-      );
+      const y = row * (VLAN_GROUP_HEIGHT + VERTICAL_SPACING);
       
       // Get turbine info
       const turbineInfo = vlanToTurbine.get(vlanId);
       const fingerprint = createVlanFingerprint(vlanId, vlanAssets);
       
-      // Create VLAN group node
+      // Create VLAN group node with FIXED height
       const groupId = `vlan-${vlanId}`;
       nodes.push({
         id: groupId,
@@ -153,15 +145,17 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         },
         style: {
           width: VLAN_GROUP_WIDTH,
-          height: groupHeight,
+          height: VLAN_GROUP_HEIGHT,
           zIndex: 1,
         },
       });
       
-      // Create device nodes inside
-      sortedAssets.forEach((asset, deviceIndex) => {
-        const deviceX = VLAN_GROUP_PADDING;
-        const deviceY = VLAN_GROUP_PADDING + 80 + (deviceIndex * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
+      // Create device nodes inside - LIMIT to first 3 devices to avoid overflow
+      const displayAssets = sortedAssets.slice(0, 3);
+      
+      displayAssets.forEach((asset, deviceIndex) => {
+        const deviceX = 30;
+        const deviceY = 90 + (deviceIndex * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
         
         nodes.push({
           id: asset.endpoint_key,
@@ -180,6 +174,8 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           },
         });
       });
+      
+      // If more than 3 devices, show count badge (will be in VlanGroupNode)
     });
     
     // Create edges
