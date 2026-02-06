@@ -12,7 +12,7 @@ import { VariableHeatmapTable } from '@/components/discovery/VariableHeatmapTabl
 import { HistoricalHeatmapTable } from '@/components/variables/HistoricalHeatmapTable';
 import { EquipmentList } from '@/components/discovery/EquipmentList';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
-import { NetworkTopology } from '@/components/network/NetworkTopology';
+import { NetworkTopologyV2 } from '@/components/network/NetworkTopologyV2';
 import { AssetDetailSheet } from '@/components/network/AssetDetailSheet';
 import { RunAnalysisButton } from '@/components/discovery/RunAnalysisButton';
 import { PhotoAnalysisButton } from '@/components/discovery/PhotoAnalysisButton';
@@ -524,7 +524,7 @@ const Discovery = () => {
                       Network Topology
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
-                      IT/OT network visualization from traffic analysis ({networkAssets.length} assets discovered)
+                      IT/OT network visualization with Purdue Model zones and VLAN grouping ({networkAssets.length} assets)
                     </CardDescription>
                   </div>
                   <Button 
@@ -553,10 +553,12 @@ const Discovery = () => {
                     </p>
                   </div>
                 ) : (
-                  <NetworkTopology 
-                    assets={networkAssets} 
-                    onNodeClick={handleAssetClick}
-                  />
+                  <div style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
+                    <NetworkTopologyV2 
+                      assets={networkAssets} 
+                      onNodeClick={handleAssetClick}
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>
