@@ -25,12 +25,11 @@ import {
 } from 'lucide-react';
 import {
   PURDUE_ZONES,
-  PurdueZoneKey,
   getFirstVlan,
-  groupAssetsByZoneAndVlan,
   sortAssetsByDeviceType,
   detectTurbinePatterns,
-  ZoneVlanGroup,
+  classifyPurdueZone,
+  createVlanFingerprint,
 } from '@/utils/networkTopology';
 
 interface NetworkTopologyV2Props {
@@ -43,15 +42,16 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants - TRUE PYRAMID ISA-95
-const VLAN_GROUP_WIDTH = 280;
-const VLAN_GROUP_MIN_HEIGHT = 160;
-const VLAN_GROUP_PADDING = 15;
-const DEVICE_WIDTH = 200;
+// Layout constants - SIMPLE GRID
+const VLAN_GROUP_WIDTH = 320;
+const VLAN_GROUP_MIN_HEIGHT = 180;
+const VLAN_GROUP_PADDING = 20;
+const DEVICE_WIDTH = 220;
 const DEVICE_HEIGHT = 120;
 const DEVICE_VERTICAL_SPACING = 25;
-const VLAN_HORIZONTAL_SPACING = 50; // Space between VLANs in same level
-const LEVEL_VERTICAL_SPACING = 300; // Space between pyramid levels (top to bottom)
+const GRID_COLUMNS = 4; // VLANs per row
+const HORIZONTAL_SPACING = 80;
+const VERTICAL_SPACING = 80;
 
 // Parse flows_peers_by_type
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
@@ -76,11 +76,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     [assets]
   );
   
-  const zoneVlanGroups = useMemo(() => 
-    groupAssetsByZoneAndVlan(assets),
-    [assets]
-  );
-  
   const vlanToTurbine = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
     turbinePatterns.forEach(pattern => {
@@ -97,176 +92,95 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     
-    // Group by zone
-    const groupsByZone = new Map<PurdueZoneKey, ZoneVlanGroup[]>();
-    zoneVlanGroups.forEach(group => {
-      if (!groupsByZone.has(group.zone)) {
-        groupsByZone.set(group.zone, []);
+    // Group assets by VLAN only
+    const assetsByVlan = new Map<string, NetworkAsset[]>();
+    assets.forEach(asset => {
+      const vlan = getFirstVlan(asset);
+      if (!assetsByVlan.has(vlan)) {
+        assetsByVlan.set(vlan, []);
       }
-      groupsByZone.get(group.zone)!.push(group);
+      assetsByVlan.get(vlan)!.push(asset);
     });
     
-    // ISA-95 Pyramid levels (TOP to BOTTOM for rendering)
-    const pyramidLevels: { zones: PurdueZoneKey[]; label: string }[] = [
-      { zones: ['IT'], label: 'Enterprise' },           // Topo - mais estreito
-      { zones: ['DMZ'], label: 'DMZ' },                 
-      { zones: ['LEVEL_3'], label: 'SCADA/Site' },     
-      { zones: ['LEVEL_2'], label: 'Controllers' },    
-      { zones: ['LEVEL_1'], label: 'Field Devices' },  // Base - mais largo
-    ];
-    
-    let currentY = 0;
-    
-    // Process each pyramid level (top to bottom)
-    pyramidLevels.forEach((level) => {
-      // Collect all VLANs for this level
-      const levelVlanGroups: ZoneVlanGroup[] = [];
-      level.zones.forEach(zone => {
-        const zoneGroups = groupsByZone.get(zone);
-        if (zoneGroups) {
-          levelVlanGroups.push(...zoneGroups);
-        }
-      });
-      
-      if (levelVlanGroups.length === 0) return;
-      
-      // Calculate total width for this level
-      const totalLevelWidth = levelVlanGroups.length * (VLAN_GROUP_WIDTH + VLAN_HORIZONTAL_SPACING) - VLAN_HORIZONTAL_SPACING;
-      
-      // Center this level horizontally (pyramid effect)
-      let currentX = -totalLevelWidth / 2;
-      
-      let maxHeightInLevel = 0;
-      
-      // Place each VLAN group in this level (left to right)
-      levelVlanGroups.forEach((group) => {
-        const zone = group.zone;
-        const zoneConfig = PURDUE_ZONES[zone];
-        const turbineInfo = vlanToTurbine.get(group.vlanId);
-        const sortedAssets = sortAssetsByDeviceType(group.assets);
-        
-        // Calculate group height
-        const deviceCount = sortedAssets.length;
-        const groupHeight = Math.max(
-          VLAN_GROUP_MIN_HEIGHT,
-          VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING))
-        );
-        
-        maxHeightInLevel = Math.max(maxHeightInLevel, groupHeight);
-        
-        // Create VLAN group node
-        const groupId = `vlan-${zone}-${group.vlanId}`;
-        nodes.push({
-          id: groupId,
-          type: 'vlanGroup',
-          position: { x: currentX, y: currentY },
-          data: {
-            vlanId: group.vlanId,
-            zone: zoneConfig.label,
-            zoneColor: zoneConfig.color,
-            assetCount: group.assets.length,
-            fingerprint: group.fingerprint,
-            isPartOfTurbine: !!turbineInfo,
-            turbineName: turbineInfo?.name,
-          },
-          style: {
-            width: VLAN_GROUP_WIDTH,
-            height: groupHeight,
-            zIndex: 1,
-          },
-        });
-        
-        // Create device nodes inside the group
-        sortedAssets.forEach((asset, index) => {
-          const deviceX = VLAN_GROUP_PADDING;
-          const deviceY = VLAN_GROUP_PADDING + 80 + (index * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
-          
-          nodes.push({
-            id: asset.endpoint_key,
-            type: 'device',
-            position: { x: deviceX, y: deviceY },
-            parentNode: groupId,
-            extent: 'parent' as const,
-            draggable: false,
-            data: {
-              asset,
-              onClick: onNodeClick,
-            },
-            style: {
-              width: DEVICE_WIDTH,
-              zIndex: 2,
-            },
-          });
-        });
-        
-        // Move to next VLAN in this level (horizontal)
-        currentX += VLAN_GROUP_WIDTH + VLAN_HORIZONTAL_SPACING;
-      });
-      
-      // Move to next level (vertical - down)
-      currentY += maxHeightInLevel + LEVEL_VERTICAL_SPACING;
+    // Sort VLANs by ID
+    const sortedVlans = Array.from(assetsByVlan.keys()).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.replace(/\D/g, '')) || 0;
+      return numA - numB;
     });
     
-    // Handle UNKNOWN zone separately (to the right)
-    const unknownGroups = groupsByZone.get('UNKNOWN');
-    if (unknownGroups && unknownGroups.length > 0) {
-      let unknownY = 0;
-      const unknownX = 2500; // Far right
+    // Create nodes in grid layout
+    sortedVlans.forEach((vlanId, index) => {
+      const vlanAssets = assetsByVlan.get(vlanId)!;
+      const sortedAssets = sortAssetsByDeviceType(vlanAssets);
       
-      unknownGroups.forEach((group) => {
-        const zoneConfig = PURDUE_ZONES.UNKNOWN;
-        const sortedAssets = sortAssetsByDeviceType(group.assets);
+      // Determine zone from first asset
+      const zone = classifyPurdueZone(vlanAssets[0]);
+      const zoneConfig = PURDUE_ZONES[zone];
+      
+      // Grid position
+      const row = Math.floor(index / GRID_COLUMNS);
+      const col = index % GRID_COLUMNS;
+      
+      const x = col * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
+      const y = row * (VLAN_GROUP_MIN_HEIGHT + VERTICAL_SPACING);
+      
+      // Calculate group height
+      const deviceCount = sortedAssets.length;
+      const groupHeight = Math.max(
+        VLAN_GROUP_MIN_HEIGHT,
+        VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING))
+      );
+      
+      // Get turbine info
+      const turbineInfo = vlanToTurbine.get(vlanId);
+      const fingerprint = createVlanFingerprint(vlanId, vlanAssets);
+      
+      // Create VLAN group node
+      const groupId = `vlan-${vlanId}`;
+      nodes.push({
+        id: groupId,
+        type: 'vlanGroup',
+        position: { x, y },
+        data: {
+          vlanId,
+          zone: zoneConfig.label,
+          zoneColor: zoneConfig.color,
+          assetCount: vlanAssets.length,
+          fingerprint,
+          isPartOfTurbine: !!turbineInfo,
+          turbineName: turbineInfo?.name,
+        },
+        style: {
+          width: VLAN_GROUP_WIDTH,
+          height: groupHeight,
+          zIndex: 1,
+        },
+      });
+      
+      // Create device nodes inside
+      sortedAssets.forEach((asset, deviceIndex) => {
+        const deviceX = VLAN_GROUP_PADDING;
+        const deviceY = VLAN_GROUP_PADDING + 80 + (deviceIndex * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
         
-        const deviceCount = sortedAssets.length;
-        const groupHeight = Math.max(
-          VLAN_GROUP_MIN_HEIGHT,
-          VLAN_GROUP_PADDING * 2 + 80 + (deviceCount * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING))
-        );
-        
-        const groupId = `vlan-UNKNOWN-${group.vlanId}`;
         nodes.push({
-          id: groupId,
-          type: 'vlanGroup',
-          position: { x: unknownX, y: unknownY },
+          id: asset.endpoint_key,
+          type: 'device',
+          position: { x: deviceX, y: deviceY },
+          parentNode: groupId,
+          extent: 'parent' as const,
+          draggable: false,
           data: {
-            vlanId: group.vlanId,
-            zone: zoneConfig.label,
-            zoneColor: zoneConfig.color,
-            assetCount: group.assets.length,
-            fingerprint: group.fingerprint,
+            asset,
+            onClick: onNodeClick,
           },
           style: {
-            width: VLAN_GROUP_WIDTH,
-            height: groupHeight,
-            zIndex: 1,
+            width: DEVICE_WIDTH,
+            zIndex: 2,
           },
         });
-        
-        sortedAssets.forEach((asset, index) => {
-          const deviceX = VLAN_GROUP_PADDING;
-          const deviceY = VLAN_GROUP_PADDING + 80 + (index * (DEVICE_HEIGHT + DEVICE_VERTICAL_SPACING));
-          
-          nodes.push({
-            id: asset.endpoint_key,
-            type: 'device',
-            position: { x: deviceX, y: deviceY },
-            parentNode: groupId,
-            extent: 'parent' as const,
-            draggable: false,
-            data: {
-              asset,
-              onClick: onNodeClick,
-            },
-            style: {
-              width: DEVICE_WIDTH,
-              zIndex: 2,
-            },
-          });
-        });
-        
-        unknownY += groupHeight + VLAN_HORIZONTAL_SPACING;
       });
-    }
+    });
     
     // Create edges
     const scadaAssets = assets.filter(a => 
@@ -330,7 +244,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     });
     
     return { nodes, edges };
-  }, [assets, zoneVlanGroups, vlanToTurbine, onNodeClick, showInternetOnly]);
+  }, [assets, vlanToTurbine, onNodeClick, showInternetOnly]);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
@@ -371,7 +285,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
-        fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -459,15 +373,11 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           </div>
         </Panel>
 
-        {/* Top Right Panel - Purdue Zones Legend */}
+        {/* Top Right Panel - Zones Legend */}
         <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <NetworkIcon className="h-4 w-4" />
-            ISA-95 Pyramid
-          </div>
-          
-          <div className="text-xs text-muted-foreground mb-2">
-            Top to bottom (pyramid):
+            ISA-95 Zones
           </div>
           
           <div className="space-y-1.5 text-xs">
@@ -477,6 +387,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
               PURDUE_ZONES.LEVEL_3,
               PURDUE_ZONES.LEVEL_2,
               PURDUE_ZONES.LEVEL_1,
+              PURDUE_ZONES.UNKNOWN,
             ].map((config, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <div 
@@ -486,12 +397,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
                 <span className="text-muted-foreground truncate">{config.label}</span>
               </div>
             ))}
-            <div className="border-t pt-1 mt-1">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-400" />
-                <span className="text-muted-foreground truncate">Unknown (right side)</span>
-              </div>
-            </div>
           </div>
           
           <div className="border-t pt-2 mt-2">
