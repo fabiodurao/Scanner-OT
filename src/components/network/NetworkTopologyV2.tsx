@@ -21,7 +21,6 @@ import {
   Server, 
   AlertTriangle, 
   Layers,
-  Network as NetworkIcon,
 } from 'lucide-react';
 import {
   PURDUE_ZONES,
@@ -42,12 +41,12 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants
-const DEVICE_WIDTH = 220;
-const DEVICE_HEIGHT = 120;
-const GRID_COLUMNS = 6;
-const HORIZONTAL_SPACING = 80;
-const VERTICAL_SPACING = 60;
+// Layout constants - SMALLER cards, MORE columns
+const DEVICE_WIDTH = 200;
+const DEVICE_HEIGHT = 110;
+const GRID_COLUMNS = 8; // 8 devices per row (was 6)
+const HORIZONTAL_SPACING = 50; // Reduced spacing
+const VERTICAL_SPACING = 40; // Reduced spacing
 
 const VLAN_GROUP_WIDTH = 280;
 const VLAN_GROUP_HEIGHT = 160;
@@ -105,7 +104,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
     console.log('[NetworkTopology] Total VLANs:', vlanCount);
     
     if (vlanCount <= 2) {
-      console.log('[NetworkTopology] Showing individual devices');
+      console.log('[NetworkTopology] Showing individual devices (8 per row)');
       
       const sortedAssets = sortAssetsByDeviceType(assets);
       
@@ -295,7 +294,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 0.9 }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -324,114 +323,60 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           pannable
         />
         
-        <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Server className="h-4 w-4" />
+        <Panel position="top-left" className="bg-white rounded-lg shadow-lg p-3 space-y-2 max-w-[200px] z-10">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <Server className="h-3.5 w-3.5" />
             Network Overview
           </div>
           
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Total Assets:</span>
-              <Badge variant="secondary">{stats.totalAssets}</Badge>
+          <div className="space-y-1.5 text-[10px]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Assets:</span>
+              <Badge variant="secondary" className="text-[9px]">{stats.totalAssets}</Badge>
             </div>
             
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">VLANs:</span>
-              <Badge className="bg-blue-100 text-blue-700">{stats.totalVlans}</Badge>
+              <Badge className="bg-blue-100 text-blue-700 text-[9px]">{stats.totalVlans}</Badge>
             </div>
             
-            {stats.turbineCount > 0 && (
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Turbine Patterns:</span>
-                <Badge className="bg-purple-100 text-purple-700">
-                  <Layers className="h-3 w-3 mr-1" />
-                  {stats.turbineCount}
-                </Badge>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">OT Devices:</span>
-              <Badge className="bg-purple-100 text-purple-700">{stats.otDevices}</Badge>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">OT:</span>
+              <Badge className="bg-purple-100 text-purple-700 text-[9px]">{stats.otDevices}</Badge>
             </div>
             
-            <div className="border-t pt-2 space-y-1">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-red-600">High Risk:</span>
-                <Badge className="bg-red-100 text-red-700">{stats.highRisk}</Badge>
+            <div className="border-t pt-1.5 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-red-600">High:</span>
+                <Badge className="bg-red-100 text-red-700 text-[9px]">{stats.highRisk}</Badge>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-amber-600">Medium Risk:</span>
-                <Badge className="bg-amber-100 text-amber-700">{stats.mediumRisk}</Badge>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-amber-600">Med:</span>
+                <Badge className="bg-amber-100 text-amber-700 text-[9px]">{stats.mediumRisk}</Badge>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-emerald-600">Low Risk:</span>
-                <Badge className="bg-emerald-100 text-emerald-700">{stats.lowRisk}</Badge>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-emerald-600">Low:</span>
+                <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">{stats.lowRisk}</Badge>
               </div>
             </div>
             
             {stats.internetExposed > 0 && (
-              <div className="border-t pt-2">
-                <div className="flex items-center gap-2 text-red-600">
+              <div className="border-t pt-1.5">
+                <div className="flex items-center gap-1.5 text-red-600">
                   <AlertTriangle className="h-3 w-3" />
-                  <span>{stats.internetExposed} exposed to internet</span>
+                  <span>{stats.internetExposed} internet</span>
                 </div>
               </div>
             )}
           </div>
         </Panel>
 
-        <Panel position="top-right" className="bg-white rounded-lg shadow-lg p-4 space-y-3 max-w-xs z-10">
-          <div className="flex items-center gap-2 text-sm font-medium mb-2">
-            <NetworkIcon className="h-4 w-4" />
-            ISA-95 Zones
-          </div>
+        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg p-3 space-y-2 z-10">
+          <div className="text-xs font-medium mb-1">View Options</div>
           
-          <div className="space-y-1.5 text-xs">
-            {[
-              PURDUE_ZONES.IT,
-              PURDUE_ZONES.DMZ,
-              PURDUE_ZONES.LEVEL_3,
-              PURDUE_ZONES.LEVEL_2,
-              PURDUE_ZONES.LEVEL_1,
-              PURDUE_ZONES.UNKNOWN,
-            ].map((config, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: config.color }}
-                />
-                <span className="text-muted-foreground truncate">{config.label}</span>
-              </div>
-            ))}
-          </div>
-          
-          <div className="border-t pt-2 mt-2">
-            <div className="text-xs text-muted-foreground mb-2">Risk Levels</div>
-            <div className="space-y-1 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span>High (40+)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-amber-500" />
-                <span>Medium (20-39)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span>Low (below 20)</span>
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg p-4 space-y-3 z-10">
-          <div className="text-sm font-medium mb-2">View Options</div>
-          
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor="show-turbines" className="text-xs cursor-pointer">
-              Show Turbine Patterns
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="show-turbines" className="text-[10px] cursor-pointer">
+              Turbine Patterns
             </Label>
             <Switch 
               id="show-turbines"
@@ -440,9 +385,9 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
             />
           </div>
           
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor="internet-only" className="text-xs cursor-pointer">
-              Internet Connections Only
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="internet-only" className="text-[10px] cursor-pointer">
+              Internet Only
             </Label>
             <Switch 
               id="internet-only"
@@ -453,32 +398,26 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         </Panel>
 
         {showTurbines && turbinePatterns.filter(p => p.vlans.length > 1).length > 0 && (
-          <Panel position="top-center" className="bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm z-10">
-            <div className="flex items-center gap-2 text-sm font-medium mb-2">
-              <Layers className="h-4 w-4 text-purple-600" />
+          <Panel position="top-center" className="bg-white rounded-lg shadow-lg p-3 space-y-2 max-w-xs z-10">
+            <div className="flex items-center gap-2 text-xs font-medium mb-1">
+              <Layers className="h-3.5 w-3.5 text-purple-600" />
               Detected Patterns
             </div>
             
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {turbinePatterns
                 .filter(p => p.vlans.length > 1)
                 .map(pattern => (
                   <div 
                     key={pattern.id}
-                    className="p-2 bg-purple-50 border border-purple-200 rounded text-xs"
+                    className="p-2 bg-purple-50 border border-purple-200 rounded text-[10px]"
                   >
-                    <div className="font-medium text-purple-900 mb-1">
+                    <div className="font-medium text-purple-900 mb-0.5">
                       {pattern.name}
                     </div>
                     <div className="text-purple-700 space-y-0.5">
                       <div>VLANs: {pattern.vlans.join(', ')}</div>
-                      <div>{pattern.assets.length} devices total</div>
-                      {pattern.fingerprint.hasSiemens > 0 && (
-                        <div>• {pattern.fingerprint.hasSiemens} Siemens per VLAN</div>
-                      )}
-                      {pattern.fingerprint.hasPortwell > 0 && (
-                        <div>• {pattern.fingerprint.hasPortwell} Portwell per VLAN</div>
-                      )}
+                      <div>{pattern.assets.length} devices</div>
                     </div>
                   </div>
                 ))}

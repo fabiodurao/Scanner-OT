@@ -16,6 +16,7 @@ import {
   Activity,
   Globe,
   Info,
+  Layers,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -40,16 +41,9 @@ const getRiskBadge = (riskScore: number | null) => {
   return <Badge className="bg-emerald-500 text-white">Low Risk ({riskScore})</Badge>;
 };
 
-// Parse flows_peers_by_type - pode vir como objeto ou string JSON
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
   if (!peerTypes) return {};
-  
-  // Se já é objeto, retorna
-  if (typeof peerTypes === 'object' && !Array.isArray(peerTypes)) {
-    return peerTypes;
-  }
-  
-  // Se é string, tenta fazer parse
+  if (typeof peerTypes === 'object' && !Array.isArray(peerTypes)) return peerTypes;
   if (typeof peerTypes === 'string') {
     try {
       return JSON.parse(peerTypes);
@@ -57,7 +51,6 @@ const parsePeerTypes = (peerTypes: any): Record<string, number> => {
       return {};
     }
   }
-  
   return {};
 };
 
@@ -66,6 +59,7 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
 
   const ips = asset.ips?.split(';').filter(Boolean) || [];
   const vlans = asset.vlans?.split(';').filter(Boolean) || [];
+  const vlanNames = asset.flows_vlans_from_flows?.split(';').filter(Boolean) || [];
   const ports = asset.ports?.split(';').filter(Boolean) || [];
   const otProtocols = asset.ot_protocols_base?.split(';').filter(Boolean) || [];
   
@@ -76,7 +70,6 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
     ? new Date(asset.flows_last_seen * 1000) 
     : null;
 
-  // Parse peer types corretamente
   const peerTypes = parsePeerTypes(asset.flows_peers_by_type);
   const hasPeerTypes = Object.keys(peerTypes).length > 0;
 
@@ -209,12 +202,22 @@ export const AssetDetailSheet = ({ asset, open, onOpenChange }: AssetDetailSheet
               
               {vlans.length > 0 && (
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">VLANs:</div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Layers className="h-3 w-3" />
+                    VLANs:
+                  </div>
+                  <div className="space-y-1">
                     {vlans.map((vlan, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {vlan}
-                      </Badge>
+                      <div key={i} className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {vlan}
+                        </Badge>
+                        {vlanNames[i] && vlanNames[i] !== vlan && (
+                          <span className="text-xs text-muted-foreground">
+                            ({vlanNames[i]})
+                          </span>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
