@@ -39,12 +39,12 @@ const nodeTypes = {
   vlanGroup: VlanGroupNode,
 };
 
-// Layout constants - SIMPLE GRID (VLAN groups only)
-const VLAN_GROUP_WIDTH = 240;
-const VLAN_GROUP_HEIGHT = 140;
-const GRID_COLUMNS = 6; // 6 VLANs per row
-const HORIZONTAL_SPACING = 60;
-const VERTICAL_SPACING = 60;
+// Layout constants - LARGER SPACING for visibility
+const VLAN_GROUP_WIDTH = 280;
+const VLAN_GROUP_HEIGHT = 160;
+const GRID_COLUMNS = 4; // 4 VLANs per row
+const HORIZONTAL_SPACING = 350; // Much larger
+const VERTICAL_SPACING = 250; // Much larger
 
 // Parse flows_peers_by_type
 const parsePeerTypes = (peerTypes: any): Record<string, number> => {
@@ -102,10 +102,12 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       return numA - numB;
     });
     
+    console.log('[NetworkTopology] ========================================');
     console.log('[NetworkTopology] Total VLANs:', sortedVlans.length);
     console.log('[NetworkTopology] VLANs:', sortedVlans);
+    console.log('[NetworkTopology] Grid: ', GRID_COLUMNS, 'columns');
     
-    // Create VLAN group nodes in grid layout (NO device nodes inside)
+    // Create VLAN group nodes in SIMPLE GRID
     sortedVlans.forEach((vlanId, index) => {
       const vlanAssets = assetsByVlan.get(vlanId)!;
       
@@ -113,20 +115,25 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       const zone = classifyPurdueZone(vlanAssets[0]);
       const zoneConfig = PURDUE_ZONES[zone];
       
-      // Grid position
+      // SIMPLE GRID CALCULATION
       const row = Math.floor(index / GRID_COLUMNS);
       const col = index % GRID_COLUMNS;
       
+      // Calculate position with LARGE spacing
       const x = col * (VLAN_GROUP_WIDTH + HORIZONTAL_SPACING);
       const y = row * (VLAN_GROUP_HEIGHT + VERTICAL_SPACING);
       
-      console.log(`[NetworkTopology] VLAN ${vlanId} at position (${x}, ${y}) - row ${row}, col ${col}`);
+      console.log(`[NetworkTopology] VLAN ${vlanId}:`);
+      console.log(`  - Index: ${index}`);
+      console.log(`  - Row: ${row}, Col: ${col}`);
+      console.log(`  - Position: (${x}, ${y})`);
+      console.log(`  - Assets: ${vlanAssets.length}`);
       
       // Get turbine info
       const turbineInfo = vlanToTurbine.get(vlanId);
       const fingerprint = createVlanFingerprint(vlanId, vlanAssets);
       
-      // Create VLAN group node (standalone, no children)
+      // Create VLAN group node
       const groupId = `vlan-${vlanId}`;
       nodes.push({
         id: groupId,
@@ -140,9 +147,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
           fingerprint,
           isPartOfTurbine: !!turbineInfo,
           turbineName: turbineInfo?.name,
-          // Pass onClick handler to VLAN group
           onClick: () => {
-            // Click on first asset in VLAN
             if (onNodeClick && vlanAssets.length > 0) {
               onNodeClick(vlanAssets[0]);
             }
@@ -155,9 +160,10 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       });
     });
     
-    console.log('[NetworkTopology] Created', nodes.length, 'VLAN group nodes');
+    console.log('[NetworkTopology] Created', nodes.length, 'VLAN nodes');
+    console.log('[NetworkTopology] ========================================');
     
-    // Create edges between VLANs (based on inter-VLAN traffic)
+    // Create edges between VLANs
     const scadaVlans = new Set<string>();
     assets.forEach(a => {
       if (a.device_type_final?.includes('SCADA') || a.device_type_base?.includes('SCADA')) {
@@ -165,7 +171,6 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
       }
     });
     
-    // Connect VLANs that have SCADA communication
     sortedVlans.forEach(vlanId => {
       const vlanAssets = assetsByVlan.get(vlanId)!;
       
@@ -178,12 +183,10 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         const scadaFlows = peerTypes['SCADA / OT Server'] || 0;
         
         if (scadaFlows > 0) {
-          // Find SCADA VLANs and create edge
           scadaVlans.forEach(scadaVlan => {
             if (scadaVlan !== vlanId) {
               const edgeId = `vlan-${vlanId}-vlan-${scadaVlan}`;
               
-              // Avoid duplicate edges
               if (!edges.find(e => e.id === edgeId)) {
                 edges.push({
                   id: edgeId,
@@ -246,8 +249,7 @@ export const NetworkTopologyV2 = ({ assets, onNodeClick }: NetworkTopologyV2Prop
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
-        fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+        defaultViewport={{ x: 100, y: 100, zoom: 0.8 }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
