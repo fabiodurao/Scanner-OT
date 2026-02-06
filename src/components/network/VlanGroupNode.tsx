@@ -3,7 +3,7 @@ import { NodeProps } from 'reactflow';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VlanFingerprint } from '@/utils/networkTopology';
-import { Network, Shield, AlertTriangle } from 'lucide-react';
+import { Network, Shield, AlertTriangle, Server, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VlanGroupData {
@@ -14,60 +14,57 @@ interface VlanGroupData {
   fingerprint: VlanFingerprint;
   isPartOfTurbine?: boolean;
   turbineName?: string;
+  onClick?: () => void;
 }
 
 export const VlanGroupNode = memo(({ data }: NodeProps<VlanGroupData>) => {
   const avgRisk = data.fingerprint.avgRiskScore;
   
   const getRiskColor = () => {
-    if (avgRisk >= 40) return 'border-red-400 bg-red-50/50';
-    if (avgRisk >= 20) return 'border-amber-400 bg-amber-50/50';
-    return 'border-emerald-400 bg-emerald-50/50';
+    if (avgRisk >= 40) return 'border-red-400 bg-red-50';
+    if (avgRisk >= 20) return 'border-amber-400 bg-amber-50';
+    return 'border-emerald-400 bg-emerald-50';
   };
   
-  const hasInternet = data.fingerprint.vendorCounts['Palo Alto Networks'] || 
-                       Object.values(data.fingerprint.deviceCounts).some(count => count > 0);
+  const hasInternet = Object.values(data.fingerprint.deviceCounts).some(count => count > 0);
+  
+  // Get top device types
+  const topDeviceTypes = Object.entries(data.fingerprint.deviceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
   
   return (
     <div
+      onClick={data.onClick}
       className={cn(
-        'rounded-lg border-2 bg-white/90 backdrop-blur-sm shadow-lg p-4',
+        'rounded-lg border-2 bg-white shadow-lg p-3 cursor-pointer transition-all hover:shadow-xl hover:scale-105',
         getRiskColor()
       )}
-      style={{
-        minWidth: '300px',
-        minHeight: '150px',
-      }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 pb-3 border-b-2">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-2 pb-2 border-b">
+        <div className="flex items-center gap-2 min-w-0">
           <div 
-            className="w-4 h-4 rounded-full flex-shrink-0"
+            className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: data.zoneColor }}
           />
-          <div>
-            <div className="font-bold text-base flex items-center gap-2">
-              <Network className="h-5 w-5" />
-              VLAN {data.vlanId}
+          <div className="min-w-0">
+            <div className="font-bold text-sm flex items-center gap-1">
+              <Network className="h-4 w-4 flex-shrink-0" />
+              <span>VLAN {data.vlanId}</span>
             </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">
+            <div className="text-[9px] text-muted-foreground truncate">
               {data.zone}
             </div>
-            {data.isPartOfTurbine && data.turbineName && (
-              <div className="text-[10px] text-purple-600 font-medium mt-1">
-                {data.turbineName}
-              </div>
-            )}
           </div>
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {hasInternet && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div>
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <AlertTriangle className="h-3 w-3 text-red-500" />
                 </div>
               </TooltipTrigger>
               <TooltipContent>Internet exposed</TooltipContent>
@@ -76,29 +73,56 @@ export const VlanGroupNode = memo(({ data }: NodeProps<VlanGroupData>) => {
           <Badge 
             variant="secondary" 
             className={cn(
-              'text-xs px-2 py-0.5',
+              'text-[10px] px-1.5 py-0',
               avgRisk >= 40 ? 'bg-red-500 text-white' :
               avgRisk >= 20 ? 'bg-amber-500 text-white' :
               'bg-emerald-500 text-white'
             )}
           >
-            <Shield className="h-3 w-3 mr-1" />
+            <Shield className="h-2.5 w-2.5 mr-0.5" />
             {Math.round(avgRisk)}
           </Badge>
         </div>
       </div>
       
+      {/* Turbine badge */}
+      {data.isPartOfTurbine && data.turbineName && (
+        <div className="mb-2">
+          <Badge className="bg-purple-100 text-purple-700 text-[9px] px-1.5 py-0">
+            <Layers className="h-2.5 w-2.5 mr-0.5" />
+            {data.turbineName}
+          </Badge>
+        </div>
+      )}
+      
       {/* Stats */}
-      <div className="text-xs text-muted-foreground space-y-1.5">
-        <div className="font-medium">{data.assetCount} devices</div>
-        {data.fingerprint.hasSiemens > 0 && (
-          <div>• {data.fingerprint.hasSiemens} Siemens</div>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Server className="h-3 w-3 text-muted-foreground" />
+          <span className="text-xs font-medium">{data.assetCount} devices</span>
+        </div>
+        
+        {/* Top device types */}
+        {topDeviceTypes.length > 0 && (
+          <div className="space-y-0.5">
+            {topDeviceTypes.map(([type, count]) => (
+              <div key={type} className="text-[10px] text-muted-foreground flex items-center justify-between">
+                <span className="truncate flex-1">{type}</span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1 flex-shrink-0">
+                  {count}
+                </Badge>
+              </div>
+            ))}
+          </div>
         )}
-        {data.fingerprint.hasPortwell > 0 && (
-          <div>• {data.fingerprint.hasPortwell} Portwell</div>
-        )}
-        {data.fingerprint.hasCisco > 0 && (
-          <div>• {data.fingerprint.hasCisco} Cisco</div>
+        
+        {/* Vendor summary */}
+        {(data.fingerprint.hasSiemens > 0 || data.fingerprint.hasPortwell > 0 || data.fingerprint.hasCisco > 0) && (
+          <div className="pt-1 border-t text-[9px] text-muted-foreground space-y-0.5">
+            {data.fingerprint.hasSiemens > 0 && <div>• {data.fingerprint.hasSiemens} Siemens</div>}
+            {data.fingerprint.hasPortwell > 0 && <div>• {data.fingerprint.hasPortwell} Portwell</div>}
+            {data.fingerprint.hasCisco > 0 && <div>• {data.fingerprint.hasCisco} Cisco</div>}
+          </div>
         )}
       </div>
     </div>
