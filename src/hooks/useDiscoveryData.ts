@@ -80,15 +80,15 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         .select('Identifier, SourceIp, DestinationIp, time');
       
       if (samplesError) {
-        console.error('Error fetching learning_samples:', samplesError);
+        console.error('[fetchUnknownSites] Error fetching learning_samples:', samplesError);
         setUnknownSitesLoading(false);
         return;
       }
 
-      console.log('Fetched learning_samples:', samples?.length || 0);
+      console.log('[fetchUnknownSites] Fetched learning_samples:', samples?.length || 0);
 
       if (!samples || samples.length === 0) {
-        console.log('No learning samples found');
+        console.log('[fetchUnknownSites] No learning samples found');
         setUnknownSites([]);
         setUnknownSitesLoading(false);
         return;
@@ -100,7 +100,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         .select('unique_id');
       
       if (sitesError) {
-        console.error('Error fetching sites for comparison:', sitesError);
+        console.error('[fetchUnknownSites] Error fetching sites for comparison:', sitesError);
       }
       
       const registeredIds = new Set(
@@ -109,7 +109,8 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           .filter(Boolean)
       );
       
-      console.log('Registered site unique_ids:', Array.from(registeredIds));
+      console.log('[fetchUnknownSites] Registered site unique_ids:', Array.from(registeredIds));
+      console.log('[fetchUnknownSites] Number of registered IDs:', registeredIds.size);
       
       // Get unique identifiers from samples
       const uniqueIdentifiers = new Set(
@@ -118,7 +119,8 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           .filter(Boolean)
       );
       
-      console.log('Unique identifiers in learning_samples:', Array.from(uniqueIdentifiers));
+      console.log('[fetchUnknownSites] Unique identifiers in learning_samples:', Array.from(uniqueIdentifiers));
+      console.log('[fetchUnknownSites] Number of unique identifiers:', uniqueIdentifiers.size);
       
       // Group samples by identifier and filter out registered ones
       const identifierMap = new Map<string, {
@@ -131,7 +133,15 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         if (!sample.Identifier) continue;
         
         // Check if this identifier is NOT registered
-        if (registeredIds.has(sample.Identifier)) {
+        const isRegistered = registeredIds.has(sample.Identifier);
+        
+        if (sample.Identifier === '019c2962-99dd-7da4-a394-9b55e70815f01') {
+          console.log('[fetchUnknownSites] DEBUG - Checking identifier:', sample.Identifier);
+          console.log('[fetchUnknownSites] DEBUG - Is registered?', isRegistered);
+          console.log('[fetchUnknownSites] DEBUG - Registered IDs contains this?', registeredIds.has(sample.Identifier));
+        }
+        
+        if (isRegistered) {
           continue; // Skip registered sites
         }
         
@@ -151,7 +161,8 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         if (sample.DestinationIp) entry.destIps.add(sample.DestinationIp);
       }
       
-      console.log('Unknown identifiers found:', identifierMap.size);
+      console.log('[fetchUnknownSites] Unknown identifiers found:', identifierMap.size);
+      console.log('[fetchUnknownSites] Unknown identifier keys:', Array.from(identifierMap.keys()));
       
       // Convert to UnknownSite array
       const unknown: UnknownSite[] = [];
@@ -183,7 +194,8 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       // Sort by last seen (most recent first)
       unknown.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
       
-      console.log('Unknown sites to display:', unknown);
+      console.log('[fetchUnknownSites] Unknown sites to display:', unknown.length);
+      console.log('[fetchUnknownSites] Unknown sites details:', unknown);
       
       setUnknownSites(unknown);
     } catch (error) {
