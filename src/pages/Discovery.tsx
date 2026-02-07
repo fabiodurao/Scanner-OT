@@ -63,6 +63,23 @@ const Discovery = () => {
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-[#2563EB] mx-auto mb-4" />
             <p className="text-muted-foreground text-sm sm:text-base">Loading discovery data...</p>
+            {siteId && (
+              <p className="text-xs text-muted-foreground mt-2 font-mono">
+                Site: {siteId}
+              </p>
+            )}
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!siteId) {
+    return (
+      <MainLayout>
+        <div className="p-4 sm:p-8">
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No site ID provided</p>
           </div>
         </div>
       </MainLayout>
@@ -74,7 +91,7 @@ const Discovery = () => {
       <div className="p-4 sm:p-8">
         <DiscoveryHeader
           site={site}
-          siteId={siteId!}
+          siteId={siteId}
           refreshing={refreshing}
           syncing={syncing}
           onRefresh={handleRefresh}
@@ -121,7 +138,7 @@ const Discovery = () => {
           
           <TabsContent value="variables">
             <VariablesTab
-              siteId={siteId!}
+              siteId={siteId}
               variables={variables}
               activeSourceIpFilter={activeSourceIpFilter}
               allSourceIps={allSourceIps}
@@ -132,7 +149,7 @@ const Discovery = () => {
           
           <TabsContent value="historical">
             <HistoricalTab
-              siteId={siteId!}
+              siteId={siteId}
               discoveredVariables={discoveredVariables}
               onVariableUpdated={loadData}
             />
@@ -160,7 +177,7 @@ const Discovery = () => {
           {isAdmin && (
             <TabsContent value="settings">
               <SiteSettingsTab 
-                siteIdentifier={siteId!}
+                siteIdentifier={siteId}
                 siteName={site?.name}
                 onDataCleared={loadData}
               />
