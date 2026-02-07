@@ -74,31 +74,29 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     setUnknownSitesLoading(true);
     
     try {
-      // First, get DISTINCT identifiers only (much faster!)
-      const { data: distinctIdentifiers, error: identifiersError } = await supabase
-        .from('learning_samples')
-        .select('Identifier')
-        .not('Identifier', 'is', null);
+      // Use RPC to get distinct identifiers (bypasses row limits)
+      const { data: distinctIdentifiersData, error: identifiersError } = await supabase
+        .rpc('get_distinct_identifiers');
       
       if (identifiersError) {
-        console.error('[fetchUnknownSites] Error fetching identifiers:', identifiersError);
+        console.error('[fetchUnknownSites] Error fetching distinct identifiers:', identifiersError);
         setUnknownSitesLoading(false);
         return;
       }
 
-      console.log('[fetchUnknownSites] Fetched learning_samples records:', distinctIdentifiers?.length || 0);
+      console.log('[fetchUnknownSites] Fetched distinct identifiers:', distinctIdentifiersData?.length || 0);
 
-      if (!distinctIdentifiers || distinctIdentifiers.length === 0) {
-        console.log('[fetchUnknownSites] No learning samples found');
+      if (!distinctIdentifiersData || distinctIdentifiersData.length === 0) {
+        console.log('[fetchUnknownSites] No identifiers found');
         setUnknownSites([]);
         setUnknownSitesLoading(false);
         return;
       }
       
-      // Get unique identifiers
+      // Extract identifiers from the result
       const uniqueIdentifiers = new Set(
-        distinctIdentifiers
-          .map(s => s.Identifier)
+        distinctIdentifiersData
+          .map((row: any) => row.identifier)
           .filter(Boolean)
       );
       
