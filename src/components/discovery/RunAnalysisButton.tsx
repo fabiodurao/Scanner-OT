@@ -25,7 +25,30 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     const fetchReadyCount = async () => {
       setLoading(true);
       
-      // Call the RPC function to get variables ready for analysis
+      // First, get the max sample count from ALL variables (for display)
+      const { data: allVarsData, error: allVarsError } = await supabase
+        .from('learning_samples')
+        .select('SourceIp, DestinationIp, Address, FC')
+        .eq('Identifier', siteId)
+        .not('SourceIp', 'is', null)
+        .not('Address', 'is', null);
+      
+      if (!allVarsError && allVarsData) {
+        // Group by variable key and count samples
+        const varCounts = new Map<string, number>();
+        allVarsData.forEach(sample => {
+          const key = `${sample.SourceIp}-${sample.DestinationIp}-${sample.Address}-${sample.FC}`;
+          varCounts.set(key, (varCounts.get(key) || 0) + 1);
+        });
+        
+        // Get max count
+        const maxCount = varCounts.size > 0 ? Math.max(...Array.from(varCounts.values())) : 0;
+        setMaxSampleCount(maxCount);
+        
+        console.log('[RunAnalysisButton] Max sample count across all variables:', maxCount);
+      }
+      
+      // Then, get variables ready for analysis (>= minSamples)
       const { data, error } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
@@ -34,20 +57,10 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
       if (!error && data) {
         setVariablesReady(data.length);
-        
-        // Find the variable with most samples for display
-        const maxSamples = data.length > 0 
-          ? Math.max(...data.map((v: any) => v.sample_count || 0))
-          : 0;
-        
-        setMaxSampleCount(maxSamples);
-        
         console.log('[RunAnalysisButton] Variables ready for analysis:', data.length);
-        console.log('[RunAnalysisButton] Max sample count:', maxSamples);
       } else {
         console.error('[RunAnalysisButton] Error fetching ready variables:', error);
         setVariablesReady(0);
-        setMaxSampleCount(0);
       }
       
       setLoading(false);
