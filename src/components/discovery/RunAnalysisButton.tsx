@@ -13,6 +13,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
   const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
+  const [maxSampleCount, setMaxSampleCount] = useState(0);
   const [variablesReady, setVariablesReady] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -33,10 +34,20 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
       if (!error && data) {
         setVariablesReady(data.length);
+        
+        // Find the variable with most samples for display
+        const maxSamples = data.length > 0 
+          ? Math.max(...data.map((v: any) => v.sample_count || 0))
+          : 0;
+        
+        setMaxSampleCount(maxSamples);
+        
         console.log('[RunAnalysisButton] Variables ready for analysis:', data.length);
+        console.log('[RunAnalysisButton] Max sample count:', maxSamples);
       } else {
         console.error('[RunAnalysisButton] Error fetching ready variables:', error);
         setVariablesReady(0);
+        setMaxSampleCount(0);
       }
       
       setLoading(false);
@@ -147,7 +158,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           <span className="hidden sm:inline">Historical Analysis</span>
           <span className="sm:hidden">Analysis</span>
           <span className="ml-1 sm:ml-2 text-xs font-normal">
-            ({variablesReady} ready)
+            ({maxSampleCount}/{minSamples})
           </span>
         </>
       )}
