@@ -13,7 +13,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
   const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
-  const [maxSampleCount, setMaxSampleCount] = useState(0);
+  const [sampleCount, setSampleCount] = useState(0);
   const [variablesReady, setVariablesReady] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -22,54 +22,43 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
   useEffect(() => {
-    const fetchReadyCount = async () => {
+    const fetchSampleCount = async () => {
       setLoading(true);
       
-      // First, get the max sample count from ALL variables (for display)
-      const { data: allVarsData, error: allVarsError } = await supabase
-        .from('learning_samples')
-        .select('SourceIp, DestinationIp, Address, FC')
-        .eq('Identifier', siteId)
-        .not('SourceIp', 'is', null)
-        .not('Address', 'is', null);
-      
-      if (!allVarsError && allVarsData) {
-        // Group by variable key and count samples
-        const varCounts = new Map<string, number>();
-        allVarsData.forEach(sample => {
-          const key = `${sample.SourceIp}-${sample.DestinationIp}-${sample.Address}-${sample.FC}`;
-          varCounts.set(key, (varCounts.get(key) || 0) + 1);
-        });
-        
-        // Get max count
-        const maxCount = varCounts.size > 0 ? Math.max(...Array.from(varCounts.values())) : 0;
-        setMaxSampleCount(maxCount);
-        
-        console.log('[RunAnalysisButton] Max sample count across all variables:', maxCount);
+      // Use the new RPC function to get sample count efficiently
+      const { data: sampleCountData, error: countError } = await supabase
+        .rpc('get_site_sample_count', { p_site_identifier: siteId });
+
+      if (countError) {
+        console.error('[RunAnalysisButton] Error fetching sample count:', countError);
+        setSampleCount(0);
+      } else {
+        const count = sampleCountData || 0;
+        setSampleCount(count);
+        console.log('[RunAnalysisButton] Sample count for all variables:', count);
       }
       
-      // Then, get variables ready for analysis (>= minSamples)
-      const { data, error } = await supabase
+      // Get count of unique variables ready for analysis
+      const { data: varsData, error: varsError } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
           p_min_samples: minSamples,
         });
 
-      if (!error && data) {
-        setVariablesReady(data.length);
-        console.log('[RunAnalysisButton] Variables ready for analysis:', data.length);
+      if (!varsError && varsData) {
+        setVariablesReady(varsData.length);
+        console.log('[RunAnalysisButton] Variables ready for analysis:', varsData.length);
       } else {
-        console.error('[RunAnalysisButton] Error fetching ready variables:', error);
         setVariablesReady(0);
       }
       
       setLoading(false);
     };
 
-    fetchReadyCount();
+    fetchSampleCount();
 
     // Refresh every 10 seconds
-    const interval = setInterval(fetchReadyCount, 10000);
+    const interval = setInterval(fetchSampleCount, 10000);
 
     return () => clearInterval(interval);
   }, [siteId, minSamples]);
@@ -135,7 +124,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     }
   };
 
-  const isReady = variablesReady > 0;
+  const isReady = sampleCount >= minSamples && variablesReady > 0;
 
   if (loading) {
     return (
@@ -171,7 +160,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
           <span className="hidden sm:inline">Historical Analysis</span>
           <span className="sm:hidden">Analysis</span>
           <span className="ml-1 sm:ml-2 text-xs font-normal">
-            ({maxSampleCount}/{minSamples})
+            ({sampleCount}/{minSamples})
           </span>
         </>
       )}
