@@ -93,11 +93,11 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         return;
       }
       
-      // Extract identifiers from the result
-      const uniqueIdentifiers = new Set(
+      // Extract identifiers from the result - ensure they are strings
+      const uniqueIdentifiers = new Set<string>(
         distinctIdentifiersData
-          .map((row: any) => row.identifier)
-          .filter(Boolean)
+          .map((row: { identifier: string }) => row.identifier)
+          .filter((id: string): id is string => typeof id === 'string' && id.length > 0)
       );
       
       console.log('[fetchUnknownSites] Unique identifiers found:', uniqueIdentifiers.size);
@@ -112,10 +112,10 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         console.error('[fetchUnknownSites] Error fetching sites for comparison:', sitesError);
       }
       
-      const registeredIds = new Set(
+      const registeredIds = new Set<string>(
         (registeredSites || [])
           .map(s => s.unique_id)
-          .filter(Boolean)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
       );
       
       console.log('[fetchUnknownSites] Registered site unique_ids:', Array.from(registeredIds));
@@ -123,7 +123,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       
       // Filter out registered identifiers
       const unregisteredIdentifiers = Array.from(uniqueIdentifiers).filter(
-        id => !registeredIds.has(id)
+        (id: string) => !registeredIds.has(id)
       );
       
       console.log('[fetchUnknownSites] Unregistered identifiers:', unregisteredIdentifiers);
@@ -167,7 +167,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           identifier,
           sampleCount: identifierSamples.length,
           equipmentCount: sourceIps.size,
-          variableCount: sourceIps.size, // Approximation
+          variableCount: sourceIps.size,
           firstSeen: times[0] || new Date().toISOString(),
           lastSeen: times[times.length - 1] || new Date().toISOString(),
           sourceIps: Array.from(sourceIps),
