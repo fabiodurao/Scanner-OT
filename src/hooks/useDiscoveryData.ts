@@ -74,25 +74,36 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     setUnknownSitesLoading(true);
     
     try {
-      // Get all unique identifiers from learning_samples
-      const { data: samples, error: samplesError } = await supabase
+      // First, get DISTINCT identifiers only (much faster!)
+      const { data: distinctIdentifiers, error: identifiersError } = await supabase
         .from('learning_samples')
-        .select('Identifier, SourceIp, DestinationIp, time');
+        .select('Identifier')
+        .not('Identifier', 'is', null);
       
-      if (samplesError) {
-        console.error('[fetchUnknownSites] Error fetching learning_samples:', samplesError);
+      if (identifiersError) {
+        console.error('[fetchUnknownSites] Error fetching identifiers:', identifiersError);
         setUnknownSitesLoading(false);
         return;
       }
 
-      console.log('[fetchUnknownSites] Fetched learning_samples:', samples?.length || 0);
+      console.log('[fetchUnknownSites] Fetched learning_samples records:', distinctIdentifiers?.length || 0);
 
-      if (!samples || samples.length === 0) {
+      if (!distinctIdentifiers || distinctIdentifiers.length === 0) {
         console.log('[fetchUnknownSites] No learning samples found');
         setUnknownSites([]);
         setUnknownSitesLoading(false);
         return;
       }
+      
+      // Get unique identifiers
+      const uniqueIdentifiers = new Set(
+        distinctIdentifiers
+          .map(s => s.Identifier)
+          .filter(Boolean)
+      );
+      
+      console.log('[fetchUnknownSites] Unique identifiers found:', uniqueIdentifiers.size);
+      console.log('[fetchUnknownSites] Unique identifiers list:', Array.from(uniqueIdentifiers));
 
       // Get all registered site unique_ids
       const { data: registeredSites, error: sitesError } = await supabase
@@ -112,83 +123,59 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       console.log('[fetchUnknownSites] Registered site unique_ids:', Array.from(registeredIds));
       console.log('[fetchUnknownSites] Number of registered IDs:', registeredIds.size);
       
-      // Get unique identifiers from samples
-      const uniqueIdentifiers = new Set(
-        samples
-          .map(s => s.Identifier)
-          .filter(Boolean)
+      // Filter out registered identifiers
+      const unregisteredIdentifiers = Array.from(uniqueIdentifiers).filter(
+        id => !registeredIds.has(id)
       );
       
-      console.log('[fetchUnknownSites] Unique identifiers in learning_samples:', Array.from(uniqueIdentifiers));
-      console.log('[fetchUnknownSites] Number of unique identifiers:', uniqueIdentifiers.size);
+      console.log('[fetchUnknownSites] Unregistered identifiers:', unregisteredIdentifiers);
+      console.log('[fetchUnknownSites] Number of unregistered identifiers:', unregisteredIdentifiers.length);
       
-      // Group samples by identifier and filter out registered ones
-      const identifierMap = new Map<string, {
-        samples: typeof samples;
-        sourceIps: Set<string>;
-        destIps: Set<string>;
-      }>();
-      
-      for (const sample of samples) {
-        if (!sample.Identifier) continue;
-        
-        // Check if this identifier is NOT registered
-        const isRegistered = registeredIds.has(sample.Identifier);
-        
-        if (sample.Identifier === '019c2962-99dd-7da4-a394-9b55e70815f01') {
-          console.log('[fetchUnknownSites] DEBUG - Checking identifier:', sample.Identifier);
-          console.log('[fetchUnknownSites] DEBUG - Is registered?', isRegistered);
-          console.log('[fetchUnknownSites] DEBUG - Registered IDs contains this?', registeredIds.has(sample.Identifier));
-        }
-        
-        if (isRegistered) {
-          continue; // Skip registered sites
-        }
-        
-        if (!identifierMap.has(sample.Identifier)) {
-          identifierMap.set(sample.Identifier, {
-            samples: [],
-            sourceIps: new Set(),
-            destIps: new Set(),
-          });
-        }
-        
-        const entry = identifierMap.get(sample.Identifier)!;
-        entry.samples.push(sample);
-        // SourceIp is the equipment (slave) responding
-        if (sample.SourceIp) entry.sourceIps.add(sample.SourceIp);
-        // DestinationIp is the master asking
-        if (sample.DestinationIp) entry.destIps.add(sample.DestinationIp);
-      }
-      
-      console.log('[fetchUnknownSites] Unknown identifiers found:', identifierMap.size);
-      console.log('[fetchUnknownSites] Unknown identifier keys:', Array.from(identifierMap.keys()));
-      
-      // Convert to UnknownSite array
+      // Now fetch detailed data for each unregistered identifier
       const unknown: UnknownSite[] = [];
       
-      for (const [identifier, data] of identifierMap) {
-        const times = data.samples
-          .map(s => s.time)
-          .filter((t): t is string => t !== null)
-          .sort();
+      for (const identifier of unregisteredIdentifiers) {
+        console.log(`[fetchUnknownSites] Fetching details for unregistered identifier: ${identifier}`);
         
-        // Count unique variables (by source IP (equipment) + address combination would be better, but we don't have address here)
-        const uniqueVars = new Set(
-          data.samples.map(s => `${s.SourceIp}`)
-        );
+        // Get samples for this identifier
+        const { data: identifierSamples, error: samplesError } = await supabase
+          .from('learning_samples')
+          .select('SourceIp, DestinationIp, time')
+          .eq('Identifier', identifier)
+          .order('time', { ascending: true });
+        
+        if (samplesError) {
+          console.error(`[fetchUnknownSites] Error fetching samples for ${identifier}:`, samplesError);
+          continue;
+        }
+        
+        if (!identifierSamples || identifierSamples.length === 0) {
+          console.log(`[fetchUnknownSites] No samples found for ${identifier}`);
+          continue;
+        }
+        
+        // Collect source IPs (equipment)
+        const sourceIps = new Set<string>();
+        const times: string[] = [];
+        
+        for (const sample of identifierSamples) {
+          if (sample.SourceIp) sourceIps.add(sample.SourceIp);
+          if (sample.time) times.push(sample.time);
+        }
+        
+        times.sort();
         
         unknown.push({
           identifier,
-          sampleCount: data.samples.length,
-          // Equipment count is the number of unique source IPs (slaves responding)
-          equipmentCount: data.sourceIps.size,
-          variableCount: uniqueVars.size,
+          sampleCount: identifierSamples.length,
+          equipmentCount: sourceIps.size,
+          variableCount: sourceIps.size, // Approximation
           firstSeen: times[0] || new Date().toISOString(),
           lastSeen: times[times.length - 1] || new Date().toISOString(),
-          // Source IPs are the equipment (slaves)
-          sourceIps: Array.from(data.sourceIps),
+          sourceIps: Array.from(sourceIps),
         });
+        
+        console.log(`[fetchUnknownSites] Added unknown site: ${identifier} with ${identifierSamples.length} samples`);
       }
       
       // Sort by last seen (most recent first)
