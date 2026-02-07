@@ -13,7 +13,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const { activeJobs } = useAnalysisJobs();
   const { settings } = useUserSettings();
   const [localRunning, setLocalRunning] = useState(false);
-  const [samplesPerRegister, setSamplesPerRegister] = useState(0);
   const [variablesReady, setVariablesReady] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -22,37 +21,10 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   const isRunning = activeJobs.some(job => job.site_identifier === siteId) || localRunning;
 
   useEffect(() => {
-    const fetchSampleCount = async () => {
+    const fetchReadyCount = async () => {
       setLoading(true);
       
-      const { data: firstVar, error: firstError } = await supabase
-        .from('learning_samples')
-        .select('SourceIp, Address, FC')
-        .eq('Identifier', siteId)
-        .not('SourceIp', 'is', null)
-        .not('Address', 'is', null)
-        .limit(1)
-        .single();
-
-      if (firstError || !firstVar) {
-        setSamplesPerRegister(0);
-        setVariablesReady(0);
-        setLoading(false);
-        return;
-      }
-
-      const { count, error: countError } = await supabase
-        .from('learning_samples')
-        .select('*', { count: 'exact', head: true })
-        .eq('Identifier', siteId)
-        .eq('SourceIp', firstVar.SourceIp)
-        .eq('Address', firstVar.Address)
-        .eq('FC', firstVar.FC);
-
-      if (!countError && count !== null) {
-        setSamplesPerRegister(count);
-      }
-
+      // Call the RPC function to get variables ready for analysis
       const { data, error } = await supabase
         .rpc('get_variables_ready_for_analysis', {
           p_site_identifier: siteId,
@@ -61,14 +33,19 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
 
       if (!error && data) {
         setVariablesReady(data.length);
+        console.log('[RunAnalysisButton] Variables ready for analysis:', data.length);
+      } else {
+        console.error('[RunAnalysisButton] Error fetching ready variables:', error);
+        setVariablesReady(0);
       }
       
       setLoading(false);
     };
 
-    fetchSampleCount();
+    fetchReadyCount();
 
-    const interval = setInterval(fetchSampleCount, 10000);
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchReadyCount, 10000);
 
     return () => clearInterval(interval);
   }, [siteId, minSamples]);
@@ -118,7 +95,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         toast.info("No variables ready for analysis (need more samples)");
       } else {
         toast.success(
-          `Historical analysis started! Processing ${variablesCount} variables with ${samplesPerRegister} samples each...`
+          `Historical analysis started! Processing ${variablesCount} variables...`
         );
         
         setTimeout(() => {
@@ -135,7 +112,6 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
   };
 
   const isReady = variablesReady > 0;
-  const progressPercent = Math.min(100, (samplesPerRegister / minSamples) * 100);
 
   if (loading) {
     return (
@@ -159,35 +135,22 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         isRunning && "border-purple-400 bg-purple-50"
       )}
     >
-      <div 
-        className={cn(
-          "absolute inset-0 transition-all duration-500",
-          isReady ? "bg-purple-400" : "bg-slate-300"
-        )}
-        style={{ 
-          width: `${progressPercent}%`,
-          opacity: 0.5,
-        }}
-      />
-      
-      <div className="relative z-10 flex items-center">
-        {isRunning ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            <span className="hidden sm:inline">Running...</span>
-            <span className="sm:hidden">Running...</span>
-          </>
-        ) : (
-          <>
-            <TrendingUp className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Historical Analysis</span>
-            <span className="sm:hidden">Analysis</span>
-            <span className="ml-1 sm:ml-2 text-xs font-normal">
-              ({samplesPerRegister}/{minSamples})
-            </span>
-          </>
-        )}
-      </div>
+      {isRunning ? (
+        <>
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          <span className="hidden sm:inline">Running...</span>
+          <span className="sm:hidden">Running...</span>
+        </>
+      ) : (
+        <>
+          <TrendingUp className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Historical Analysis</span>
+          <span className="sm:hidden">Analysis</span>
+          <span className="ml-1 sm:ml-2 text-xs font-normal">
+            ({variablesReady} ready)
+          </span>
+        </>
+      )}
     </Button>
   );
 }
