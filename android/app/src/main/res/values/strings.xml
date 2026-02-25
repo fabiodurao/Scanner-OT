@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Scanner-OT</string>
+    <string name="title_activity_main">Scanner-OT</string>
+    <string name="package_name">com.example.scannerot</string>
+    <string name="custom_url_scheme">com.example.scannerot</string>
+</resources>
