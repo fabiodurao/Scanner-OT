@@ -45,14 +45,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { 
-  Building2, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  MapPin, 
-  Copy, 
-  RefreshCw, 
+import {
+  Building2,
+  Plus,
+  Pencil,
+  Trash2,
+  MapPin,
+  Copy,
+  RefreshCw,
   Loader2,
   Wind,
   Sun,
@@ -65,6 +65,7 @@ import {
   Server,
   Variable,
   Clock,
+  BatteryCharging,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -74,6 +75,7 @@ const siteTypeConfig = {
   fotovoltaica: { label: 'Solar', icon: Sun, color: 'bg-amber-100 text-amber-700' },
   hibrida: { label: 'Hybrid', icon: Zap, color: 'bg-purple-100 text-purple-700' },
   subestacao: { label: 'Substation', icon: Building, color: 'bg-slate-100 text-slate-700' },
+  bess: { label: 'BESS', icon: BatteryCharging, color: 'bg-green-100 text-green-700' },
 };
 
 interface SiteFormData {
@@ -670,6 +672,12 @@ const SitesManagement = () => {
                           <div className="flex items-center gap-2">
                             <Building className="h-4 w-4 text-slate-500" />
                             Substation
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="bess">
+                          <div className="flex items-center gap-2">
+                            <BatteryCharging className="h-4 w-4 text-green-500" />
+                            BESS (Battery Energy Storage System)
                           </div>
                         </SelectItem>
                       </SelectContent>
