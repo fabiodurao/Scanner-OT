@@ -35,28 +35,17 @@ interface Suggestion {
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-const DEFAULT_CENTER = { lat: 51.5074, lng: -0.1278 };
-const DEFAULT_ZOOM = 5;
+const DEFAULT_CENTER = { lat: 20, lng: 0 };
+const DEFAULT_ZOOM = 2;
 
 const silverMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
   { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
-  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-  { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
-  { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
 ];
 
 const createCustomMarkerIcon = () => {
@@ -66,6 +55,34 @@ const createCustomMarkerIcon = () => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getGoogle = (): any => (window as any).google;
+
+// Global promise to avoid loading the script multiple times
+let mapsLoadPromise: Promise<void> | null = null;
+
+const loadGoogleMaps = (apiKey: string): Promise<void> => {
+  if (mapsLoadPromise) return mapsLoadPromise;
+
+  // Already loaded
+  if (getGoogle()?.maps?.places) {
+    mapsLoadPromise = Promise.resolve();
+    return mapsLoadPromise;
+  }
+
+  mapsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geocoding&language=en&region=US`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      mapsLoadPromise = null;
+      reject(new Error('Failed to load Google Maps'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return mapsLoadPromise;
+};
 
 export const AddressAutocomplete = ({
   value,
@@ -93,80 +110,27 @@ export const AddressAutocomplete = ({
   const markerRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geocoderRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const autocompleteServiceRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createMarker = (position: { lat: number; lng: number }, map: any) => {
-    const google = getGoogle();
-    if (!google) return null;
-    return new google.maps.Marker({
-      position,
-      map,
-      draggable: true,
-      animation: google.maps.Animation.DROP,
-      icon: {
-        url: createCustomMarkerIcon(),
-        scaledSize: new google.maps.Size(32, 42),
-        anchor: new google.maps.Point(16, 42),
-      },
-    });
-  };
-
-  // Load Google Maps using importLibrary (correct approach for loading=async)
+  // Load Google Maps script
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
       setMapError('Google Maps API key not configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment.');
       return;
     }
 
-    const initMap = async () => {
-      try {
-        // If already loaded via importLibrary, use it directly
-        if (getGoogle()?.maps?.importLibrary) {
-          await getGoogle().maps.importLibrary('maps');
-          await getGoogle().maps.importLibrary('places');
-          geocoderRef.current = new getGoogle().maps.Geocoder();
-          setIsApiLoaded(true);
-          return;
-        }
-
-        // Inject script with loading=async
-        if (!document.querySelector('script[data-gmaps]')) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).initGoogleMaps = async () => {
-            try {
-              await getGoogle().maps.importLibrary('maps');
-              await getGoogle().maps.importLibrary('places');
-              geocoderRef.current = new getGoogle().maps.Geocoder();
-              setIsApiLoaded(true);
-            } catch {
-              setMapError('Failed to initialize Google Maps libraries');
-            }
-          };
-
-          const script = document.createElement('script');
-          script.setAttribute('data-gmaps', 'true');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=initGoogleMaps&language=en&region=US`;
-          script.async = true;
-          script.defer = true;
-          script.onerror = () => setMapError('Failed to load Google Maps API');
-          document.head.appendChild(script);
-        } else {
-          // Script already injected, wait for google to be ready
-          const wait = setInterval(() => {
-            if (getGoogle()?.maps?.Geocoder) {
-              clearInterval(wait);
-              geocoderRef.current = new getGoogle().maps.Geocoder();
-              setIsApiLoaded(true);
-            }
-          }, 100);
-        }
-      } catch {
-        setMapError('Failed to load Google Maps API');
-      }
-    };
-
-    initMap();
+    loadGoogleMaps(GOOGLE_MAPS_API_KEY)
+      .then(() => {
+        const google = getGoogle();
+        geocoderRef.current = new google.maps.Geocoder();
+        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+        setIsApiLoaded(true);
+      })
+      .catch(() => {
+        setMapError('Failed to load Google Maps. Check your API key and network connection.');
+      });
   }, []);
 
   // Initialize map after API is loaded
@@ -174,12 +138,16 @@ export const AddressAutocomplete = ({
     const google = getGoogle();
     if (!isApiLoaded || !mapRef.current || !google) return;
 
-    const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
-    const lat = hasCoordinates ? parseFloat(latitude) : DEFAULT_CENTER.lat;
-    const lng = hasCoordinates ? parseFloat(longitude) : DEFAULT_CENTER.lng;
+    const hasCoordinates = latitude && longitude &&
+      parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0 &&
+      !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude));
+
+    const center = hasCoordinates
+      ? { lat: parseFloat(latitude), lng: parseFloat(longitude) }
+      : DEFAULT_CENTER;
 
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center: { lat, lng },
+      center,
       zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
       mapTypeControl: false,
       streetViewControl: false,
@@ -189,36 +157,60 @@ export const AddressAutocomplete = ({
     });
 
     if (hasCoordinates) {
-      markerRef.current = createMarker({ lat, lng }, mapInstanceRef.current);
-
-      if (markerRef.current) {
-        markerRef.current.addListener('dragend', () => {
-          const position = markerRef.current?.getPosition();
-          if (position && geocoderRef.current) {
-            onAddressChange({ latitude: position.lat(), longitude: position.lng() });
-            geocoderRef.current.geocode(
-              { location: position, language: 'en' },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (results: any, status: string) => {
-                if (status === 'OK' && results?.[0]) {
-                  const addressData = parseAddressComponents(results[0]);
-                  onAddressChange({ address: results[0].formatted_address, ...addressData });
-                  setInputValue(results[0].formatted_address);
-                }
-              }
-            );
-          }
-        });
-      }
+      addMarker(center);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isApiLoaded]);
 
-  // Update map when coordinates change
-  useEffect(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addMarker = (position: { lat: number; lng: number }) => {
     const google = getGoogle();
     if (!mapInstanceRef.current || !google) return;
 
-    const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+    }
+
+    markerRef.current = new google.maps.Marker({
+      position,
+      map: mapInstanceRef.current,
+      draggable: true,
+      animation: google.maps.Animation.DROP,
+      icon: {
+        url: createCustomMarkerIcon(),
+        scaledSize: new google.maps.Size(32, 42),
+        anchor: new google.maps.Point(16, 42),
+      },
+    });
+
+    markerRef.current.addListener('dragend', () => {
+      const pos = markerRef.current?.getPosition();
+      if (pos && geocoderRef.current) {
+        const lat = pos.lat();
+        const lng = pos.lng();
+        onAddressChange({ latitude: lat, longitude: lng });
+        geocoderRef.current.geocode(
+          { location: { lat, lng }, language: 'en' },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (results: any, status: string) => {
+            if (status === 'OK' && results?.[0]) {
+              const addressData = parseAddressComponents(results[0]);
+              onAddressChange({ address: results[0].formatted_address, ...addressData });
+              setInputValue(results[0].formatted_address);
+            }
+          }
+        );
+      }
+    });
+  };
+
+  // Update map when coordinates change externally
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    const hasCoordinates = latitude && longitude &&
+      parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0 &&
+      !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude));
 
     if (!hasCoordinates) {
       mapInstanceRef.current.setCenter(DEFAULT_CENTER);
@@ -230,38 +222,16 @@ export const AddressAutocomplete = ({
       return;
     }
 
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-    if (isNaN(lat) || isNaN(lng)) return;
-
-    const position = { lat, lng };
+    const position = { lat: parseFloat(latitude), lng: parseFloat(longitude) };
     mapInstanceRef.current.setCenter(position);
     mapInstanceRef.current.setZoom(15);
 
     if (markerRef.current) {
       markerRef.current.setPosition(position);
     } else {
-      markerRef.current = createMarker(position, mapInstanceRef.current);
-      if (markerRef.current) {
-        markerRef.current.addListener('dragend', () => {
-          const pos = markerRef.current?.getPosition();
-          if (pos && geocoderRef.current) {
-            onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
-            geocoderRef.current.geocode(
-              { location: pos, language: 'en' },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (results: any, status: string) => {
-                if (status === 'OK' && results?.[0]) {
-                  const addressData = parseAddressComponents(results[0]);
-                  onAddressChange({ address: results[0].formatted_address, ...addressData });
-                  setInputValue(results[0].formatted_address);
-                }
-              }
-            );
-          }
-        });
-      }
+      addMarker(position);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latitude, longitude]);
 
   useEffect(() => {
@@ -296,109 +266,41 @@ export const AddressAutocomplete = ({
     return { city: cityValue || null, state: stateValue || null, country: countryValue || null, postalCode: postalCode || null };
   };
 
-  const searchPlaces = useCallback(async (query: string) => {
-    const google = getGoogle();
-    if (query.length < 3 || !google?.maps?.places) {
+  const searchPlaces = useCallback((query: string) => {
+    if (query.length < 3 || !autocompleteServiceRef.current) {
       setSuggestions([]);
       return;
     }
 
     setIsLoading(true);
-    try {
-      // Try new AutocompleteSuggestion API first
-      if (google.maps.places.AutocompleteSuggestion) {
-        const { suggestions: results } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped = (results || []).map((s: any) => ({
-          placeId: s.placePrediction?.placeId || '',
-          description: s.placePrediction?.text?.toString() || '',
-          mainText: s.placePrediction?.mainText?.toString() || '',
-          secondaryText: s.placePrediction?.secondaryText?.toString() || '',
-        })).filter((s: Suggestion) => s.placeId);
-        setSuggestions(mapped);
-        if (mapped.length > 0) setShowSuggestions(true);
+    autocompleteServiceRef.current.getPlacePredictions(
+      { input: query, types: ['geocode', 'establishment'] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (predictions: any[] | null, status: string) => {
         setIsLoading(false);
-        return;
-      }
-    } catch {
-      // fall through to legacy
-    }
-
-    // Fallback: legacy AutocompleteService
-    try {
-      const service = new google.maps.places.AutocompleteService();
-      service.getPlacePredictions(
-        { input: query, types: ['geocode', 'establishment'] },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (predictions: any[] | null, status: string) => {
-          setIsLoading(false);
-          if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setSuggestions(predictions.map((p: any) => ({
-              placeId: p.place_id,
-              description: p.description,
-              mainText: p.structured_formatting.main_text,
-              secondaryText: p.structured_formatting.secondary_text || '',
-            })));
-            setShowSuggestions(true);
-          } else {
-            setSuggestions([]);
-          }
+        const google = getGoogle();
+        if (status === google?.maps?.places?.PlacesServiceStatus?.OK && predictions) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setSuggestions(predictions.map((p: any) => ({
+            placeId: p.place_id,
+            description: p.description,
+            mainText: p.structured_formatting?.main_text || p.description,
+            secondaryText: p.structured_formatting?.secondary_text || '',
+          })));
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
         }
-      );
-    } catch {
-      setIsLoading(false);
-      setSuggestions([]);
-    }
+      }
+    );
   }, []);
 
-  const handleSelectSuggestion = async (suggestion: Suggestion) => {
-    const google = getGoogle();
-    if (!google?.maps?.places) return;
+  const handleSelectSuggestion = (suggestion: Suggestion) => {
+    if (!geocoderRef.current) return;
 
     setIsLoading(true);
     setShowSuggestions(false);
 
-    // Try new Place API first
-    try {
-      if (google.maps.places.Place) {
-        const place = new google.maps.places.Place({ id: suggestion.placeId });
-        await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
-
-        const lat = place.location?.lat();
-        const lng = place.location?.lng();
-
-        let cityValue = '', stateValue = '', countryValue = '', postalCode = '';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const component of (place.addressComponents || [])) {
-          const types = component.types || [];
-          if (types.includes('locality') || types.includes('administrative_area_level_2')) cityValue = component.longText || '';
-          if (types.includes('administrative_area_level_1')) stateValue = component.shortText || '';
-          if (types.includes('country')) countryValue = component.longText || '';
-          if (types.includes('postal_code')) postalCode = component.longText || '';
-        }
-
-        setInputValue(place.formattedAddress || suggestion.description);
-        onAddressChange({
-          address: place.formattedAddress || suggestion.description,
-          latitude: lat || 0,
-          longitude: lng || 0,
-          city: cityValue || null,
-          state: stateValue || null,
-          country: countryValue || null,
-          postalCode: postalCode || null,
-        });
-        setIsLoading(false);
-        return;
-      }
-    } catch {
-      // fall through to geocoder
-    }
-
-    // Fallback: Geocoder with placeId
-    if (!geocoderRef.current) { setIsLoading(false); return; }
     geocoderRef.current.geocode(
       { placeId: suggestion.placeId, language: 'en' },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -425,7 +327,7 @@ export const AddressAutocomplete = ({
     setInputValue(newValue);
     onAddressChange({ address: newValue });
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => searchPlaces(newValue), 300);
+    debounceRef.current = setTimeout(() => searchPlaces(newValue), 350);
   };
 
   const handleClear = () => {
@@ -451,11 +353,11 @@ export const AddressAutocomplete = ({
           <Input
             ref={inputRef}
             id="address"
-            placeholder="Search for an address..."
+            placeholder={isApiLoaded ? "Search for an address..." : "Loading maps..."}
             value={inputValue}
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            disabled={disabled || !isApiLoaded}
+            disabled={disabled || (!isApiLoaded && !mapError)}
             className="pl-10 pr-10"
           />
           {inputValue && (
@@ -484,7 +386,12 @@ export const AddressAutocomplete = ({
             </div>
           )}
         </div>
-        {!GOOGLE_MAPS_API_KEY && <p className="text-xs text-amber-600">Configure VITE_GOOGLE_MAPS_API_KEY for address autocomplete</p>}
+        {mapError && (
+          <p className="text-xs text-amber-600">{mapError}</p>
+        )}
+        {!GOOGLE_MAPS_API_KEY && (
+          <p className="text-xs text-amber-600">Configure VITE_GOOGLE_MAPS_API_KEY for address autocomplete</p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -515,20 +422,29 @@ export const AddressAutocomplete = ({
 
       <div className="space-y-2">
         <Label>Location Map</Label>
-        <div ref={mapRef} className={cn('w-full h-48 rounded-lg border bg-slate-100', mapError && 'flex items-center justify-center')}>
+        <div
+          ref={mapRef}
+          className={cn(
+            'w-full h-48 rounded-lg border bg-slate-100',
+            (mapError || (!isApiLoaded && !mapError)) && 'flex items-center justify-center'
+          )}
+        >
           {mapError && (
             <div className="text-center text-sm text-muted-foreground p-4">
               <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>{mapError}</p>
+              <p className="text-xs">{mapError}</p>
             </div>
           )}
           {!isApiLoaded && !mapError && (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading map...</span>
             </div>
           )}
         </div>
-        {latitude && longitude && <p className="text-xs text-muted-foreground">Drag the marker to adjust the exact location</p>}
+        {latitude && longitude && parseFloat(latitude) !== 0 && (
+          <p className="text-xs text-muted-foreground">Drag the marker to adjust the exact location</p>
+        )}
       </div>
     </div>
   );
