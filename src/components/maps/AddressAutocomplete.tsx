@@ -133,7 +133,8 @@ export const AddressAutocomplete = ({
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=en&region=US`;
+    // loading=async required for new Places API (AutocompleteSuggestion)
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,maps&loading=async&language=en&region=US`;
     script.async = true;
     script.defer = true;
 
@@ -278,7 +279,7 @@ export const AddressAutocomplete = ({
     return { city: cityValue || null, state: stateValue || null, country: countryValue || null, postalCode: postalCode || null };
   };
 
-  const searchPlaces = useCallback((query: string) => {
+  const searchPlaces = useCallback(async (query: string) => {
     const google = getGoogle();
     if (query.length < 3 || !google?.maps?.places) {
       setSuggestions([]);
@@ -286,36 +287,121 @@ export const AddressAutocomplete = ({
     }
 
     setIsLoading(true);
-    const service = new google.maps.places.AutocompleteService();
-    service.getPlacePredictions(
-      { input: query, types: ['geocode', 'establishment'] },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (predictions: any[] | null, status: string) => {
-        setIsLoading(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+    try {
+      // Try new Places API (New) first
+      if (google.maps.places.AutocompleteSuggestion) {
+        const { suggestions: results } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: query,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped = (results || []).map((s: any) => ({
+          placeId: s.placePrediction?.placeId || '',
+          description: s.placePrediction?.text?.toString() || '',
+          mainText: s.placePrediction?.mainText?.toString() || '',
+          secondaryText: s.placePrediction?.secondaryText?.toString() || '',
+        })).filter((s: Suggestion) => s.placeId);
+        setSuggestions(mapped);
+        if (mapped.length > 0) setShowSuggestions(true);
+      } else {
+        // Fallback: legacy AutocompleteService
+        const service = new google.maps.places.AutocompleteService();
+        service.getPlacePredictions(
+          { input: query, types: ['geocode', 'establishment'] },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setSuggestions(predictions.map((p: any) => ({
-            placeId: p.place_id,
-            description: p.description,
-            mainText: p.structured_formatting.main_text,
-            secondaryText: p.structured_formatting.secondary_text || '',
-          })));
-          setShowSuggestions(true);
-        } else {
-          setSuggestions([]);
-        }
+          (predictions: any[] | null, status: string) => {
+            setIsLoading(false);
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              setSuggestions(predictions.map((p: any) => ({
+                placeId: p.place_id,
+                description: p.description,
+                mainText: p.structured_formatting.main_text,
+                secondaryText: p.structured_formatting.secondary_text || '',
+              })));
+              setShowSuggestions(true);
+            } else {
+              setSuggestions([]);
+            }
+          }
+        );
+        return;
       }
-    );
+    } catch {
+      // Fallback to legacy on error
+      try {
+        const service = new google.maps.places.AutocompleteService();
+        service.getPlacePredictions(
+          { input: query, types: ['geocode', 'establishment'] },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (predictions: any[] | null, status: string) => {
+            setIsLoading(false);
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              setSuggestions(predictions.map((p: any) => ({
+                placeId: p.place_id,
+                description: p.description,
+                mainText: p.structured_formatting.main_text,
+                secondaryText: p.structured_formatting.secondary_text || '',
+              })));
+              setShowSuggestions(true);
+            } else {
+              setSuggestions([]);
+            }
+          }
+        );
+        return;
+      } catch {
+        setSuggestions([]);
+      }
+    }
+    setIsLoading(false);
   }, []);
 
-  const handleSelectSuggestion = (suggestion: Suggestion) => {
+  const handleSelectSuggestion = async (suggestion: Suggestion) => {
     const google = getGoogle();
-    if (!google?.maps?.places || !mapInstanceRef.current) return;
+    if (!google?.maps?.places) return;
 
     setIsLoading(true);
     setShowSuggestions(false);
 
-    // Use Geocoder instead of PlacesService to avoid IntersectionObserver error
+    try {
+      // Try new Place API first
+      if (google.maps.places.Place) {
+        const place = new google.maps.places.Place({ id: suggestion.placeId });
+        await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
+
+        const lat = place.location?.lat();
+        const lng = place.location?.lng();
+
+        let cityValue = '', stateValue = '', countryValue = '', postalCode = '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const component of (place.addressComponents || [])) {
+          const types = component.types || [];
+          if (types.includes('locality') || types.includes('administrative_area_level_2')) cityValue = component.longText || '';
+          if (types.includes('administrative_area_level_1')) stateValue = component.shortText || '';
+          if (types.includes('country')) countryValue = component.longText || '';
+          if (types.includes('postal_code')) postalCode = component.longText || '';
+        }
+
+        setInputValue(place.formattedAddress || suggestion.description);
+        onAddressChange({
+          address: place.formattedAddress || suggestion.description,
+          latitude: lat || 0,
+          longitude: lng || 0,
+          city: cityValue || null,
+          state: stateValue || null,
+          country: countryValue || null,
+          postalCode: postalCode || null,
+        });
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      // fall through to geocoder
+    }
+
+    // Fallback: use Geocoder with placeId (no PlacesService needed)
+    if (!geocoderRef.current) { setIsLoading(false); return; }
     geocoderRef.current.geocode(
       { placeId: suggestion.placeId, language: 'en' },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
