@@ -35,11 +35,9 @@ interface Suggestion {
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-// Default center: London, UK
 const DEFAULT_CENTER = { lat: 51.5074, lng: -0.1278 };
 const DEFAULT_ZOOM = 5;
 
-// Silver theme style for Google Maps
 const silverMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
@@ -62,14 +60,12 @@ const silverMapStyle = [
 ];
 
 const createCustomMarkerIcon = () => {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
-      <path fill="#0E182E" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/>
-      <circle fill="#ffffff" cx="16" cy="16" r="6"/>
-    </svg>
-  `;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="#0E182E" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/><circle fill="#ffffff" cx="16" cy="16" r="6"/></svg>`;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getGoogle = (): any => (window as any).google;
 
 export const AddressAutocomplete = ({
   value,
@@ -100,13 +96,9 @@ export const AddressAutocomplete = ({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getGoogle = (): any => (window as any).google;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createMarker = (position: { lat: number; lng: number }, map: any) => {
     const google = getGoogle();
     if (!google) return null;
-
     return new google.maps.Marker({
       position,
       map,
@@ -120,36 +112,67 @@ export const AddressAutocomplete = ({
     });
   };
 
-  // Load Google Maps API
+  // Load Google Maps using importLibrary (correct approach for loading=async)
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
       setMapError('Google Maps API key not configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment.');
       return;
     }
 
-    if (getGoogle()?.maps?.places) {
-      setIsApiLoaded(true);
-      return;
-    }
+    const initMap = async () => {
+      try {
+        // If already loaded via importLibrary, use it directly
+        if (getGoogle()?.maps?.importLibrary) {
+          await getGoogle().maps.importLibrary('maps');
+          await getGoogle().maps.importLibrary('places');
+          geocoderRef.current = new getGoogle().maps.Geocoder();
+          setIsApiLoaded(true);
+          return;
+        }
 
-    const script = document.createElement('script');
-    // loading=async required for new Places API (AutocompleteSuggestion)
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,maps&loading=async&language=en&region=US`;
-    script.async = true;
-    script.defer = true;
+        // Inject script with loading=async
+        if (!document.querySelector('script[data-gmaps]')) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).initGoogleMaps = async () => {
+            try {
+              await getGoogle().maps.importLibrary('maps');
+              await getGoogle().maps.importLibrary('places');
+              geocoderRef.current = new getGoogle().maps.Geocoder();
+              setIsApiLoaded(true);
+            } catch {
+              setMapError('Failed to initialize Google Maps libraries');
+            }
+          };
 
-    script.onload = () => setIsApiLoaded(true);
-    script.onerror = () => setMapError('Failed to load Google Maps API');
+          const script = document.createElement('script');
+          script.setAttribute('data-gmaps', 'true');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=initGoogleMaps&language=en&region=US`;
+          script.async = true;
+          script.defer = true;
+          script.onerror = () => setMapError('Failed to load Google Maps API');
+          document.head.appendChild(script);
+        } else {
+          // Script already injected, wait for google to be ready
+          const wait = setInterval(() => {
+            if (getGoogle()?.maps?.Geocoder) {
+              clearInterval(wait);
+              geocoderRef.current = new getGoogle().maps.Geocoder();
+              setIsApiLoaded(true);
+            }
+          }, 100);
+        }
+      } catch {
+        setMapError('Failed to load Google Maps API');
+      }
+    };
 
-    document.head.appendChild(script);
+    initMap();
   }, []);
 
-  // Initialize map and geocoder
+  // Initialize map after API is loaded
   useEffect(() => {
     const google = getGoogle();
     if (!isApiLoaded || !mapRef.current || !google) return;
-
-    geocoderRef.current = new google.maps.Geocoder();
 
     const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
     const lat = hasCoordinates ? parseFloat(latitude) : DEFAULT_CENTER.lat;
@@ -173,7 +196,6 @@ export const AddressAutocomplete = ({
           const position = markerRef.current?.getPosition();
           if (position && geocoderRef.current) {
             onAddressChange({ latitude: position.lat(), longitude: position.lng() });
-
             geocoderRef.current.geocode(
               { location: position, language: 'en' },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,7 +223,6 @@ export const AddressAutocomplete = ({
     if (!hasCoordinates) {
       mapInstanceRef.current.setCenter(DEFAULT_CENTER);
       mapInstanceRef.current.setZoom(DEFAULT_ZOOM);
-
       if (markerRef.current) {
         markerRef.current.setMap(null);
         markerRef.current = null;
@@ -221,13 +242,11 @@ export const AddressAutocomplete = ({
       markerRef.current.setPosition(position);
     } else {
       markerRef.current = createMarker(position, mapInstanceRef.current);
-
       if (markerRef.current) {
         markerRef.current.addListener('dragend', () => {
           const pos = markerRef.current?.getPosition();
           if (pos && geocoderRef.current) {
             onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
-
             geocoderRef.current.geocode(
               { location: pos, language: 'en' },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -266,7 +285,6 @@ export const AddressAutocomplete = ({
   const parseAddressComponents = (place: any): Partial<AddressData> => {
     const components = place.address_components || [];
     let cityValue = '', stateValue = '', countryValue = '', postalCode = '';
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const component of components) {
       const types = component.types;
@@ -275,7 +293,6 @@ export const AddressAutocomplete = ({
       if (types.includes('country')) countryValue = component.long_name;
       if (types.includes('postal_code')) postalCode = component.long_name;
     }
-
     return { city: cityValue || null, state: stateValue || null, country: countryValue || null, postalCode: postalCode || null };
   };
 
@@ -288,7 +305,7 @@ export const AddressAutocomplete = ({
 
     setIsLoading(true);
     try {
-      // Try new Places API (New) first
+      // Try new AutocompleteSuggestion API first
       if (google.maps.places.AutocompleteSuggestion) {
         const { suggestions: results } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query,
@@ -302,59 +319,39 @@ export const AddressAutocomplete = ({
         })).filter((s: Suggestion) => s.placeId);
         setSuggestions(mapped);
         if (mapped.length > 0) setShowSuggestions(true);
-      } else {
-        // Fallback: legacy AutocompleteService
-        const service = new google.maps.places.AutocompleteService();
-        service.getPlacePredictions(
-          { input: query, types: ['geocode', 'establishment'] },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (predictions: any[] | null, status: string) => {
-            setIsLoading(false);
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              setSuggestions(predictions.map((p: any) => ({
-                placeId: p.place_id,
-                description: p.description,
-                mainText: p.structured_formatting.main_text,
-                secondaryText: p.structured_formatting.secondary_text || '',
-              })));
-              setShowSuggestions(true);
-            } else {
-              setSuggestions([]);
-            }
-          }
-        );
+        setIsLoading(false);
         return;
       }
     } catch {
-      // Fallback to legacy on error
-      try {
-        const service = new google.maps.places.AutocompleteService();
-        service.getPlacePredictions(
-          { input: query, types: ['geocode', 'establishment'] },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (predictions: any[] | null, status: string) => {
-            setIsLoading(false);
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              setSuggestions(predictions.map((p: any) => ({
-                placeId: p.place_id,
-                description: p.description,
-                mainText: p.structured_formatting.main_text,
-                secondaryText: p.structured_formatting.secondary_text || '',
-              })));
-              setShowSuggestions(true);
-            } else {
-              setSuggestions([]);
-            }
-          }
-        );
-        return;
-      } catch {
-        setSuggestions([]);
-      }
+      // fall through to legacy
     }
-    setIsLoading(false);
+
+    // Fallback: legacy AutocompleteService
+    try {
+      const service = new google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        { input: query, types: ['geocode', 'establishment'] },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (predictions: any[] | null, status: string) => {
+          setIsLoading(false);
+          if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setSuggestions(predictions.map((p: any) => ({
+              placeId: p.place_id,
+              description: p.description,
+              mainText: p.structured_formatting.main_text,
+              secondaryText: p.structured_formatting.secondary_text || '',
+            })));
+            setShowSuggestions(true);
+          } else {
+            setSuggestions([]);
+          }
+        }
+      );
+    } catch {
+      setIsLoading(false);
+      setSuggestions([]);
+    }
   }, []);
 
   const handleSelectSuggestion = async (suggestion: Suggestion) => {
@@ -364,8 +361,8 @@ export const AddressAutocomplete = ({
     setIsLoading(true);
     setShowSuggestions(false);
 
+    // Try new Place API first
     try {
-      // Try new Place API first
       if (google.maps.places.Place) {
         const place = new google.maps.places.Place({ id: suggestion.placeId });
         await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
@@ -400,7 +397,7 @@ export const AddressAutocomplete = ({
       // fall through to geocoder
     }
 
-    // Fallback: use Geocoder with placeId (no PlacesService needed)
+    // Fallback: Geocoder with placeId
     if (!geocoderRef.current) { setIsLoading(false); return; }
     geocoderRef.current.geocode(
       { placeId: suggestion.placeId, language: 'en' },
@@ -427,7 +424,6 @@ export const AddressAutocomplete = ({
     const newValue = e.target.value;
     setInputValue(newValue);
     onAddressChange({ address: newValue });
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => searchPlaces(newValue), 300);
   };
@@ -436,7 +432,6 @@ export const AddressAutocomplete = ({
     setInputValue('');
     setSuggestions([]);
     onAddressChange({ address: '', latitude: 0, longitude: 0, city: null, state: null, country: null });
-
     if (markerRef.current) {
       markerRef.current.setMap(null);
       markerRef.current = null;
