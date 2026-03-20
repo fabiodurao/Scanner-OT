@@ -278,8 +278,7 @@ export const AddressAutocomplete = ({
     return { city: cityValue || null, state: stateValue || null, country: countryValue || null, postalCode: postalCode || null };
   };
 
-  // Use new AutocompleteSuggestion API (replaces deprecated AutocompleteService)
-  const searchPlaces = useCallback(async (query: string) => {
+  const searchPlaces = useCallback((query: string) => {
     const google = getGoogle();
     if (query.length < 3 || !google?.maps?.places) {
       setSuggestions([]);
@@ -287,117 +286,55 @@ export const AddressAutocomplete = ({
     }
 
     setIsLoading(true);
-    try {
-      // Use new API if available, fallback to legacy
-      if (google.maps.places.AutocompleteSuggestion) {
-        const { suggestions: results } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSuggestions((results || []).map((s: any) => ({
-          placeId: s.placePrediction?.placeId || '',
-          description: s.placePrediction?.text?.toString() || '',
-          mainText: s.placePrediction?.mainText?.toString() || '',
-          secondaryText: s.placePrediction?.secondaryText?.toString() || '',
-        })));
-        setShowSuggestions(true);
-      } else {
-        // Fallback to legacy AutocompleteService
-        const service = new google.maps.places.AutocompleteService();
-        service.getPlacePredictions(
-          { input: query, types: ['geocode', 'establishment'] },
+    const service = new google.maps.places.AutocompleteService();
+    service.getPlacePredictions(
+      { input: query, types: ['geocode', 'establishment'] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (predictions: any[] | null, status: string) => {
+        setIsLoading(false);
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (predictions: any[] | null, status: string) => {
-            setIsLoading(false);
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              setSuggestions(predictions.map((p: any) => ({
-                placeId: p.place_id,
-                description: p.description,
-                mainText: p.structured_formatting.main_text,
-                secondaryText: p.structured_formatting.secondary_text || '',
-              })));
-              setShowSuggestions(true);
-            } else {
-              setSuggestions([]);
-            }
-          }
-        );
-        return;
+          setSuggestions(predictions.map((p: any) => ({
+            placeId: p.place_id,
+            description: p.description,
+            mainText: p.structured_formatting.main_text,
+            secondaryText: p.structured_formatting.secondary_text || '',
+          })));
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+        }
       }
-    } catch {
-      setSuggestions([]);
-    }
-    setIsLoading(false);
+    );
   }, []);
 
-  // Use new Place API (replaces deprecated PlacesService)
-  const handleSelectSuggestion = async (suggestion: Suggestion) => {
+  const handleSelectSuggestion = (suggestion: Suggestion) => {
     const google = getGoogle();
-    if (!google?.maps?.places) return;
+    if (!google?.maps?.places || !mapInstanceRef.current) return;
 
     setIsLoading(true);
     setShowSuggestions(false);
 
-    try {
-      if (google.maps.places.Place) {
-        // New Places API
-        const place = new google.maps.places.Place({ id: suggestion.placeId });
-        await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
-
-        const lat = place.location?.lat();
-        const lng = place.location?.lng();
-
-        // Parse address components from new API
-        let cityValue = '', stateValue = '', countryValue = '', postalCode = '';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const component of (place.addressComponents || [])) {
-          const types = component.types || [];
-          if (types.includes('locality') || types.includes('administrative_area_level_2')) cityValue = component.longText || '';
-          if (types.includes('administrative_area_level_1')) stateValue = component.shortText || '';
-          if (types.includes('country')) countryValue = component.longText || '';
-          if (types.includes('postal_code')) postalCode = component.longText || '';
+    // Use Geocoder instead of PlacesService to avoid IntersectionObserver error
+    geocoderRef.current.geocode(
+      { placeId: suggestion.placeId, language: 'en' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (results: any[] | null, status: string) => {
+        setIsLoading(false);
+        if (status === 'OK' && results?.[0]) {
+          const lat = results[0].geometry?.location?.lat();
+          const lng = results[0].geometry?.location?.lng();
+          const addressData = parseAddressComponents(results[0]);
+          setInputValue(results[0].formatted_address || suggestion.description);
+          onAddressChange({
+            address: results[0].formatted_address || suggestion.description,
+            latitude: lat || 0,
+            longitude: lng || 0,
+            ...addressData,
+          });
         }
-
-        setInputValue(place.formattedAddress || suggestion.description);
-        onAddressChange({
-          address: place.formattedAddress || suggestion.description,
-          latitude: lat || 0,
-          longitude: lng || 0,
-          city: cityValue || null,
-          state: stateValue || null,
-          country: countryValue || null,
-          postalCode: postalCode || null,
-        });
-      } else {
-        // Fallback to legacy PlacesService — needs a map instance
-        if (!mapInstanceRef.current) return;
-        const service = new google.maps.places.PlacesService(mapInstanceRef.current);
-        service.getDetails(
-          { placeId: suggestion.placeId, fields: ['formatted_address', 'geometry', 'address_components'] },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (place: any | null, status: string) => {
-            setIsLoading(false);
-            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-              const lat = place.geometry?.location?.lat();
-              const lng = place.geometry?.location?.lng();
-              const addressData = parseAddressComponents(place);
-              setInputValue(place.formatted_address || suggestion.description);
-              onAddressChange({
-                address: place.formatted_address || suggestion.description,
-                latitude: lat || 0,
-                longitude: lng || 0,
-                ...addressData,
-              });
-            }
-          }
-        );
-        return;
       }
-    } catch {
-      // silent
-    }
-    setIsLoading(false);
+    );
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
