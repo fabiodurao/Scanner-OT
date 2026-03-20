@@ -41,95 +41,26 @@ const DEFAULT_ZOOM = 5;
 
 // Silver theme style for Google Maps
 const silverMapStyle = [
-  {
-    elementType: "geometry",
-    stylers: [{ color: "#f5f5f5" }],
-  },
-  {
-    elementType: "labels.icon",
-    stylers: [{ visibility: "off" }],
-  },
-  {
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#616161" }],
-  },
-  {
-    elementType: "labels.text.stroke",
-    stylers: [{ color: "#f5f5f5" }],
-  },
-  {
-    featureType: "administrative.land_parcel",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#bdbdbd" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "geometry",
-    stylers: [{ color: "#eeeeee" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#757575" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [{ color: "#e5e5e5" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9e9e9e" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
-  },
-  {
-    featureType: "road.arterial",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#757575" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#dadada" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#616161" }],
-  },
-  {
-    featureType: "road.local",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9e9e9e" }],
-  },
-  {
-    featureType: "transit.line",
-    elementType: "geometry",
-    stylers: [{ color: "#e5e5e5" }],
-  },
-  {
-    featureType: "transit.station",
-    elementType: "geometry",
-    stylers: [{ color: "#eeeeee" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#c9c9c9" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9e9e9e" }],
-  },
+  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+  { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+  { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
 ];
 
-// Custom marker icon SVG in navy blue (#0E182E)
 const createCustomMarkerIcon = () => {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
@@ -156,7 +87,7 @@ export const AddressAutocomplete = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isApiLoaded, setIsApiLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -165,17 +96,12 @@ export const AddressAutocomplete = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markerRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const autocompleteServiceRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const placesServiceRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geocoderRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getGoogle = (): any => (window as any).google;
 
-  // Create marker with custom icon
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createMarker = (position: { lat: number; lng: number }, map: any) => {
     const google = getGoogle();
@@ -194,7 +120,7 @@ export const AddressAutocomplete = ({
     });
   };
 
-  // Load Google Maps API with English language
+  // Load Google Maps API
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
       setMapError('Google Maps API key not configured. Add VITE_GOOGLE_MAPS_API_KEY to your environment.');
@@ -207,34 +133,27 @@ export const AddressAutocomplete = ({
     }
 
     const script = document.createElement('script');
-    // Add language=en to force English results
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=en&region=US`;
     script.async = true;
     script.defer = true;
-    
-    script.onload = () => {
-      setIsApiLoaded(true);
-    };
-    
-    script.onerror = () => {
-      setMapError('Failed to load Google Maps API');
-    };
+
+    script.onload = () => setIsApiLoaded(true);
+    script.onerror = () => setMapError('Failed to load Google Maps API');
 
     document.head.appendChild(script);
   }, []);
 
-  // Initialize services and map
+  // Initialize map and geocoder
   useEffect(() => {
     const google = getGoogle();
     if (!isApiLoaded || !mapRef.current || !google) return;
 
-    autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
     geocoderRef.current = new google.maps.Geocoder();
 
     const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
     const lat = hasCoordinates ? parseFloat(latitude) : DEFAULT_CENTER.lat;
     const lng = hasCoordinates ? parseFloat(longitude) : DEFAULT_CENTER.lng;
-    
+
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: { lat, lng },
       zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
@@ -245,8 +164,6 @@ export const AddressAutocomplete = ({
       styles: silverMapStyle,
     });
 
-    placesServiceRef.current = new google.maps.places.PlacesService(mapInstanceRef.current);
-
     if (hasCoordinates) {
       markerRef.current = createMarker({ lat, lng }, mapInstanceRef.current);
 
@@ -255,10 +172,9 @@ export const AddressAutocomplete = ({
           const position = markerRef.current?.getPosition();
           if (position && geocoderRef.current) {
             onAddressChange({ latitude: position.lat(), longitude: position.lng() });
-            
-            // Use language: 'en' for reverse geocoding
+
             geocoderRef.current.geocode(
-              { location: position, language: 'en' }, 
+              { location: position, language: 'en' },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (results: any, status: string) => {
                 if (status === 'OK' && results?.[0]) {
@@ -280,12 +196,11 @@ export const AddressAutocomplete = ({
     if (!mapInstanceRef.current || !google) return;
 
     const hasCoordinates = latitude && longitude && parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0;
-    
+
     if (!hasCoordinates) {
-      // Reset to London if no coordinates
       mapInstanceRef.current.setCenter(DEFAULT_CENTER);
       mapInstanceRef.current.setZoom(DEFAULT_ZOOM);
-      
+
       if (markerRef.current) {
         markerRef.current.setMap(null);
         markerRef.current = null;
@@ -311,8 +226,7 @@ export const AddressAutocomplete = ({
           const pos = markerRef.current?.getPosition();
           if (pos && geocoderRef.current) {
             onAddressChange({ latitude: pos.lat(), longitude: pos.lng() });
-            
-            // Use language: 'en' for reverse geocoding
+
             geocoderRef.current.geocode(
               { location: pos, language: 'en' },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -364,37 +278,127 @@ export const AddressAutocomplete = ({
     return { city: cityValue || null, state: stateValue || null, country: countryValue || null, postalCode: postalCode || null };
   };
 
-  const searchPlaces = useCallback((query: string) => {
+  // Use new AutocompleteSuggestion API (replaces deprecated AutocompleteService)
+  const searchPlaces = useCallback(async (query: string) => {
     const google = getGoogle();
-    if (!autocompleteServiceRef.current || query.length < 3 || !google) {
+    if (query.length < 3 || !google?.maps?.places) {
       setSuggestions([]);
       return;
     }
 
     setIsLoading(true);
-    autocompleteServiceRef.current.getPlacePredictions(
-      { 
-        input: query, 
-        types: ['geocode', 'establishment'],
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (predictions: any[] | null, status: string) => {
-        setIsLoading(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+    try {
+      // Use new API if available, fallback to legacy
+      if (google.maps.places.AutocompleteSuggestion) {
+        const { suggestions: results } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: query,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setSuggestions((results || []).map((s: any) => ({
+          placeId: s.placePrediction?.placeId || '',
+          description: s.placePrediction?.text?.toString() || '',
+          mainText: s.placePrediction?.mainText?.toString() || '',
+          secondaryText: s.placePrediction?.secondaryText?.toString() || '',
+        })));
+        setShowSuggestions(true);
+      } else {
+        // Fallback to legacy AutocompleteService
+        const service = new google.maps.places.AutocompleteService();
+        service.getPlacePredictions(
+          { input: query, types: ['geocode', 'establishment'] },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setSuggestions(predictions.map((p: any) => ({
-            placeId: p.place_id,
-            description: p.description,
-            mainText: p.structured_formatting.main_text,
-            secondaryText: p.structured_formatting.secondary_text || '',
-          })));
-          setShowSuggestions(true);
-        } else {
-          setSuggestions([]);
-        }
+          (predictions: any[] | null, status: string) => {
+            setIsLoading(false);
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              setSuggestions(predictions.map((p: any) => ({
+                placeId: p.place_id,
+                description: p.description,
+                mainText: p.structured_formatting.main_text,
+                secondaryText: p.structured_formatting.secondary_text || '',
+              })));
+              setShowSuggestions(true);
+            } else {
+              setSuggestions([]);
+            }
+          }
+        );
+        return;
       }
-    );
+    } catch {
+      setSuggestions([]);
+    }
+    setIsLoading(false);
   }, []);
+
+  // Use new Place API (replaces deprecated PlacesService)
+  const handleSelectSuggestion = async (suggestion: Suggestion) => {
+    const google = getGoogle();
+    if (!google?.maps?.places) return;
+
+    setIsLoading(true);
+    setShowSuggestions(false);
+
+    try {
+      if (google.maps.places.Place) {
+        // New Places API
+        const place = new google.maps.places.Place({ id: suggestion.placeId });
+        await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
+
+        const lat = place.location?.lat();
+        const lng = place.location?.lng();
+
+        // Parse address components from new API
+        let cityValue = '', stateValue = '', countryValue = '', postalCode = '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const component of (place.addressComponents || [])) {
+          const types = component.types || [];
+          if (types.includes('locality') || types.includes('administrative_area_level_2')) cityValue = component.longText || '';
+          if (types.includes('administrative_area_level_1')) stateValue = component.shortText || '';
+          if (types.includes('country')) countryValue = component.longText || '';
+          if (types.includes('postal_code')) postalCode = component.longText || '';
+        }
+
+        setInputValue(place.formattedAddress || suggestion.description);
+        onAddressChange({
+          address: place.formattedAddress || suggestion.description,
+          latitude: lat || 0,
+          longitude: lng || 0,
+          city: cityValue || null,
+          state: stateValue || null,
+          country: countryValue || null,
+          postalCode: postalCode || null,
+        });
+      } else {
+        // Fallback to legacy PlacesService — needs a map instance
+        if (!mapInstanceRef.current) return;
+        const service = new google.maps.places.PlacesService(mapInstanceRef.current);
+        service.getDetails(
+          { placeId: suggestion.placeId, fields: ['formatted_address', 'geometry', 'address_components'] },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (place: any | null, status: string) => {
+            setIsLoading(false);
+            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+              const lat = place.geometry?.location?.lat();
+              const lng = place.geometry?.location?.lng();
+              const addressData = parseAddressComponents(place);
+              setInputValue(place.formatted_address || suggestion.description);
+              onAddressChange({
+                address: place.formatted_address || suggestion.description,
+                latitude: lat || 0,
+                longitude: lng || 0,
+                ...addressData,
+              });
+            }
+          }
+        );
+        return;
+      }
+    } catch {
+      // silent
+    }
+    setIsLoading(false);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -403,38 +407,6 @@ export const AddressAutocomplete = ({
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => searchPlaces(newValue), 300);
-  };
-
-  const handleSelectSuggestion = (suggestion: Suggestion) => {
-    const google = getGoogle();
-    if (!placesServiceRef.current || !google) return;
-
-    setIsLoading(true);
-    setShowSuggestions(false);
-
-    placesServiceRef.current.getDetails(
-      { 
-        placeId: suggestion.placeId, 
-        fields: ['formatted_address', 'geometry', 'address_components'],
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (place: any | null, status: string) => {
-        setIsLoading(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          const lat = place.geometry?.location?.lat();
-          const lng = place.geometry?.location?.lng();
-          const addressData = parseAddressComponents(place);
-
-          setInputValue(place.formatted_address || suggestion.description);
-          onAddressChange({
-            address: place.formatted_address || suggestion.description,
-            latitude: lat || 0,
-            longitude: lng || 0,
-            ...addressData,
-          });
-        }
-      }
-    );
   };
 
   const handleClear = () => {
