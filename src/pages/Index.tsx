@@ -4,6 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { supabase } from '@/integrations/supabase/client';
 import { SiteDiscoveryStats } from '@/types/discovery';
+import { SitesMap } from '@/components/dashboard/SitesMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,8 @@ import {
   Zap,
   Building,
   FileArchive,
+  LayoutGrid,
+  Map,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -64,6 +67,7 @@ const Index = () => {
   const [pcapSummaries, setPcapSummaries] = useState<Record<string, PcapSummary>>({});
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [sitesView, setSitesView] = useState<'cards' | 'map'>('cards');
 
   useEffect(() => {
     const loadStats = async () => {
@@ -130,7 +134,6 @@ const Index = () => {
       const summaryByUniqueId: Record<string, PcapSummary> = {};
       sites.forEach(site => {
         if (site.unique_id) {
-          // Always set an entry, even if zero
           summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id] || { fileCount: 0, totalBytes: 0 };
         }
       });
@@ -177,6 +180,8 @@ const Index = () => {
       site_type: site.site_type,
       city: site.city,
       state: site.state,
+      latitude: site.latitude,
+      longitude: site.longitude,
       stats: site.unique_id ? siteStats[site.unique_id] : null,
       pcap: site.unique_id ? (pcapSummaries[site.unique_id] ?? null) : null,
     })),
@@ -188,10 +193,24 @@ const Index = () => {
       site_type: null,
       city: null,
       state: null,
+      latitude: null,
+      longitude: null,
       stats: siteStats[unknown.identifier] || null,
       pcap: null as PcapSummary | null,
     })),
   ];
+
+  // Sites with coordinates for the map
+  const mapSites = allSiteCards.map(s => ({
+    id: s.id,
+    identifier: s.identifier,
+    name: s.name,
+    site_type: s.site_type,
+    city: s.city,
+    state: s.state,
+    latitude: s.latitude,
+    longitude: s.longitude,
+  }));
 
   return (
     <MainLayout>
@@ -230,6 +249,7 @@ const Index = () => {
           </Card>
         )}
 
+        {/* Summary stats cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -317,15 +337,43 @@ const Index = () => {
           </Card>
         </div>
 
+        {/* Sites section with Cards / Map toggle */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
-            <Link to="/sites-management">
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Site
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* View toggle */}
+              <div className="flex items-center border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setSitesView('cards')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                    sitesView === 'cards'
+                      ? 'bg-[#2563EB] text-white'
+                      : 'bg-white text-muted-foreground hover:bg-slate-50'
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  Cards
+                </button>
+                <button
+                  onClick={() => setSitesView('map')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                    sitesView === 'map'
+                      ? 'bg-[#2563EB] text-white'
+                      : 'bg-white text-muted-foreground hover:bg-slate-50'
+                  }`}
+                >
+                  <Map className="h-4 w-4" />
+                  Map
+                </button>
+              </div>
+              <Link to="/sites-management">
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Site
+                </Button>
+              </Link>
+            </div>
           </div>
           
           {isLoading ? (
@@ -353,6 +401,11 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+          ) : sitesView === 'map' ? (
+            <SitesMap
+              sites={mapSites}
+              onSiteClick={handleCardClick}
+            />
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {allSiteCards.map((siteCard) => {
@@ -362,14 +415,12 @@ const Index = () => {
                 const isUnregistered = siteCard.type === 'unregistered';
                 const pcap = siteCard.pcap;
 
-                // PCAP line: always show for registered sites (even if 0)
                 const pcapLine = !isUnregistered
                   ? pcap && pcap.fileCount > 0
                     ? `${pcap.fileCount} PCAP${pcap.fileCount !== 1 ? 's' : ''} · ${formatFileSize(pcap.totalBytes)}`
                     : '0 PCAPs'
                   : null;
 
-                // Last activity line: show relative time or "Not processed yet"
                 const lastActivityLine = stats?.lastActivity
                   ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })
                   : 'Not processed yet';
@@ -426,7 +477,6 @@ const Index = () => {
                       )}
                     </CardHeader>
 
-                    {/* Main content — grows to fill space */}
                     <CardContent className="flex flex-col flex-1 pb-0">
                       {loadingStats ? (
                         <div className="flex items-center justify-center py-4 flex-1">
@@ -434,7 +484,6 @@ const Index = () => {
                         </div>
                       ) : stats ? (
                         <div className="flex flex-col flex-1">
-                          {/* Equipment & Variables */}
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center gap-2">
                               <div className="p-2 rounded-lg bg-slate-100">
@@ -456,7 +505,6 @@ const Index = () => {
                             </div>
                           </div>
                           
-                          {/* Learning progress */}
                           {stats.totalVariables > 0 && (
                             <div className="space-y-2 mb-4">
                               <div className="flex items-center justify-between text-xs">
@@ -496,7 +544,6 @@ const Index = () => {
                             </div>
                           )}
 
-                          {/* Spacer to push footer down */}
                           <div className="flex-1" />
                         </div>
                       ) : (
@@ -509,7 +556,6 @@ const Index = () => {
                         </div>
                       )}
 
-                      {/* Register button for unregistered sites */}
                       {isUnregistered && (
                         <div className="mt-4">
                           <Button 
@@ -525,14 +571,12 @@ const Index = () => {
 
                       {/* Footer — always two fixed lines at the bottom */}
                       <div className="mt-4 pt-3 border-t space-y-1 pb-4">
-                        {/* PCAP line — only for registered sites */}
                         {!isUnregistered && (
                           <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-slate-400'}`}>
                             <FileArchive className="h-3 w-3 flex-shrink-0" />
                             <span>{pcapLine}</span>
                           </div>
                         )}
-                        {/* Last activity line — always shown */}
                         <div className={`flex items-center gap-1.5 text-xs ${stats?.lastActivity ? 'text-muted-foreground' : 'text-slate-400'}`}>
                           <Clock className="h-3 w-3 flex-shrink-0" />
                           <span>
