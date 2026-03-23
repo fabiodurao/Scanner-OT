@@ -9,12 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { siteTypeConfig } from '@/pages/SitesManagement';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  Building2, 
-  Server, 
-  Variable, 
-  CheckCircle, 
+import {
+  Building2,
+  Server,
+  Variable,
+  CheckCircle,
   AlertTriangle,
   Loader2,
   MapPin,
@@ -41,17 +40,44 @@ interface PcapSummary {
   totalBytes: number;
 }
 
+// Inline SVG icon — same as in SitesManagement
+const FaIcon = ({
+  svgPath,
+  viewBox = '0 0 512 512',
+  color,
+  size = 16,
+  className = '',
+}: {
+  svgPath: string;
+  viewBox?: string;
+  color: string;
+  size?: number;
+  className?: string;
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox={viewBox}
+    width={size}
+    height={size}
+    fill={color}
+    className={className}
+    aria-hidden="true"
+  >
+    <path d={svgPath} />
+  </svg>
+);
+
 const Index = () => {
   const navigate = useNavigate();
-  const { 
-    sites, 
-    sitesLoading, 
-    unknownSites, 
+  const {
+    sites,
+    sitesLoading,
+    unknownSites,
     unknownSitesLoading,
     getSiteStats,
-    refreshAll 
+    refreshAll,
   } = useDiscoveryData();
-  
+
   const [siteStats, setSiteStats] = useState<Record<string, SiteDiscoveryStats>>({});
   const [pcapSummaries, setPcapSummaries] = useState<Record<string, PcapSummary>>({});
   const [loadingStats, setLoadingStats] = useState(false);
@@ -197,7 +223,6 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Summary stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -252,7 +277,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Sites section */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
@@ -307,8 +331,8 @@ const Index = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           {typeConfig && (
-                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${typeConfig.bgColor ? '' : typeConfig.color.split(' ')[0]}`} style={{ backgroundColor: typeConfig.bgColor }}>
-                              <FontAwesomeIcon icon={typeConfig.faIcon} className="h-4 w-4" style={{ color: typeConfig.textColor }} />
+                            <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
+                              <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={16} />
                             </div>
                           )}
                           {isUnregistered && <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />}
@@ -323,8 +347,8 @@ const Index = () => {
                         {isUnregistered ? (
                           <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">Unregistered</Badge>
                         ) : typeConfig ? (
-                          <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0`}>
-                            <FontAwesomeIcon icon={typeConfig.faIcon} className="mr-1 h-3 w-3" />
+                          <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
+                            <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={11} />
                             {typeConfig.label}
                           </Badge>
                         ) : null}

@@ -62,30 +62,102 @@ import {
   Variable,
   Clock,
 } from 'lucide-react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faWind,
-  faWater,
-  faSolarPanel,
-  faBolt,
-  faDroplet,
-  faFireFlameCurved,
-  faSeedling,
-  faBuilding,
-} from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-// fa-battery-bolt is Pro, using faBolt as the closest Free alternative for BESS
-export const siteTypeConfig: Record<string, { label: string; faIcon: typeof faWind; color: string; bgColor: string; textColor: string }> = {
-  eolica:          { label: 'Wind Turbine',  faIcon: faWind,             color: 'bg-blue-100 text-blue-700',   bgColor: '#dbeafe', textColor: '#1d4ed8' },
-  eolica_offshore: { label: 'Wind Offshore', faIcon: faWater,            color: 'bg-cyan-100 text-cyan-700',   bgColor: '#cffafe', textColor: '#0e7490' },
-  fotovoltaica:    { label: 'Solar',         faIcon: faSolarPanel,       color: 'bg-amber-100 text-amber-700', bgColor: '#fef3c7', textColor: '#b45309' },
-  bess:            { label: 'BESS',          faIcon: faBolt,             color: 'bg-green-100 text-green-700', bgColor: '#dcfce7', textColor: '#15803d' },
-  hidreletrica:    { label: 'Hydropower',    faIcon: faDroplet,          color: 'bg-indigo-100 text-indigo-700', bgColor: '#e0e7ff', textColor: '#4338ca' },
-  biomassa:        { label: 'Biomass',       faIcon: faFireFlameCurved,  color: 'bg-orange-100 text-orange-700', bgColor: '#ffedd5', textColor: '#c2410c' },
-  biocombustivel:  { label: 'Biofuels',      faIcon: faSeedling,         color: 'bg-lime-100 text-lime-700',   bgColor: '#f0fdf4', textColor: '#4d7c0f' },
-  subestacao:      { label: 'Substation',    faIcon: faBuilding,         color: 'bg-slate-100 text-slate-700', bgColor: '#f1f5f9', textColor: '#475569' },
+// Inline SVG icon component using FA Pro paths
+const FaIcon = ({
+  svgPath,
+  viewBox = '0 0 512 512',
+  color,
+  size = 16,
+  className = '',
+}: {
+  svgPath: string;
+  viewBox?: string;
+  color: string;
+  size?: number;
+  className?: string;
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox={viewBox}
+    width={size}
+    height={size}
+    fill={color}
+    className={className}
+    aria-hidden="true"
+  >
+    <path d={svgPath} />
+  </svg>
+);
+
+// FA Pro SVG paths (exact icons from the company system)
+export const FA_PATHS = {
+  // fa-wind-turbine (FA Pro Duotone) — Print 3
+  windTurbine: {
+    viewBox: '0 0 512 512',
+    path: 'M256 32c-8.8 0-16 7.2-16 16l0 176.2-90.9-52.5c-7.6-4.4-17.4-1.8-21.8 5.9s-1.8 17.4 5.9 21.8L224 251.7l0 8.3c0 17.7 14.3 32 32 32s32-14.3 32-32l0-8.3 90.9-52.5c7.6-4.4 10.3-14.2 5.9-21.8s-14.2-10.3-21.8-5.9L272 224.2 272 48c0-8.8-7.2-16-16-16zM240 320l0 144-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l96 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0 0-144c-5.2 .6-10.5 1-16 1s-10.8-.3-16-1z',
+  },
+  // fa-wind-sparkle (FA Kit) — Print 2
+  windSparkle: {
+    viewBox: '0 0 512 512',
+    path: 'M288 32c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64s14.3-32 32-32H288zM0 192c0-17.7 14.3-32 32-32H352c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zm32 96H224c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32zm352-96c0-17.7 14.3-32 32-32s32 14.3 32 32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V192zm32 128c17.7 0 32 14.3 32 32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V352c0-17.7 14.3-32 32-32zm-64-192c0-8.8 7.2-16 16-16s16 7.2 16 16v16c0 8.8-7.2 16-16 16s-16-7.2-16-16V128zm16 80c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16s-16-7.2-16-16V224c0-8.8 7.2-16 16-16z',
+  },
+  // fa-arrow-up-from-ground-water (FA Pro) — Print 1
+  arrowUpFromGroundWater: {
+    viewBox: '0 0 576 512',
+    path: 'M288 0c-13.3 0-24 10.7-24 24V142.1l-35.7-35.7c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9L264 210.1c6.2 6.2 14.4 9.4 22.6 9.4H288h1.4c8.2 0 16.4-3.1 22.6-9.4l69.6-69.8c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0L312 142.1V24c0-13.3-10.7-24-24-24zM0 320c0 17.7 14.3 32 32 32H64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h32c17.7 0 32-14.3 32-32s-14.3-32-32-32H32c-17.7 0-32 14.3-32 32zm64 128v32c0 17.7 14.3 32 32 32s32-14.3 32-32V448H64zm128 0v32c0 17.7 14.3 32 32 32s32-14.3 32-32V448H192zm128 0v32c0 17.7 14.3 32 32 32s32-14.3 32-32V448H320zm128 0v32c0 17.7 14.3 32 32 32s32-14.3 32-32V448H448z',
+  },
+  // fa-battery-bolt (FA Pro Duotone) — Print 4
+  batteryBolt: {
+    viewBox: '0 0 576 512',
+    path: 'M464 160c8.8 0 16 7.2 16 16V336c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V176c0-8.8 7.2-16 16-16H464zM80 96C35.8 96 0 131.8 0 176V336c0 44.2 35.8 80 80 80H464c44.2 0 80-35.8 80-80V320c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32V176c0-44.2-35.8-80-80-80H80zm208 88c-4.9-7.4-13.2-11.8-22-11.8s-17.1 4.4-22 11.8l-64 96c-5.3 8-5.6 18.2-.8 26.5S193.2 320 202.7 320H240v48c0 9.6 5.5 18.3 14.2 22.5s19 3.1 26.5-2.9l96-80c7.1-5.9 10.5-15.1 8.9-24.1s-8.1-16.4-17.1-19.1L320 256.4V208c0-10.4-6.3-19.8-15.9-23.8z',
+  },
+  // fa-solar-panel (FA Free solid)
+  solarPanel: {
+    viewBox: '0 0 640 512',
+    path: 'M32 0C14.3 0 0 14.3 0 32V352c0 17.7 14.3 32 32 32H244.4c-3.5 14.1-8.6 27.7-15.3 40.5c-5.8 11.1-4.1 24.6 4.3 33.9S254.3 472 266.7 472h106.7c12.3 0 23.9-5.4 31.6-14.8s10.1-22.8 4.3-33.9c-6.7-12.8-11.8-26.4-15.3-40.5H608c17.7 0 32-14.3 32-32V32c0-17.7-14.3-32-32-32H32zM192 96H448V288H192V96zM64 96H128V160H64V96zM128 224v64H64V224h64zM512 96h64v64H512V96zm64 128v64H512V224h64z',
+  },
+  // fa-fire-flame-curved (FA Free solid)
+  fireFlameCurved: {
+    viewBox: '0 0 384 512',
+    path: 'M153.6 29.9l16-21.3C173.6 3.2 180 0 186.7 0C198.4 0 208 9.6 208 21.3V43.5c0 13.1 5.4 25.7 14.9 34.7L307.6 159C356.4 205.6 384 270.2 384 337.7C384 434 306 512 209.7 512H192C86 512 0 426 0 320v-3.8c0-48.8 19.4-95.6 53.9-130.1l3.5-3.5c4.2-4.2 10-6.6 16-6.6C85.9 176 96 186.1 96 198.6V288c0 35.3 28.7 64 64 64s64-28.7 64-64v-3.9c0-18-7.2-35.3-19.9-48l-38.6-38.6c-24-24-37.5-56.7-37.5-90.7c0-27.7 9-54.8 25.6-76.9z',
+  },
+  // fa-seedling (FA Free solid)
+  seedling: {
+    viewBox: '0 0 512 512',
+    path: 'M512 32c0 113.6-84.6 207.5-194.2 222c-7.1-53.4-30.6-101.6-65.3-139.3C290.8 46 364 0 448 0l32 0c17.7 0 32 14.3 32 32zM0 96C0 78.3 14.3 64 32 64l32 0c123.7 0 224 100.3 224 224l0 32 0 160c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-160C100.3 320 0 219.7 0 96z',
+  },
+  // fa-bolt (FA Free solid)
+  bolt: {
+    viewBox: '0 0 448 512',
+    path: 'M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.5L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.5L349.4 44.6z',
+  },
+  // fa-building (FA Free solid)
+  building: {
+    viewBox: '0 0 384 512',
+    path: 'M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V240zM64 96c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V96zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V96z',
+  },
+};
+
+export const siteTypeConfig: Record<string, {
+  label: string;
+  svgPath: string;
+  viewBox: string;
+  color: string;
+  bgColor: string;
+  textColor: string;
+}> = {
+  eolica:          { label: 'Wind Turbine',  svgPath: FA_PATHS.windTurbine.path,            viewBox: FA_PATHS.windTurbine.viewBox,            color: 'bg-blue-100 text-blue-700',     bgColor: '#dbeafe', textColor: '#1d4ed8' },
+  eolica_offshore: { label: 'Wind Offshore', svgPath: FA_PATHS.windSparkle.path,            viewBox: FA_PATHS.windSparkle.viewBox,            color: 'bg-cyan-100 text-cyan-700',     bgColor: '#cffafe', textColor: '#0e7490' },
+  fotovoltaica:    { label: 'Solar',         svgPath: FA_PATHS.solarPanel.path,             viewBox: FA_PATHS.solarPanel.viewBox,             color: 'bg-amber-100 text-amber-700',   bgColor: '#fef3c7', textColor: '#b45309' },
+  bess:            { label: 'BESS',          svgPath: FA_PATHS.batteryBolt.path,            viewBox: FA_PATHS.batteryBolt.viewBox,            color: 'bg-green-100 text-green-700',   bgColor: '#dcfce7', textColor: '#15803d' },
+  hidreletrica:    { label: 'Hydropower',    svgPath: FA_PATHS.arrowUpFromGroundWater.path, viewBox: FA_PATHS.arrowUpFromGroundWater.viewBox, color: 'bg-indigo-100 text-indigo-700', bgColor: '#e0e7ff', textColor: '#4338ca' },
+  biomassa:        { label: 'Biomass',       svgPath: FA_PATHS.fireFlameCurved.path,        viewBox: FA_PATHS.fireFlameCurved.viewBox,        color: 'bg-orange-100 text-orange-700', bgColor: '#ffedd5', textColor: '#c2410c' },
+  biocombustivel:  { label: 'Biofuels',      svgPath: FA_PATHS.seedling.path,               viewBox: FA_PATHS.seedling.viewBox,               color: 'bg-lime-100 text-lime-700',     bgColor: '#f0fdf4', textColor: '#4d7c0f' },
+  hibrida:         { label: 'Hybrid',        svgPath: FA_PATHS.bolt.path,                   viewBox: FA_PATHS.bolt.viewBox,                   color: 'bg-purple-100 text-purple-700', bgColor: '#ede9fe', textColor: '#7c3aed' },
+  subestacao:      { label: 'Substation',    svgPath: FA_PATHS.building.path,               viewBox: FA_PATHS.building.viewBox,               color: 'bg-slate-100 text-slate-700',   bgColor: '#f1f5f9', textColor: '#475569' },
 };
 
 interface SiteFormData {
@@ -117,7 +189,7 @@ const emptyFormData: SiteFormData = {
 const SitesManagement = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { unknownSites, unknownSitesLoading, getSiteStats, refreshAll } = useDiscoveryData();
-  
+
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -127,22 +199,14 @@ const SitesManagement = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [isUniqueIdLocked, setIsUniqueIdLocked] = useState(false);
-  
+
   const [unknownSiteStats, setUnknownSiteStats] = useState<Record<string, { equipment: number; variables: number; samples: number }>>({});
 
   const fetchSites = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('sites')
-      .select('*')
-      .order('name');
-
-    if (error) {
-      toast.error('Error loading sites');
-      console.error(error);
-    } else {
-      setSites(data || []);
-    }
+    const { data, error } = await supabase.from('sites').select('*').order('name');
+    if (error) { toast.error('Error loading sites'); console.error(error); }
+    else { setSites(data || []); }
     setLoading(false);
   };
 
@@ -151,23 +215,14 @@ const SitesManagement = () => {
       const stats: Record<string, { equipment: number; variables: number; samples: number }> = {};
       for (const unknown of unknownSites) {
         const siteStats = await getSiteStats(unknown.identifier);
-        stats[unknown.identifier] = {
-          equipment: siteStats.totalEquipment,
-          variables: siteStats.totalVariables,
-          samples: siteStats.sampleCount,
-        };
+        stats[unknown.identifier] = { equipment: siteStats.totalEquipment, variables: siteStats.totalVariables, samples: siteStats.sampleCount };
       }
       setUnknownSiteStats(stats);
     };
-    
-    if (unknownSites.length > 0) {
-      loadUnknownStats();
-    }
+    if (unknownSites.length > 0) loadUnknownStats();
   }, [unknownSites, getSiteStats]);
 
-  useEffect(() => {
-    fetchSites();
-  }, []);
+  useEffect(() => { fetchSites(); }, []);
 
   useEffect(() => {
     const registerParam = searchParams.get('register');
@@ -193,16 +248,10 @@ const SitesManagement = () => {
   const handleOpenEdit = (site: Site) => {
     setEditingSite(site);
     setFormData({
-      name: site.name || '',
-      unique_id: site.unique_id || '',
-      latitude: site.latitude?.toString() || '',
-      longitude: site.longitude?.toString() || '',
-      address: site.address || '',
-      city: site.city || '',
-      state: site.state || '',
-      country: site.country || '',
-      site_type: site.site_type || 'fotovoltaica',
-      description: site.description || '',
+      name: site.name || '', unique_id: site.unique_id || '',
+      latitude: site.latitude?.toString() || '', longitude: site.longitude?.toString() || '',
+      address: site.address || '', city: site.city || '', state: site.state || '',
+      country: site.country || '', site_type: site.site_type || 'fotovoltaica', description: site.description || '',
     });
     setIsUniqueIdLocked(false);
     setDialogOpen(true);
@@ -216,16 +265,10 @@ const SitesManagement = () => {
   };
 
   const handleGenerateUUID = () => {
-    if (!isUniqueIdLocked) {
-      setFormData(prev => ({ ...prev, unique_id: generateUUIDv7() }));
-      toast.success('New UUID v7 generated');
-    }
+    if (!isUniqueIdLocked) { setFormData(prev => ({ ...prev, unique_id: generateUUIDv7() })); toast.success('New UUID v7 generated'); }
   };
 
-  const handleCopyUUID = () => {
-    navigator.clipboard.writeText(formData.unique_id);
-    toast.success('UUID copied to clipboard');
-  };
+  const handleCopyUUID = () => { navigator.clipboard.writeText(formData.unique_id); toast.success('UUID copied to clipboard'); };
 
   const handleAddressChange = (data: Record<string, unknown>) => {
     setFormData(prev => ({
@@ -242,43 +285,27 @@ const SitesManagement = () => {
   const handleSave = async () => {
     if (!formData.name.trim()) { toast.error('Site name is required'); return; }
     if (formData.unique_id && !isValidUUID(formData.unique_id)) { toast.error('Invalid UUID format'); return; }
-
     setSaving(true);
     const siteData = {
-      name: formData.name.trim(),
-      unique_id: formData.unique_id || null,
+      name: formData.name.trim(), unique_id: formData.unique_id || null,
       latitude: formData.latitude ? parseFloat(formData.latitude) : null,
       longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-      address: formData.address || null,
-      city: formData.city || null,
-      state: formData.state || null,
-      country: formData.country || null,
-      site_type: formData.site_type || null,
-      description: formData.description || null,
+      address: formData.address || null, city: formData.city || null,
+      state: formData.state || null, country: formData.country || null,
+      site_type: formData.site_type || null, description: formData.description || null,
     };
-
     if (editingSite) {
       const { error } = await supabase.from('sites').update(siteData).eq('id', editingSite.id);
-      if (error) {
-        toast.error(error.code === '23505' ? 'This UUID is already in use by another site' : 'Error updating site: ' + error.message);
-        setSaving(false); return;
-      }
+      if (error) { toast.error(error.code === '23505' ? 'This UUID is already in use by another site' : 'Error updating site: ' + error.message); setSaving(false); return; }
       toast.success('Site updated successfully');
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from('sites').insert({ ...siteData, created_by: user?.id });
-      if (error) {
-        toast.error(error.code === '23505' ? 'This UUID is already in use' : 'Error creating site: ' + error.message);
-        setSaving(false); return;
-      }
+      if (error) { toast.error(error.code === '23505' ? 'This UUID is already in use' : 'Error creating site: ' + error.message); setSaving(false); return; }
       toast.success('Site created successfully');
     }
-
-    setSaving(false);
-    setDialogOpen(false);
-    setIsUniqueIdLocked(false);
-    fetchSites();
-    refreshAll();
+    setSaving(false); setDialogOpen(false); setIsUniqueIdLocked(false);
+    fetchSites(); refreshAll();
   };
 
   const handleDelete = async (siteId: string) => {
@@ -286,13 +313,10 @@ const SitesManagement = () => {
     const { error } = await supabase.from('sites').delete().eq('id', siteId);
     if (error) { toast.error('Error deleting site: ' + error.message); setDeleting(null); return; }
     toast.success('Site deleted successfully');
-    await fetchSites();
-    setDeleting(null);
+    await fetchSites(); setDeleting(null);
   };
 
-  const openInGoogleMaps = (lat: number, lng: number) => {
-    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-  };
+  const openInGoogleMaps = (lat: number, lng: number) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
 
   const filteredSites = sites.filter(site => {
     const s = search.toLowerCase();
@@ -314,7 +338,6 @@ const SitesManagement = () => {
           </Button>
         </div>
 
-        {/* Unknown Sites Alert */}
         {!unknownSitesLoading && unknownSites.length > 0 && (
           <Card className="mb-6 border-amber-300 bg-amber-50">
             <CardHeader>
@@ -323,12 +346,8 @@ const SitesManagement = () => {
                   <AlertTriangle className="h-6 w-6 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-amber-900">
-                    {unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected
-                  </CardTitle>
-                  <CardDescription className="text-amber-700 mt-1">
-                    Data is being received from site identifiers that are not registered. Register them to enable full monitoring.
-                  </CardDescription>
+                  <CardTitle className="text-amber-900">{unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected</CardTitle>
+                  <CardDescription className="text-amber-700 mt-1">Data is being received from site identifiers that are not registered. Register them to enable full monitoring.</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -365,7 +384,6 @@ const SitesManagement = () => {
           </Card>
         )}
 
-        {/* Search */}
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="relative">
@@ -375,12 +393,9 @@ const SitesManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Registered Sites Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />Registered Sites ({filteredSites.length})
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Registered Sites ({filteredSites.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -413,8 +428,8 @@ const SitesManagement = () => {
                           </TableCell>
                           <TableCell>
                             {typeConfig ? (
-                              <Badge className={typeConfig.color}>
-                                <FontAwesomeIcon icon={typeConfig.faIcon} className="mr-1.5 h-3 w-3" />
+                              <Badge className={`${typeConfig.color} gap-1.5`}>
+                                <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={12} />
                                 {typeConfig.label}
                               </Badge>
                             ) : <span className="text-muted-foreground">-</span>}
@@ -439,9 +454,7 @@ const SitesManagement = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(site)} className="h-8 w-8 p-0">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(site)} className="h-8 w-8 p-0"><Pencil className="h-4 w-4" /></Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" disabled={deleting === site.id}>
@@ -471,7 +484,6 @@ const SitesManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Create/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setIsUniqueIdLocked(false); }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -499,7 +511,7 @@ const SitesManagement = () => {
                         {Object.entries(siteTypeConfig).map(([value, config]) => (
                           <SelectItem key={value} value={value}>
                             <div className="flex items-center gap-2">
-                              <FontAwesomeIcon icon={config.faIcon} className="h-4 w-4" style={{ color: config.textColor }} />
+                              <FaIcon svgPath={config.svgPath} viewBox={config.viewBox} color={config.textColor} size={14} />
                               {config.label}
                             </div>
                           </SelectItem>
