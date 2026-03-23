@@ -19,6 +19,7 @@ import {
   HelpCircle,
   RefreshCw,
   Plus,
+  BatteryCharging,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -27,6 +28,7 @@ const siteTypeConfig: Record<string, { label: string; color: string }> = {
   fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700' },
   hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700' },
   subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700' },
+  bess: { label: 'BESS', color: 'bg-green-100 text-green-700' },
 };
 
 const Index = () => {
@@ -327,6 +329,7 @@ const Index = () => {
                           </Badge>
                         ) : typeConfig ? (
                           <Badge className={typeConfig.color} variant="outline">
+                            {siteCard.site_type === 'bess' && <BatteryCharging className="h-3 w-3 mr-1" />}
                             {typeConfig.label}
                           </Badge>
                         ) : null}
