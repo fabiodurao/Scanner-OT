@@ -96,7 +96,6 @@ const Index = () => {
 
       const siteIds = sites.map(s => s.id);
 
-      // Get all upload sessions for these sites
       const { data: sessions } = await supabase
         .from('upload_sessions')
         .select('id, site_id')
@@ -106,7 +105,6 @@ const Index = () => {
 
       const sessionIds = sessions.map(s => s.id);
 
-      // Get all completed pcap files for these sessions
       const { data: files } = await supabase
         .from('pcap_files')
         .select('session_id, size_bytes')
@@ -115,11 +113,9 @@ const Index = () => {
 
       if (!files) return;
 
-      // Build a map: session_id -> site_id
       const sessionToSite = new Map<string, string>();
       sessions.forEach(s => sessionToSite.set(s.id, s.site_id));
 
-      // Aggregate by site_id
       const summaryBySiteId: Record<string, PcapSummary> = {};
       files.forEach(file => {
         const siteId = sessionToSite.get(file.session_id);
@@ -131,7 +127,6 @@ const Index = () => {
         summaryBySiteId[siteId].totalBytes += file.size_bytes || 0;
       });
 
-      // Re-key by unique_id for easy lookup
       const summaryByUniqueId: Record<string, PcapSummary> = {};
       sites.forEach(site => {
         if (site.unique_id && summaryBySiteId[site.id]) {
@@ -365,11 +360,12 @@ const Index = () => {
                 const TypeIcon = typeConfig?.icon;
                 const isUnregistered = siteCard.type === 'unregistered';
                 const pcap = siteCard.pcap;
+                const hasFooter = (pcap && pcap.fileCount > 0) || (stats?.lastActivity);
                 
                 return (
                   <Card 
                     key={siteCard.id} 
-                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer h-full ${
+                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${
                       isUnregistered 
                         ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' 
                         : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'
@@ -417,13 +413,16 @@ const Index = () => {
                         </p>
                       )}
                     </CardHeader>
-                    <CardContent>
+
+                    {/* Main content — grows to fill space */}
+                    <CardContent className="flex flex-col flex-1 pb-0">
                       {loadingStats ? (
-                        <div className="flex items-center justify-center py-4">
+                        <div className="flex items-center justify-center py-4 flex-1">
                           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         </div>
                       ) : stats ? (
-                        <>
+                        <div className="flex flex-col flex-1">
+                          {/* Equipment & Variables */}
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center gap-2">
                               <div className="p-2 rounded-lg bg-slate-100">
@@ -445,8 +444,9 @@ const Index = () => {
                             </div>
                           </div>
                           
+                          {/* Learning progress */}
                           {stats.totalVariables > 0 && (
-                            <div className="space-y-2">
+                            <div className="space-y-2 mb-4">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">Learning Progress</span>
                                 <span className="font-medium">
@@ -457,17 +457,14 @@ const Index = () => {
                                 <div 
                                   className="bg-emerald-500" 
                                   style={{ width: `${(stats.variablesByState.published / stats.totalVariables) * 100}%` }}
-                                  title={`Published: ${stats.variablesByState.published}`}
                                 />
                                 <div 
                                   className="bg-blue-500" 
                                   style={{ width: `${(stats.variablesByState.confirmed / stats.totalVariables) * 100}%` }}
-                                  title={`Confirmed: ${stats.variablesByState.confirmed}`}
                                 />
                                 <div 
                                   className="bg-amber-400" 
                                   style={{ width: `${(stats.variablesByState.hypothesis / stats.totalVariables) * 100}%` }}
-                                  title={`Hypothesis: ${stats.variablesByState.hypothesis}`}
                                 />
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -487,34 +484,22 @@ const Index = () => {
                             </div>
                           )}
 
-                          {/* PCAP summary + Last activity footer */}
-                          <div className="mt-3 pt-3 border-t space-y-1">
-                            {pcap && pcap.fileCount > 0 && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <FileArchive className="h-3 w-3 flex-shrink-0" />
-                                <span>
-                                  {pcap.fileCount} PCAP{pcap.fileCount !== 1 ? 's' : ''} · {formatFileSize(pcap.totalBytes)}
-                                </span>
-                              </div>
-                            )}
-                            {stats.lastActivity && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 flex-shrink-0" />
-                                Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}
-                              </div>
-                            )}
-                          </div>
-                        </>
+                          {/* Spacer to push footer down */}
+                          <div className="flex-1" />
+                        </div>
                       ) : (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
-                          <HelpCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          No data yet
-                          <p className="text-xs mt-1">Upload a PCAP to start discovery</p>
+                        <div className="flex flex-col flex-1">
+                          <div className="text-center py-4 text-muted-foreground text-sm flex-1 flex flex-col items-center justify-center">
+                            <HelpCircle className="h-8 w-8 mb-2 opacity-50" />
+                            No data yet
+                            <p className="text-xs mt-1">Upload a PCAP to start discovery</p>
+                          </div>
                         </div>
                       )}
-                      
+
+                      {/* Register button for unregistered sites */}
                       {isUnregistered && (
-                        <div className="mt-4 pt-3 border-t">
+                        <div className="mt-4">
                           <Button 
                             size="sm" 
                             className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
@@ -523,6 +508,26 @@ const Index = () => {
                             <Plus className="h-4 w-4 mr-1" />
                             Register Site
                           </Button>
+                        </div>
+                      )}
+
+                      {/* Footer — always at the bottom */}
+                      {hasFooter && (
+                        <div className="mt-4 pt-3 border-t space-y-1 pb-4">
+                          {pcap && pcap.fileCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <FileArchive className="h-3 w-3 flex-shrink-0" />
+                              <span>
+                                {pcap.fileCount} PCAP{pcap.fileCount !== 1 ? 's' : ''} · {formatFileSize(pcap.totalBytes)}
+                              </span>
+                            </div>
+                          )}
+                          {stats?.lastActivity && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <span>Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </CardContent>
