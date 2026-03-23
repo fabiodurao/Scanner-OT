@@ -40,89 +40,89 @@ const silverMapStyle = [
 
 const PIN_W = 31;
 const PIN_H = 39;
-const ICON_SIZE = 14;
+const ICON_SIZE = 15;
 const ICON_OFFSET = Math.round((PIN_W - ICON_SIZE) / 2);
 
-// Exact lucide-react SVG paths — same icons used in siteTypeConfig in SitesManagement.tsx
-// Wind  → lucide Wind
-// Waves → lucide Waves (Wind Offshore)
-// Sun   → lucide Sun
-// BatteryCharging → lucide BatteryCharging
-// Droplets → lucide Droplets
-// Flame → lucide Flame
-// Leaf  → lucide Leaf
-// Zap   → lucide Zap
-// Building → lucide Building
-
-const siteTypeIcons: Record<string, { iconPath: string; bg: string; stroke: string }> = {
-  // Wind Turbine — lucide Wind
+// FontAwesome Free solid SVG paths (viewBox 0 0 512 512 or 576 512 etc.)
+// Matching the icons shown in the company system prints
+const FA_ICONS: Record<string, { viewBox: string; path: string; bg: string; stroke: string }> = {
+  // fa-wind (Wind Turbine) — FA Free solid
   eolica: {
     bg: '#dbeafe',
     stroke: '#2563eb',
-    iconPath: `<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>`,
+    viewBox: '0 0 512 512',
+    path: 'M288 32c0 17.7-14.3 32-32 32s-32-14.3-32-32S270.3 0 256 0s-32 14.3-32 32zm0 448c0 17.7-14.3 32-32 32s-32-14.3-32-32V288c0-17.7 14.3-32 32-32s32 14.3 32 32v192zM160 256c0 53-43 96-96 96S0 309 0 256s43-96 96-96c23.7 0 45.4 8.6 62.1 22.8L222.1 96c8.8-15.3 28.3-20.5 43.6-11.7s20.5 28.3 11.7 43.6L213.4 224H160zm192 0c0-53 43-96 96-96s96 43 96 96-43 96-96 96c-23.7 0-45.4-8.6-62.1-22.8L321.9 416c-8.8 15.3-28.3 20.5-43.6 11.7s-20.5-28.3-11.7-43.6L320.6 288H352z',
   },
-  // Wind Offshore — lucide Waves
+  // fa-water (Wind Offshore) — FA Free solid
   eolica_offshore: {
     bg: '#cffafe',
     stroke: '#0891b2',
-    iconPath: `<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/>`,
+    viewBox: '0 0 576 512',
+    path: 'M562.1 383.9c-21.5-2.4-42.1-10.5-57.9-22.9-14.1-11.1-34.2-11.3-48.2 0-37.9 30.4-107.2 30.4-145.7-1.5-13.5-11.2-33-9.1-46.7 1.8-38 30.1-106.9 30.1-145.2-1.5-13.7-11.1-33.5-9.2-47.1 1.7C55.1 372.8 36 380.8 14.4 383.9c-17.6 2.4-30.1 18.5-27.7 36.1 2.4 17.6 18.5 30.1 36.1 27.7 28.5-3.9 55.7-13.3 79.4-27.7 49.5 29.1 117.1 29.1 166.6 0 49.5 29.1 117.1 29.1 166.6 0 23.7 14.4 50.9 23.8 79.4 27.7 17.6 2.4 33.7-10.1 36.1-27.7 2.4-17.6-10.1-33.7-27.7-36.1zM576 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h512c17.7 0 32 14.3 32 32zM0 128c0-17.7 14.3-32 32-32h512c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32z',
   },
-  // Solar — lucide Sun
+  // fa-solar-panel (Solar) — FA Free solid
   fotovoltaica: {
     bg: '#fef3c7',
     stroke: '#d97706',
-    iconPath: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
+    viewBox: '0 0 640 512',
+    path: 'M32 0C14.3 0 0 14.3 0 32V352c0 17.7 14.3 32 32 32H244.4c-3.5 14.1-8.6 27.7-15.3 40.5c-5.8 11.1-4.1 24.6 4.3 33.9S254.3 472 266.7 472h106.7c12.3 0 23.9-5.4 31.6-14.8s10.1-22.8 4.3-33.9c-6.7-12.8-11.8-26.4-15.3-40.5H608c17.7 0 32-14.3 32-32V32c0-17.7-14.3-32-32-32H32zM192 96H448V288H192V96zM64 96H128V160H64V96zM128 224v64H64V224h64zM512 96h64v64H512V96zm64 128v64H512V224h64z',
   },
-  // BESS — lucide BatteryCharging
+  // fa-battery-bolt (BESS) — FA Pro, using fa-bolt as fallback (FA Free)
   bess: {
     bg: '#dcfce7',
     stroke: '#16a34a',
-    iconPath: `<path d="M15 7h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><path d="M6 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1"/><path d="m11 7-3 5h4l-3 5"/><line x1="22" x2="22" y1="11" y2="13"/>`,
+    viewBox: '0 0 576 512',
+    path: 'M464 160c8.8 0 16 7.2 16 16V336c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V176c0-8.8 7.2-16 16-16H464zM80 96C35.8 96 0 131.8 0 176V336c0 44.2 35.8 80 80 80H464c44.2 0 80-35.8 80-80V320c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32V176c0-44.2-35.8-80-80-80H80zm208 88c-4.9-7.4-13.2-11.8-22-11.8s-17.1 4.4-22 11.8l-64 96c-5.3 8-5.6 18.2-.8 26.5S193.2 320 202.7 320H240v48c0 9.6 5.5 18.3 14.2 22.5s19 3.1 26.5-2.9l96-80c7.1-5.9 10.5-15.1 8.9-24.1s-8.1-16.4-17.1-19.1L320 256.4V208c0-10.4-6.3-19.8-15.9-23.8z',
   },
-  // Hydropower — lucide Droplets
+  // fa-droplet (Hydropower) — FA Free solid
   hidreletrica: {
     bg: '#e0e7ff',
     stroke: '#4f46e5',
-    iconPath: `<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>`,
+    viewBox: '0 0 384 512',
+    path: 'M192 512C86 512 0 426 0 320C0 228.8 130.2 57.7 166.6 11.7C172.6 4.2 181.5 0 191 0h2c9.5 0 18.4 4.2 24.4 11.7C253.8 57.7 384 228.8 384 320c0 106-86 192-192 192z',
   },
-  // Biomass — lucide Flame
+  // fa-fire-flame-curved (Biomass) — FA Free solid
   biomassa: {
     bg: '#ffedd5',
     stroke: '#ea580c',
-    iconPath: `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>`,
+    viewBox: '0 0 384 512',
+    path: 'M153.6 29.9l16-21.3C173.6 3.2 180 0 186.7 0C198.4 0 208 9.6 208 21.3V43.5c0 13.1 5.4 25.7 14.9 34.7L307.6 159C356.4 205.6 384 270.2 384 337.7C384 434 306 512 209.7 512H192C86 512 0 426 0 320v-3.8c0-48.8 19.4-95.6 53.9-130.1l3.5-3.5c4.2-4.2 10-6.6 16-6.6C85.9 176 96 186.1 96 198.6V288c0 35.3 28.7 64 64 64s64-28.7 64-64v-3.9c0-18-7.2-35.3-19.9-48l-38.6-38.6c-24-24-37.5-56.7-37.5-90.7c0-27.7 9-54.8 25.6-76.9z',
   },
-  // Biofuels — lucide Leaf
+  // fa-seedling (Biofuels) — FA Free solid
   biocombustivel: {
     bg: '#f0fdf4',
     stroke: '#65a30d',
-    iconPath: `<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>`,
+    viewBox: '0 0 512 512',
+    path: 'M512 32c0 113.6-84.6 207.5-194.2 222c-7.1-53.4-30.6-101.6-65.3-139.3C290.8 46 364 0 448 0l32 0c17.7 0 32 14.3 32 32zM0 96C0 78.3 14.3 64 32 64l32 0c123.7 0 224 100.3 224 224l0 32 0 160c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-160C100.3 320 0 219.7 0 96z',
   },
-  // Hybrid — lucide Zap
+  // fa-bolt (Hybrid) — FA Free solid
   hibrida: {
     bg: '#ede9fe',
     stroke: '#7c3aed',
-    iconPath: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>`,
+    viewBox: '0 0 448 512',
+    path: 'M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.5L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.5L349.4 44.6z',
   },
-  // Substation — lucide Building
+  // fa-building (Substation) — FA Free solid
   subestacao: {
     bg: '#f1f5f9',
     stroke: '#475569',
-    iconPath: `<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>`,
+    viewBox: '0 0 384 512',
+    path: 'M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V240zM64 96c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V96zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V96z',
   },
   // Default fallback
   default: {
     bg: '#f1f5f9',
     stroke: '#0e182e',
-    iconPath: `<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>`,
+    viewBox: '0 0 384 512',
+    path: 'M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V240z',
   },
 };
 
 const createMarkerSvg = (siteType: string | null): string => {
-  const config = siteTypeIcons[siteType || 'default'] || siteTypeIcons.default;
+  const config = FA_ICONS[siteType || 'default'] || FA_ICONS.default;
   const cx = PIN_W / 2;
 
-  // Build the icon SVG (lucide viewBox is 0 0 24 24, scaled to ICON_SIZE)
-  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="${config.stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${config.iconPath}</svg>`;
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="${config.viewBox}"><path fill="${config.stroke}" d="${config.path}"/></svg>`;
 
   const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">
     <path d="M${cx} 0C${(cx * 0.45).toFixed(1)} 0 0 ${(cx * 0.45).toFixed(1)} 0 ${cx}C0 ${(PIN_H * 0.66).toFixed(1)} ${cx} ${PIN_H} ${cx} ${PIN_H}C${cx} ${PIN_H} ${PIN_W} ${(PIN_H * 0.66).toFixed(1)} ${PIN_W} ${cx}C${PIN_W} ${(cx * 0.45).toFixed(1)} ${(cx * 1.55).toFixed(1)} 0 ${cx} 0Z" fill="${config.stroke}"/>

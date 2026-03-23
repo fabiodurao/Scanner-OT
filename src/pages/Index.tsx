@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { siteTypeConfig } from '@/pages/SitesManagement';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   Building2, 
   Server, 
@@ -60,74 +61,45 @@ const Index = () => {
   useEffect(() => {
     const loadStats = async () => {
       if (sites.length === 0 && unknownSites.length === 0) return;
-      
       setLoadingStats(true);
       const stats: Record<string, SiteDiscoveryStats> = {};
-      
       for (const site of sites) {
-        if (site.unique_id) {
-          stats[site.unique_id] = await getSiteStats(site.unique_id);
-        }
+        if (site.unique_id) stats[site.unique_id] = await getSiteStats(site.unique_id);
       }
-      
       for (const unknown of unknownSites) {
         stats[unknown.identifier] = await getSiteStats(unknown.identifier);
       }
-      
       setSiteStats(stats);
       setLoadingStats(false);
     };
-    
     loadStats();
   }, [sites, unknownSites, getSiteStats]);
 
   useEffect(() => {
     const loadPcapSummaries = async () => {
       if (sites.length === 0) return;
-
       const siteIds = sites.map(s => s.id);
-
-      const { data: sessions } = await supabase
-        .from('upload_sessions')
-        .select('id, site_id')
-        .in('site_id', siteIds);
-
+      const { data: sessions } = await supabase.from('upload_sessions').select('id, site_id').in('site_id', siteIds);
       if (!sessions || sessions.length === 0) return;
-
       const sessionIds = sessions.map(s => s.id);
-
-      const { data: files } = await supabase
-        .from('pcap_files')
-        .select('session_id, size_bytes')
-        .in('session_id', sessionIds)
-        .eq('upload_status', 'completed');
-
+      const { data: files } = await supabase.from('pcap_files').select('session_id, size_bytes').in('session_id', sessionIds).eq('upload_status', 'completed');
       if (!files) return;
-
       const sessionToSite: Record<string, string> = {};
       sessions.forEach(s => { sessionToSite[s.id] = s.site_id; });
-
       const summaryBySiteId: Record<string, PcapSummary> = {};
       files.forEach(file => {
         const siteId = sessionToSite[file.session_id];
         if (!siteId) return;
-        if (!summaryBySiteId[siteId]) {
-          summaryBySiteId[siteId] = { fileCount: 0, totalBytes: 0 };
-        }
+        if (!summaryBySiteId[siteId]) summaryBySiteId[siteId] = { fileCount: 0, totalBytes: 0 };
         summaryBySiteId[siteId].fileCount += 1;
         summaryBySiteId[siteId].totalBytes += file.size_bytes || 0;
       });
-
       const summaryByUniqueId: Record<string, PcapSummary> = {};
       sites.forEach(site => {
-        if (site.unique_id) {
-          summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id] || { fileCount: 0, totalBytes: 0 };
-        }
+        if (site.unique_id) summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id] || { fileCount: 0, totalBytes: 0 };
       });
-
       setPcapSummaries(summaryByUniqueId);
     };
-
     loadPcapSummaries();
   }, [sites]);
 
@@ -143,19 +115,13 @@ const Index = () => {
   };
 
   const handleCardClick = (identifier: string | null, id: string) => {
-    const targetId = identifier || id;
-    navigate(`/discovery/${targetId}`);
+    navigate(`/discovery/${identifier || id}`);
   };
 
   const totalEquipment = Object.values(siteStats).reduce((sum, s) => sum + s.totalEquipment, 0);
   const totalVariables = Object.values(siteStats).reduce((sum, s) => sum + s.totalVariables, 0);
-  const confirmedVariables = Object.values(siteStats).reduce(
-    (sum, s) => sum + s.variablesByState.confirmed + s.variablesByState.published, 0
-  );
-  const hypothesisVariables = Object.values(siteStats).reduce(
-    (sum, s) => sum + s.variablesByState.hypothesis, 0
-  );
-
+  const confirmedVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.confirmed + s.variablesByState.published, 0);
+  const hypothesisVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.hypothesis, 0);
   const isLoading = sitesLoading || unknownSitesLoading;
 
   const allSiteCards = [
@@ -204,13 +170,10 @@ const Index = () => {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              CyberEnergia OT Scanner Overview
-            </p>
+            <p className="text-muted-foreground mt-1">CyberEnergia OT Scanner Overview</p>
           </div>
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />Refresh
           </Button>
         </div>
 
@@ -226,8 +189,7 @@ const Index = () => {
                     {unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected
                   </h3>
                   <p className="text-sm text-amber-700 mt-1">
-                    Data is being received from site identifiers that are not registered in the system.
-                    Register them to enable full monitoring and analysis.
+                    Data is being received from site identifiers that are not registered in the system. Register them to enable full monitoring and analysis.
                   </p>
                 </div>
               </div>
@@ -235,88 +197,55 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Summary stats cards */}
+        {/* Summary stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Sites</CardTitle>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Building2 className="h-4 w-4 text-[#2563EB]" />
-              </div>
+              <div className="p-2 rounded-lg bg-blue-100"><Building2 className="h-4 w-4 text-[#2563EB]" /></div>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : (
+              {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
                 <>
                   <div className="text-3xl font-bold text-[#1a2744]">{sites.length + unknownSites.length}</div>
-                  {unknownSites.length > 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      {unknownSites.length} pending registration
-                    </p>
-                  )}
+                  {unknownSites.length > 0 && <p className="text-xs text-amber-600 mt-1">{unknownSites.length} pending registration</p>}
                 </>
               )}
             </CardContent>
           </Card>
-          
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Equipment</CardTitle>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Server className="h-4 w-4 text-purple-600" />
-              </div>
+              <div className="p-2 rounded-lg bg-purple-100"><Server className="h-4 w-4 text-purple-600" /></div>
             </CardHeader>
             <CardContent>
-              {loadingStats ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="text-3xl font-bold text-[#1a2744]">{totalEquipment}</div>
-              )}
+              {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <div className="text-3xl font-bold text-[#1a2744]">{totalEquipment}</div>}
             </CardContent>
           </Card>
-          
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Variables</CardTitle>
-              <div className="p-2 rounded-lg bg-slate-100">
-                <Variable className="h-4 w-4 text-slate-600" />
-              </div>
+              <div className="p-2 rounded-lg bg-slate-100"><Variable className="h-4 w-4 text-slate-600" /></div>
             </CardHeader>
             <CardContent>
-              {loadingStats ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : (
+              {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
                 <>
                   <div className="text-3xl font-bold text-[#1a2744]">{totalVariables}</div>
-                  {hypothesisVariables > 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      {hypothesisVariables} with hypotheses
-                    </p>
-                  )}
+                  {hypothesisVariables > 0 && <p className="text-xs text-amber-600 mt-1">{hypothesisVariables} with hypotheses</p>}
                 </>
               )}
             </CardContent>
           </Card>
-          
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <CheckCircle className="h-4 w-4 text-emerald-600" />
-              </div>
+              <div className="p-2 rounded-lg bg-emerald-100"><CheckCircle className="h-4 w-4 text-emerald-600" /></div>
             </CardHeader>
             <CardContent>
-              {loadingStats ? (
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              ) : (
+              {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
                 <>
                   <div className="text-3xl font-bold text-emerald-600">{confirmedVariables}</div>
-                  {totalVariables > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {Math.round((confirmedVariables / totalVariables) * 100)}% of total
-                    </p>
-                  )}
+                  {totalVariables > 0 && <p className="text-xs text-muted-foreground mt-1">{Math.round((confirmedVariables / totalVariables) * 100)}% of total</p>}
                 </>
               )}
             </CardContent>
@@ -329,108 +258,60 @@ const Index = () => {
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
             <div className="flex items-center gap-2">
               <div className="flex items-center border rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setSitesView('cards')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
-                    sitesView === 'cards'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-white text-muted-foreground hover:bg-slate-50'
-                  }`}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  Cards
+                <button onClick={() => setSitesView('cards')} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'cards' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}>
+                  <LayoutGrid className="h-4 w-4" />Cards
                 </button>
-                <button
-                  onClick={() => setSitesView('map')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
-                    sitesView === 'map'
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-white text-muted-foreground hover:bg-slate-50'
-                  }`}
-                >
-                  <MapIcon className="h-4 w-4" />
-                  Map
+                <button onClick={() => setSitesView('map')} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'map' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}>
+                  <MapIcon className="h-4 w-4" />Map
                 </button>
               </div>
               <Link to="/sites-management">
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Site
-                </Button>
+                <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-2" />Add Site</Button>
               </Link>
             </div>
           </div>
-          
+
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : allSiteCards.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center">
                 <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-medium text-lg mb-2">No Sites Yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start by uploading a PCAP file or adding a site manually.
-                </p>
+                <p className="text-muted-foreground mb-4">Start by uploading a PCAP file or adding a site manually.</p>
                 <div className="flex gap-2 justify-center">
-                  <Link to="/upload">
-                    <Button variant="outline">Upload PCAP</Button>
-                  </Link>
-                  <Link to="/sites-management">
-                    <Button>
-                      <Building2 className="h-4 w-4 mr-2" />
-                      Add Site
-                    </Button>
-                  </Link>
+                  <Link to="/upload"><Button variant="outline">Upload PCAP</Button></Link>
+                  <Link to="/sites-management"><Button><Building2 className="h-4 w-4 mr-2" />Add Site</Button></Link>
                 </div>
               </CardContent>
             </Card>
           ) : sitesView === 'map' ? (
-            <SitesMap
-              sites={mapSites}
-              onSiteClick={handleCardClick}
-            />
+            <SitesMap sites={mapSites} onSiteClick={handleCardClick} />
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {allSiteCards.map((siteCard) => {
                 const stats = siteCard.stats;
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
-                const TypeIcon = typeConfig?.icon;
                 const isUnregistered = siteCard.type === 'unregistered';
                 const pcap = siteCard.pcap;
-
-                const pcapLine = !isUnregistered
-                  ? pcap && pcap.fileCount > 0
-                    ? `${pcap.fileCount} PCAP${pcap.fileCount !== 1 ? 's' : ''} · ${formatFileSize(pcap.totalBytes)}`
-                    : '0 PCAPs'
-                  : null;
-
-                const lastActivityLine = stats?.lastActivity
-                  ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })
-                  : 'Not processed yet';
+                const pcapLine = !isUnregistered ? (pcap && pcap.fileCount > 0 ? `${pcap.fileCount} PCAP${pcap.fileCount !== 1 ? 's' : ''} · ${formatFileSize(pcap.totalBytes)}` : '0 PCAPs') : null;
+                const lastActivityLine = stats?.lastActivity ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true }) : 'Not processed yet';
 
                 return (
-                  <Card 
-                    key={siteCard.id} 
-                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${
-                      isUnregistered 
-                        ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' 
-                        : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'
-                    }`}
+                  <Card
+                    key={siteCard.id}
+                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${isUnregistered ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'}`}
                     onClick={() => handleCardClick(siteCard.identifier, siteCard.id)}
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {TypeIcon && typeConfig && (
-                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${typeConfig.color.split(' ')[0]}`}>
-                              <TypeIcon className={`h-4 w-4 ${typeConfig.color.split(' ')[1]}`} />
+                          {typeConfig && (
+                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${typeConfig.bgColor ? '' : typeConfig.color.split(' ')[0]}`} style={{ backgroundColor: typeConfig.bgColor }}>
+                              <FontAwesomeIcon icon={typeConfig.faIcon} className="h-4 w-4" style={{ color: typeConfig.textColor }} />
                             </div>
                           )}
-                          {isUnregistered && (
-                            <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                          )}
+                          {isUnregistered && <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />}
                           {isUnregistered ? (
                             <CardTitle className="text-lg text-[#1a2744] truncate">
                               <code className="text-sm font-mono">{siteCard.identifier?.slice(0, 8)}...</code>
@@ -440,95 +321,61 @@ const Index = () => {
                           )}
                         </div>
                         {isUnregistered ? (
-                          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">
-                            Unregistered
-                          </Badge>
+                          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">Unregistered</Badge>
                         ) : typeConfig ? (
-                          <Badge className={`${typeConfig.color} flex-shrink-0`} variant="outline">
+                          <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0`}>
+                            <FontAwesomeIcon icon={typeConfig.faIcon} className="mr-1 h-3 w-3" />
                             {typeConfig.label}
                           </Badge>
                         ) : null}
                       </div>
                       {!isUnregistered && (siteCard.city || siteCard.state) && (
                         <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                          <MapPin className="h-4 w-4" />
-                          {[siteCard.city, siteCard.state].filter(Boolean).join(', ')}
+                          <MapPin className="h-4 w-4" />{[siteCard.city, siteCard.state].filter(Boolean).join(', ')}
                         </div>
                       )}
-                      {isUnregistered && (
-                        <p className="text-xs text-amber-700 mt-1">
-                          Unregistered site identifier
-                        </p>
-                      )}
+                      {isUnregistered && <p className="text-xs text-amber-700 mt-1">Unregistered site identifier</p>}
                     </CardHeader>
 
                     <CardContent className="flex flex-col flex-1 pb-0">
                       {loadingStats ? (
-                        <div className="flex items-center justify-center py-4 flex-1">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
+                        <div className="flex items-center justify-center py-4 flex-1"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                       ) : stats ? (
                         <div className="flex flex-col flex-1">
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center gap-2">
-                              <div className="p-2 rounded-lg bg-slate-100">
-                                <Server className="h-4 w-4 text-slate-600" />
-                              </div>
+                              <div className="p-2 rounded-lg bg-slate-100"><Server className="h-4 w-4 text-slate-600" /></div>
                               <div>
                                 <div className="text-2xl font-bold text-[#1a2744]">{stats.totalEquipment}</div>
                                 <div className="text-xs text-muted-foreground">Equipment</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="p-2 rounded-lg bg-slate-100">
-                                <Variable className="h-4 w-4 text-slate-600" />
-                              </div>
+                              <div className="p-2 rounded-lg bg-slate-100"><Variable className="h-4 w-4 text-slate-600" /></div>
                               <div>
                                 <div className="text-2xl font-bold text-[#1a2744]">{stats.totalVariables}</div>
                                 <div className="text-xs text-muted-foreground">Variables</div>
                               </div>
                             </div>
                           </div>
-                          
                           {stats.totalVariables > 0 && (
                             <div className="space-y-2 mb-4">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">Learning Progress</span>
-                                <span className="font-medium">
-                                  {stats.variablesByState.confirmed + stats.variablesByState.published}/{stats.totalVariables}
-                                </span>
+                                <span className="font-medium">{stats.variablesByState.confirmed + stats.variablesByState.published}/{stats.totalVariables}</span>
                               </div>
                               <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
-                                <div 
-                                  className="bg-emerald-500" 
-                                  style={{ width: `${(stats.variablesByState.published / stats.totalVariables) * 100}%` }}
-                                />
-                                <div 
-                                  className="bg-blue-500" 
-                                  style={{ width: `${(stats.variablesByState.confirmed / stats.totalVariables) * 100}%` }}
-                                />
-                                <div 
-                                  className="bg-amber-400" 
-                                  style={{ width: `${(stats.variablesByState.hypothesis / stats.totalVariables) * 100}%` }}
-                                />
+                                <div className="bg-emerald-500" style={{ width: `${(stats.variablesByState.published / stats.totalVariables) * 100}%` }} />
+                                <div className="bg-blue-500" style={{ width: `${(stats.variablesByState.confirmed / stats.totalVariables) * 100}%` }} />
+                                <div className="bg-amber-400" style={{ width: `${(stats.variablesByState.hypothesis / stats.totalVariables) * 100}%` }} />
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                  Published
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                  Confirmed
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                                  Hypothesis
-                                </span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" />Published</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" />Confirmed</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400" />Hypothesis</span>
                               </div>
                             </div>
                           )}
-
                           <div className="flex-1" />
                         </div>
                       ) : (
@@ -543,13 +390,8 @@ const Index = () => {
 
                       {isUnregistered && (
                         <div className="mt-4">
-                          <Button 
-                            size="sm" 
-                            className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]"
-                            onClick={(e) => handleRegisterSite(siteCard.identifier!, e)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Register Site
+                          <Button size="sm" className="w-full bg-[#2563EB] hover:bg-[#1d4ed8]" onClick={(e) => handleRegisterSite(siteCard.identifier!, e)}>
+                            <Plus className="h-4 w-4 mr-1" />Register Site
                           </Button>
                         </div>
                       )}
@@ -557,18 +399,12 @@ const Index = () => {
                       <div className="mt-4 pt-3 border-t space-y-1 pb-4">
                         {!isUnregistered && (
                           <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-slate-400'}`}>
-                            <FileArchive className="h-3 w-3 flex-shrink-0" />
-                            <span>{pcapLine}</span>
+                            <FileArchive className="h-3 w-3 flex-shrink-0" /><span>{pcapLine}</span>
                           </div>
                         )}
                         <div className={`flex items-center gap-1.5 text-xs ${stats?.lastActivity ? 'text-muted-foreground' : 'text-slate-400'}`}>
                           <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span>
-                            {stats?.lastActivity
-                              ? `Last activity: ${lastActivityLine}`
-                              : 'Last activity: not processed yet'
-                            }
-                          </span>
+                          <span>{stats?.lastActivity ? `Last activity: ${lastActivityLine}` : 'Last activity: not processed yet'}</span>
                         </div>
                       </div>
                     </CardContent>
