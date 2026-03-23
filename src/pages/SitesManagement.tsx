@@ -66,16 +66,24 @@ import {
   Variable,
   Clock,
   BatteryCharging,
+  Droplets,
+  Flame,
+  Leaf,
+  Waves,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-const siteTypeConfig = {
-  eolica: { label: 'Wind', icon: Wind, color: 'bg-blue-100 text-blue-700' },
-  fotovoltaica: { label: 'Solar', icon: Sun, color: 'bg-amber-100 text-amber-700' },
-  hibrida: { label: 'Hybrid', icon: Zap, color: 'bg-purple-100 text-purple-700' },
-  subestacao: { label: 'Substation', icon: Building, color: 'bg-slate-100 text-slate-700' },
-  bess: { label: 'BESS', icon: BatteryCharging, color: 'bg-green-100 text-green-700' },
+export const siteTypeConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+  eolica:           { label: 'Wind Turbine',   icon: Wind,          color: 'bg-blue-100 text-blue-700' },
+  eolica_offshore:  { label: 'Wind Offshore',  icon: Waves,         color: 'bg-cyan-100 text-cyan-700' },
+  fotovoltaica:     { label: 'Solar',          icon: Sun,           color: 'bg-amber-100 text-amber-700' },
+  bess:             { label: 'BESS',           icon: BatteryCharging, color: 'bg-green-100 text-green-700' },
+  hidreletrica:     { label: 'Hydropower',     icon: Droplets,      color: 'bg-indigo-100 text-indigo-700' },
+  biomassa:         { label: 'Biomass',        icon: Flame,         color: 'bg-orange-100 text-orange-700' },
+  biocombustivel:   { label: 'Biofuels',       icon: Leaf,          color: 'bg-lime-100 text-lime-700' },
+  hibrida:          { label: 'Hybrid',         icon: Zap,           color: 'bg-purple-100 text-purple-700' },
+  subestacao:       { label: 'Substation',     icon: Building,      color: 'bg-slate-100 text-slate-700' },
 };
 
 interface SiteFormData {
@@ -118,7 +126,6 @@ const SitesManagement = () => {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [isUniqueIdLocked, setIsUniqueIdLocked] = useState(false);
   
-  // Stats for unknown sites
   const [unknownSiteStats, setUnknownSiteStats] = useState<Record<string, { equipment: number; variables: number; samples: number }>>({});
 
   const fetchSites = async () => {
@@ -137,7 +144,6 @@ const SitesManagement = () => {
     setLoading(false);
   };
 
-  // Load stats for unknown sites
   useEffect(() => {
     const loadUnknownStats = async () => {
       const stats: Record<string, { equipment: number; variables: number; samples: number }> = {};
@@ -161,11 +167,9 @@ const SitesManagement = () => {
     fetchSites();
   }, []);
 
-  // Handle URL params for opening register dialog
   useEffect(() => {
     const registerParam = searchParams.get('register');
     if (registerParam && !dialogOpen) {
-      // Check if it's an unknown site identifier
       const unknownSite = unknownSites.find(u => u.identifier === registerParam);
       if (unknownSite) {
         setEditingSite(null);
@@ -173,9 +177,8 @@ const SitesManagement = () => {
           ...emptyFormData,
           unique_id: registerParam,
         });
-        setIsUniqueIdLocked(true); // Lock the UUID since it comes from livescan/pcap data
+        setIsUniqueIdLocked(true);
         setDialogOpen(true);
-        // Clear the URL param
         setSearchParams({});
       }
     }
@@ -215,7 +218,7 @@ const SitesManagement = () => {
       ...emptyFormData,
       unique_id: identifier,
     });
-    setIsUniqueIdLocked(true); // Lock the UUID since it comes from livescan/pcap data
+    setIsUniqueIdLocked(true);
     setDialogOpen(true);
   };
 
@@ -313,13 +316,11 @@ const SitesManagement = () => {
     setDialogOpen(false);
     setIsUniqueIdLocked(false);
     fetchSites();
-    refreshAll(); // Refresh unknown sites list
+    refreshAll();
   };
 
   const handleDelete = async (siteId: string) => {
     setDeleting(siteId);
-
-    console.log('Attempting to delete site:', siteId);
 
     const { error } = await supabase
       .from('sites')
@@ -333,10 +334,7 @@ const SitesManagement = () => {
       return;
     }
 
-    console.log('Site deleted successfully');
     toast.success('Site deleted successfully');
-    
-    // Refresh the list from the database to ensure consistency
     await fetchSites();
     setDeleting(null);
   };
@@ -492,7 +490,7 @@ const SitesManagement = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredSites.map((site) => {
-                      const typeConfig = site.site_type ? siteTypeConfig[site.site_type as keyof typeof siteTypeConfig] : null;
+                      const typeConfig = site.site_type ? siteTypeConfig[site.site_type] : null;
                       const TypeIcon = typeConfig?.icon || Building2;
                       
                       return (
@@ -605,9 +603,7 @@ const SitesManagement = () => {
         {/* Create/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
-          if (!open) {
-            setIsUniqueIdLocked(false);
-          }
+          if (!open) setIsUniqueIdLocked(false);
         }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -650,36 +646,17 @@ const SitesManagement = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="fotovoltaica">
-                          <div className="flex items-center gap-2">
-                            <Sun className="h-4 w-4 text-amber-500" />
-                            Solar
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="eolica">
-                          <div className="flex items-center gap-2">
-                            <Wind className="h-4 w-4 text-blue-500" />
-                            Wind
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="hibrida">
-                          <div className="flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-purple-500" />
-                            Hybrid
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="subestacao">
-                          <div className="flex items-center gap-2">
-                            <Building className="h-4 w-4 text-slate-500" />
-                            Substation
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="bess">
-                          <div className="flex items-center gap-2">
-                            <BatteryCharging className="h-4 w-4 text-green-500" />
-                            BESS (Battery Energy Storage System)
-                          </div>
-                        </SelectItem>
+                        {Object.entries(siteTypeConfig).map(([value, config]) => {
+                          const Icon = config.icon;
+                          return (
+                            <SelectItem key={value} value={value}>
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                {config.label}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -738,21 +715,13 @@ const SitesManagement = () => {
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      UUID v7 is time-ordered and globally unique. 
-                      <a 
-                        href="https://www.uuidgenerator.net/version7" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[#2563EB] hover:underline ml-1"
-                      >
-                        Learn more
-                      </a>
+                      UUID v7 is time-ordered and globally unique.
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Location with Autocomplete and Map */}
+              {/* Location */}
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-muted-foreground border-b pb-2">Location</h3>
                 

@@ -8,6 +8,7 @@ import { SitesMap } from '@/components/dashboard/SitesMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { siteTypeConfig } from '@/pages/SitesManagement';
 import { 
   Building2, 
   Server, 
@@ -21,24 +22,11 @@ import {
   HelpCircle,
   RefreshCw,
   Plus,
-  BatteryCharging,
-  Wind,
-  Sun,
-  Zap,
-  Building,
   FileArchive,
   LayoutGrid,
   Map as MapIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-
-const siteTypeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700', icon: Wind },
-  fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700', icon: Sun },
-  hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700', icon: Zap },
-  subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700', icon: Building },
-  bess: { label: 'BESS', color: 'bg-green-100 text-green-700', icon: BatteryCharging },
-};
 
 const formatFileSize = (bytes: number): string => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
@@ -116,7 +104,6 @@ const Index = () => {
 
       if (!files) return;
 
-      // Use plain object instead of Map to avoid conflict with lucide Map import
       const sessionToSite: Record<string, string> = {};
       sessions.forEach(s => { sessionToSite[s.id] = s.site_id; });
 
@@ -336,7 +323,7 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Sites section with Cards / Map toggle */}
+        {/* Sites section */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
@@ -567,7 +554,6 @@ const Index = () => {
                         </div>
                       )}
 
-                      {/* Footer — always two fixed lines at the bottom */}
                       <div className="mt-4 pt-3 border-t space-y-1 pb-4">
                         {!isUnregistered && (
                           <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-slate-400'}`}>

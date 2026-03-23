@@ -38,43 +38,72 @@ const silverMapStyle = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
 ];
 
-// Pin size: 28x35 + 10% = ~31x39
 const PIN_W = 31;
 const PIN_H = 39;
-// Icon size scales proportionally: 12 * 1.1 ≈ 13
 const ICON_SIZE = 13;
 const ICON_OFFSET = Math.round((PIN_W - ICON_SIZE) / 2);
 
+// SVGs matching FontAwesome icons used in the main system
 const siteTypeIcons: Record<string, { svg: string; bg: string; border: string }> = {
-  fotovoltaica: {
-    bg: '#fef3c7',
-    border: '#f59e0b',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
-  },
+  // Wind Turbine (fa-wind-turbine) - blue
   eolica: {
     bg: '#dbeafe',
     border: '#3b82f6',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="12" x2="12" y2="22"/><path d="M12 12 C12 12 6 8 4 3 C7 4 10 8 12 12Z" fill="#2563eb" stroke="none"/><path d="M12 12 C12 12 18 8 20 3 C17 4 14 8 12 12Z" fill="#93c5fd" stroke="none"/><path d="M12 12 C12 12 5 14 2 19 C5 17 9 14 12 12Z" fill="#60a5fa" stroke="none"/></svg>`,
   },
-  hibrida: {
-    bg: '#ede9fe',
-    border: '#8b5cf6',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+  // Wind Offshore (fa-wind-sparkle) - cyan/teal
+  eolica_offshore: {
+    bg: '#cffafe',
+    border: '#06b6d4',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="12" x2="12" y2="20"/><path d="M12 12 C12 12 6 8 4 3 C7 4 10 8 12 12Z" fill="#0891b2" stroke="none"/><path d="M12 12 C12 12 18 8 20 3 C17 4 14 8 12 12Z" fill="#67e8f9" stroke="none"/><path d="M12 12 C12 12 5 14 2 19 C5 17 9 14 12 12Z" fill="#22d3ee" stroke="none"/><path d="M19 3 L20 1 L21 3" stroke="#0891b2" stroke-width="1.5" fill="none"/><circle cx="20" cy="1" r="0.5" fill="#0891b2"/></svg>`,
   },
-  subestacao: {
-    bg: '#f1f5f9',
-    border: '#64748b',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  // Solar (fa-solar-panel) - amber/yellow
+  fotovoltaica: {
+    bg: '#fef3c7',
+    border: '#f59e0b',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="1"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="17" y1="5" x2="17" y2="19"/></svg>`,
   },
+  // BESS - Battery (fa-battery-bolt) - green
   bess: {
     bg: '#dcfce7',
     border: '#22c55e',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/><line x1="6" x2="6" y1="11" y2="13"/><line x1="10" x2="10" y1="11" y2="13"/><line x1="14" x2="14" y1="11" y2="13"/></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="18" height="10" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/><path d="M11 7 L8 12 L11 12 L8 17" stroke="#16a34a" stroke-width="2" fill="none"/></svg>`,
   },
+  // Hydropower (fa-arrow-up-from-water) - blue/indigo
+  hidreletrica: {
+    bg: '#e0e7ff',
+    border: '#6366f1',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L12 15"/><path d="M8 7 L12 3 L16 7"/><path d="M2 17 C5 14 8 20 12 17 C16 14 19 20 22 17"/></svg>`,
+  },
+  // Biomass (fa-fire-flame-curved) - orange/red
+  biomassa: {
+    bg: '#ffedd5',
+    border: '#f97316',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6 6 4 10 6 14C7 16 9 17 12 17C15 17 17 16 18 14C20 10 18 6 12 2Z"/><path d="M12 17 C10 19 10 21 12 22 C14 21 14 19 12 17Z" fill="#ea580c" stroke="none"/></svg>`,
+  },
+  // Biofuels (fa-seedling) - lime/green
+  biocombustivel: {
+    bg: '#f0fdf4',
+    border: '#84cc16',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#65a30d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22 L12 10"/><path d="M12 10 C12 10 8 8 6 4 C10 4 13 7 12 10Z" fill="#65a30d" stroke="none"/><path d="M12 14 C12 14 16 12 18 8 C14 8 11 11 12 14Z" fill="#a3e635" stroke="none"/></svg>`,
+  },
+  // Substation - slate
+  subestacao: {
+    bg: '#f1f5f9',
+    border: '#64748b',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  },
+  // Hybrid - purple
+  hibrida: {
+    bg: '#ede9fe',
+    border: '#8b5cf6',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+  },
+  // Default fallback
   default: {
     bg: '#f1f5f9',
     border: '#0e182e',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#0e182e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#0e182e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
   },
 };
 
