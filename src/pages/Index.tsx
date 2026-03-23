@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
+import { supabase } from '@/integrations/supabase/client';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,7 @@ import {
   Sun,
   Zap,
   Building,
+  FileArchive,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -34,6 +36,18 @@ const siteTypeConfig: Record<string, { label: string; color: string; icon: React
   subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700', icon: Building },
   bess: { label: 'BESS', color: 'bg-green-100 text-green-700', icon: BatteryCharging },
 };
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+};
+
+interface PcapSummary {
+  fileCount: number;
+  totalBytes: number;
+}
 
 const Index = () => {
   const navigate = useNavigate();
@@ -47,6 +61,7 @@ const Index = () => {
   } = useDiscoveryData();
   
   const [siteStats, setSiteStats] = useState<Record<string, SiteDiscoveryStats>>({});
+  const [pcapSummaries, setPcapSummaries] = useState<Record<string, PcapSummary>>({});
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -73,6 +88,62 @@ const Index = () => {
     
     loadStats();
   }, [sites, unknownSites, getSiteStats]);
+
+  // Fetch PCAP summaries for all registered sites
+  useEffect(() => {
+    const loadPcapSummaries = async () => {
+      if (sites.length === 0) return;
+
+      const siteIds = sites.map(s => s.id);
+
+      // Get all upload sessions for these sites
+      const { data: sessions } = await supabase
+        .from('upload_sessions')
+        .select('id, site_id')
+        .in('site_id', siteIds);
+
+      if (!sessions || sessions.length === 0) return;
+
+      const sessionIds = sessions.map(s => s.id);
+
+      // Get all completed pcap files for these sessions
+      const { data: files } = await supabase
+        .from('pcap_files')
+        .select('session_id, size_bytes')
+        .in('session_id', sessionIds)
+        .eq('upload_status', 'completed');
+
+      if (!files) return;
+
+      // Build a map: session_id -> site_id
+      const sessionToSite = new Map<string, string>();
+      sessions.forEach(s => sessionToSite.set(s.id, s.site_id));
+
+      // Aggregate by site_id
+      const summaryBySiteId: Record<string, PcapSummary> = {};
+      files.forEach(file => {
+        const siteId = sessionToSite.get(file.session_id);
+        if (!siteId) return;
+        if (!summaryBySiteId[siteId]) {
+          summaryBySiteId[siteId] = { fileCount: 0, totalBytes: 0 };
+        }
+        summaryBySiteId[siteId].fileCount += 1;
+        summaryBySiteId[siteId].totalBytes += file.size_bytes || 0;
+      });
+
+      // Re-key by unique_id for easy lookup
+      const summaryByUniqueId: Record<string, PcapSummary> = {};
+      sites.forEach(site => {
+        if (site.unique_id && summaryBySiteId[site.id]) {
+          summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id];
+        }
+      });
+
+      setPcapSummaries(summaryByUniqueId);
+    };
+
+    loadPcapSummaries();
+  }, [sites]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -111,6 +182,7 @@ const Index = () => {
       city: site.city,
       state: site.state,
       stats: site.unique_id ? siteStats[site.unique_id] : null,
+      pcap: site.unique_id ? pcapSummaries[site.unique_id] : null,
     })),
     ...unknownSites.map(unknown => ({
       type: 'unregistered' as const,
@@ -121,6 +193,7 @@ const Index = () => {
       city: null,
       state: null,
       stats: siteStats[unknown.identifier] || null,
+      pcap: null,
     })),
   ];
 
@@ -291,6 +364,7 @@ const Index = () => {
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
                 const TypeIcon = typeConfig?.icon;
                 const isUnregistered = siteCard.type === 'unregistered';
+                const pcap = siteCard.pcap;
                 
                 return (
                   <Card 
@@ -305,7 +379,6 @@ const Index = () => {
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {/* Site type icon */}
                           {TypeIcon && typeConfig && (
                             <div className={`p-1.5 rounded-lg flex-shrink-0 ${typeConfig.color.split(' ')[0]}`}>
                               <TypeIcon className={`h-4 w-4 ${typeConfig.color.split(' ')[1]}`} />
@@ -322,7 +395,6 @@ const Index = () => {
                             <CardTitle className="text-lg text-[#1a2744] truncate">{siteCard.name}</CardTitle>
                           )}
                         </div>
-                        {/* Badge */}
                         {isUnregistered ? (
                           <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">
                             Unregistered
@@ -414,13 +486,24 @@ const Index = () => {
                               </div>
                             </div>
                           )}
-                          
-                          {stats.lastActivity && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-3 pt-3 border-t">
-                              <Clock className="h-3 w-3" />
-                              Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}
-                            </div>
-                          )}
+
+                          {/* PCAP summary + Last activity footer */}
+                          <div className="mt-3 pt-3 border-t space-y-1">
+                            {pcap && pcap.fileCount > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <FileArchive className="h-3 w-3 flex-shrink-0" />
+                                <span>
+                                  {pcap.fileCount} PCAP{pcap.fileCount !== 1 ? 's' : ''} · {formatFileSize(pcap.totalBytes)}
+                                </span>
+                              </div>
+                            )}
+                            {stats.lastActivity && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3 flex-shrink-0" />
+                                Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}
+                              </div>
+                            )}
+                          </div>
                         </>
                       ) : (
                         <div className="text-center py-4 text-muted-foreground text-sm">
