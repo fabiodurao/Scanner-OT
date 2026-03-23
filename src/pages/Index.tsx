@@ -20,15 +20,19 @@ import {
   RefreshCw,
   Plus,
   BatteryCharging,
+  Wind,
+  Sun,
+  Zap,
+  Building,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const siteTypeConfig: Record<string, { label: string; color: string }> = {
-  eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700' },
-  fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700' },
-  hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700' },
-  subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700' },
-  bess: { label: 'BESS', color: 'bg-green-100 text-green-700' },
+const siteTypeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700', icon: Wind },
+  fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700', icon: Sun },
+  hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700', icon: Zap },
+  subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700', icon: Building },
+  bess: { label: 'BESS', color: 'bg-green-100 text-green-700', icon: BatteryCharging },
 };
 
 const Index = () => {
@@ -46,7 +50,6 @@ const Index = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load stats for all sites
   useEffect(() => {
     const loadStats = async () => {
       if (sites.length === 0 && unknownSites.length === 0) return;
@@ -54,14 +57,12 @@ const Index = () => {
       setLoadingStats(true);
       const stats: Record<string, SiteDiscoveryStats> = {};
       
-      // Load stats for registered sites
       for (const site of sites) {
         if (site.unique_id) {
           stats[site.unique_id] = await getSiteStats(site.unique_id);
         }
       }
       
-      // Load stats for unknown sites
       for (const unknown of unknownSites) {
         stats[unknown.identifier] = await getSiteStats(unknown.identifier);
       }
@@ -89,7 +90,6 @@ const Index = () => {
     navigate(`/discovery/${targetId}`);
   };
 
-  // Calculate totals
   const totalEquipment = Object.values(siteStats).reduce((sum, s) => sum + s.totalEquipment, 0);
   const totalVariables = Object.values(siteStats).reduce((sum, s) => sum + s.totalVariables, 0);
   const confirmedVariables = Object.values(siteStats).reduce(
@@ -101,9 +101,7 @@ const Index = () => {
 
   const isLoading = sitesLoading || unknownSitesLoading;
 
-  // Combine registered and unregistered sites for unified display
   const allSiteCards = [
-    // Registered sites
     ...sites.map(site => ({
       type: 'registered' as const,
       id: site.id,
@@ -114,7 +112,6 @@ const Index = () => {
       state: site.state,
       stats: site.unique_id ? siteStats[site.unique_id] : null,
     })),
-    // Unregistered sites
     ...unknownSites.map(unknown => ({
       type: 'unregistered' as const,
       id: unknown.identifier,
@@ -143,7 +140,6 @@ const Index = () => {
           </Button>
         </div>
 
-        {/* Unknown Sites Alert */}
         {!unknownSitesLoading && unknownSites.length > 0 && (
           <Card className="mb-6 border-amber-300 bg-amber-50">
             <CardContent className="pt-6">
@@ -165,7 +161,6 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Stats Overview */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -253,7 +248,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Sites Grid */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
@@ -279,9 +273,7 @@ const Index = () => {
                 </p>
                 <div className="flex gap-2 justify-center">
                   <Link to="/upload">
-                    <Button variant="outline">
-                      Upload PCAP
-                    </Button>
+                    <Button variant="outline">Upload PCAP</Button>
                   </Link>
                   <Link to="/sites-management">
                     <Button>
@@ -297,6 +289,7 @@ const Index = () => {
               {allSiteCards.map((siteCard) => {
                 const stats = siteCard.stats;
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
+                const TypeIcon = typeConfig?.icon;
                 const isUnregistered = siteCard.type === 'unregistered';
                 
                 return (
@@ -310,32 +303,38 @@ const Index = () => {
                     onClick={() => handleCardClick(siteCard.identifier, siteCard.id)}
                   >
                     <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          {isUnregistered ? (
-                            <div className="flex items-center gap-2">
-                              <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                              <CardTitle className="text-lg text-[#1a2744] truncate">
-                                <code className="text-sm font-mono">{siteCard.identifier?.slice(0, 8)}...</code>
-                              </CardTitle>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {/* Site type icon */}
+                          {TypeIcon && typeConfig && (
+                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${typeConfig.color.split(' ')[0]}`}>
+                              <TypeIcon className={`h-4 w-4 ${typeConfig.color.split(' ')[1]}`} />
                             </div>
+                          )}
+                          {isUnregistered && (
+                            <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                          )}
+                          {isUnregistered ? (
+                            <CardTitle className="text-lg text-[#1a2744] truncate">
+                              <code className="text-sm font-mono">{siteCard.identifier?.slice(0, 8)}...</code>
+                            </CardTitle>
                           ) : (
-                            <CardTitle className="text-lg text-[#1a2744]">{siteCard.name}</CardTitle>
+                            <CardTitle className="text-lg text-[#1a2744] truncate">{siteCard.name}</CardTitle>
                           )}
                         </div>
+                        {/* Badge */}
                         {isUnregistered ? (
                           <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">
                             Unregistered
                           </Badge>
                         ) : typeConfig ? (
-                          <Badge className={typeConfig.color} variant="outline">
-                            {siteCard.site_type === 'bess' && <BatteryCharging className="h-3 w-3 mr-1" />}
+                          <Badge className={`${typeConfig.color} flex-shrink-0`} variant="outline">
                             {typeConfig.label}
                           </Badge>
                         ) : null}
                       </div>
                       {!isUnregistered && (siteCard.city || siteCard.state) && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                           <MapPin className="h-4 w-4" />
                           {[siteCard.city, siteCard.state].filter(Boolean).join(', ')}
                         </div>
@@ -374,7 +373,6 @@ const Index = () => {
                             </div>
                           </div>
                           
-                          {/* Learning state progress */}
                           {stats.totalVariables > 0 && (
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-xs">
@@ -432,7 +430,6 @@ const Index = () => {
                         </div>
                       )}
                       
-                      {/* Register button for unregistered sites */}
                       {isUnregistered && (
                         <div className="mt-4 pt-3 border-t">
                           <Button 
