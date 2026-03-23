@@ -40,84 +40,97 @@ const silverMapStyle = [
 
 const PIN_W = 31;
 const PIN_H = 39;
-const ICON_SIZE = 13;
+const ICON_SIZE = 14;
 const ICON_OFFSET = Math.round((PIN_W - ICON_SIZE) / 2);
 
-// SVGs matching FontAwesome icons used in the main system
-const siteTypeIcons: Record<string, { svg: string; bg: string; border: string }> = {
-  // Wind Turbine (fa-wind-turbine) - blue
+// Exact lucide-react SVG paths — same icons used in siteTypeConfig in SitesManagement.tsx
+// Wind  → lucide Wind
+// Waves → lucide Waves (Wind Offshore)
+// Sun   → lucide Sun
+// BatteryCharging → lucide BatteryCharging
+// Droplets → lucide Droplets
+// Flame → lucide Flame
+// Leaf  → lucide Leaf
+// Zap   → lucide Zap
+// Building → lucide Building
+
+const siteTypeIcons: Record<string, { iconPath: string; bg: string; stroke: string }> = {
+  // Wind Turbine — lucide Wind
   eolica: {
     bg: '#dbeafe',
-    border: '#3b82f6',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="12" x2="12" y2="22"/><path d="M12 12 C12 12 6 8 4 3 C7 4 10 8 12 12Z" fill="#2563eb" stroke="none"/><path d="M12 12 C12 12 18 8 20 3 C17 4 14 8 12 12Z" fill="#93c5fd" stroke="none"/><path d="M12 12 C12 12 5 14 2 19 C5 17 9 14 12 12Z" fill="#60a5fa" stroke="none"/></svg>`,
+    stroke: '#2563eb',
+    iconPath: `<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>`,
   },
-  // Wind Offshore (fa-wind-sparkle) - cyan/teal
+  // Wind Offshore — lucide Waves
   eolica_offshore: {
     bg: '#cffafe',
-    border: '#06b6d4',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="12" x2="12" y2="20"/><path d="M12 12 C12 12 6 8 4 3 C7 4 10 8 12 12Z" fill="#0891b2" stroke="none"/><path d="M12 12 C12 12 18 8 20 3 C17 4 14 8 12 12Z" fill="#67e8f9" stroke="none"/><path d="M12 12 C12 12 5 14 2 19 C5 17 9 14 12 12Z" fill="#22d3ee" stroke="none"/><path d="M19 3 L20 1 L21 3" stroke="#0891b2" stroke-width="1.5" fill="none"/><circle cx="20" cy="1" r="0.5" fill="#0891b2"/></svg>`,
+    stroke: '#0891b2',
+    iconPath: `<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2"/>`,
   },
-  // Solar (fa-solar-panel) - amber/yellow
+  // Solar — lucide Sun
   fotovoltaica: {
     bg: '#fef3c7',
-    border: '#f59e0b',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="1"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="17" y1="5" x2="17" y2="19"/></svg>`,
+    stroke: '#d97706',
+    iconPath: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
   },
-  // BESS - Battery (fa-battery-bolt) - green
+  // BESS — lucide BatteryCharging
   bess: {
     bg: '#dcfce7',
-    border: '#22c55e',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="18" height="10" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/><path d="M11 7 L8 12 L11 12 L8 17" stroke="#16a34a" stroke-width="2" fill="none"/></svg>`,
+    stroke: '#16a34a',
+    iconPath: `<path d="M15 7h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><path d="M6 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1"/><path d="m11 7-3 5h4l-3 5"/><line x1="22" x2="22" y1="11" y2="13"/>`,
   },
-  // Hydropower (fa-arrow-up-from-water) - blue/indigo
+  // Hydropower — lucide Droplets
   hidreletrica: {
     bg: '#e0e7ff',
-    border: '#6366f1',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L12 15"/><path d="M8 7 L12 3 L16 7"/><path d="M2 17 C5 14 8 20 12 17 C16 14 19 20 22 17"/></svg>`,
+    stroke: '#4f46e5',
+    iconPath: `<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>`,
   },
-  // Biomass (fa-fire-flame-curved) - orange/red
+  // Biomass — lucide Flame
   biomassa: {
     bg: '#ffedd5',
-    border: '#f97316',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6 6 4 10 6 14C7 16 9 17 12 17C15 17 17 16 18 14C20 10 18 6 12 2Z"/><path d="M12 17 C10 19 10 21 12 22 C14 21 14 19 12 17Z" fill="#ea580c" stroke="none"/></svg>`,
+    stroke: '#ea580c',
+    iconPath: `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>`,
   },
-  // Biofuels (fa-seedling) - lime/green
+  // Biofuels — lucide Leaf
   biocombustivel: {
     bg: '#f0fdf4',
-    border: '#84cc16',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#65a30d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22 L12 10"/><path d="M12 10 C12 10 8 8 6 4 C10 4 13 7 12 10Z" fill="#65a30d" stroke="none"/><path d="M12 14 C12 14 16 12 18 8 C14 8 11 11 12 14Z" fill="#a3e635" stroke="none"/></svg>`,
+    stroke: '#65a30d',
+    iconPath: `<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>`,
   },
-  // Substation - slate
-  subestacao: {
-    bg: '#f1f5f9',
-    border: '#64748b',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-  },
-  // Hybrid - purple
+  // Hybrid — lucide Zap
   hibrida: {
     bg: '#ede9fe',
-    border: '#8b5cf6',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+    stroke: '#7c3aed',
+    iconPath: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>`,
+  },
+  // Substation — lucide Building
+  subestacao: {
+    bg: '#f1f5f9',
+    stroke: '#475569',
+    iconPath: `<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>`,
   },
   // Default fallback
   default: {
     bg: '#f1f5f9',
-    border: '#0e182e',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="#0e182e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    stroke: '#0e182e',
+    iconPath: `<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>`,
   },
 };
 
 const createMarkerSvg = (siteType: string | null): string => {
   const config = siteTypeIcons[siteType || 'default'] || siteTypeIcons.default;
-  const encodedIcon = encodeURIComponent(config.svg);
   const cx = PIN_W / 2;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">
-      <path d="M${cx} 0C${(cx * 0.45).toFixed(1)} 0 0 ${(cx * 0.45).toFixed(1)} 0 ${cx}C0 ${(PIN_H * 0.66).toFixed(1)} ${cx} ${PIN_H} ${cx} ${PIN_H}C${cx} ${PIN_H} ${PIN_W} ${(PIN_H * 0.66).toFixed(1)} ${PIN_W} ${cx}C${PIN_W} ${(cx * 0.45).toFixed(1)} ${(cx * 1.55).toFixed(1)} 0 ${cx} 0Z" fill="${config.border}"/>
-      <circle cx="${cx}" cy="${cx}" r="${(cx * 0.7).toFixed(1)}" fill="${config.bg}"/>
-      <image href="data:image/svg+xml;charset=UTF-8,${encodedIcon}" x="${ICON_OFFSET}" y="${ICON_OFFSET}" width="${ICON_SIZE}" height="${ICON_SIZE}"/>
-    </svg>
-  `)}`;
+
+  // Build the icon SVG (lucide viewBox is 0 0 24 24, scaled to ICON_SIZE)
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="0 0 24 24" fill="none" stroke="${config.stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${config.iconPath}</svg>`;
+
+  const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">
+    <path d="M${cx} 0C${(cx * 0.45).toFixed(1)} 0 0 ${(cx * 0.45).toFixed(1)} 0 ${cx}C0 ${(PIN_H * 0.66).toFixed(1)} ${cx} ${PIN_H} ${cx} ${PIN_H}C${cx} ${PIN_H} ${PIN_W} ${(PIN_H * 0.66).toFixed(1)} ${PIN_W} ${cx}C${PIN_W} ${(cx * 0.45).toFixed(1)} ${(cx * 1.55).toFixed(1)} 0 ${cx} 0Z" fill="${config.stroke}"/>
+    <circle cx="${cx}" cy="${cx}" r="${(cx * 0.72).toFixed(1)}" fill="${config.bg}"/>
+    <image href="data:image/svg+xml;charset=UTF-8,${encodeURIComponent(iconSvg)}" x="${ICON_OFFSET}" y="${ICON_OFFSET}" width="${ICON_SIZE}" height="${ICON_SIZE}"/>
+  </svg>`;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(pinSvg)}`;
 };
 
 let mapsLoadPromise: Promise<void> | null = null;
@@ -173,12 +186,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
 
-    const defaultCenter = { lat: -15, lng: -50 };
-    const defaultZoom = 4;
-
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center: defaultCenter,
-      zoom: defaultZoom,
+      center: { lat: -15, lng: -50 },
+      zoom: 4,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: true,
@@ -194,14 +204,12 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
       bounds.extend(position);
 
-      const markerUrl = createMarkerSvg(site.site_type);
-
       const marker = new google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: site.name || site.identifier || 'Site',
         icon: {
-          url: markerUrl,
+          url: createMarkerSvg(site.site_type),
           scaledSize: new google.maps.Size(PIN_W, PIN_H),
           anchor: new google.maps.Point(PIN_W / 2, PIN_H),
         },
@@ -225,7 +233,6 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
         disableAutoPan: true,
       });
 
-      // Hide the close button
       google.maps.event.addListener(infoWindow, 'domready', () => {
         const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
         closeButtons.forEach((btn: Element) => {
@@ -233,17 +240,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
         });
       });
 
-      marker.addListener('mouseover', () => {
-        infoWindow.open(mapInstanceRef.current, marker);
-      });
-
-      marker.addListener('mouseout', () => {
-        infoWindow.close();
-      });
-
-      marker.addListener('click', () => {
-        onSiteClick(site.identifier, site.id);
-      });
+      marker.addListener('mouseover', () => infoWindow.open(mapInstanceRef.current, marker));
+      marker.addListener('mouseout', () => infoWindow.close());
+      marker.addListener('click', () => onSiteClick(site.identifier, site.id));
     });
 
     if (sitesWithCoords.length === 1) {
