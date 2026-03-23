@@ -28,7 +28,7 @@ import {
   Building,
   FileArchive,
   LayoutGrid,
-  Map,
+  Map as MapIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -93,7 +93,6 @@ const Index = () => {
     loadStats();
   }, [sites, unknownSites, getSiteStats]);
 
-  // Fetch PCAP summaries for all registered sites
   useEffect(() => {
     const loadPcapSummaries = async () => {
       if (sites.length === 0) return;
@@ -117,12 +116,13 @@ const Index = () => {
 
       if (!files) return;
 
-      const sessionToSite = new Map<string, string>();
-      sessions.forEach(s => sessionToSite.set(s.id, s.site_id));
+      // Use plain object instead of Map to avoid conflict with lucide Map import
+      const sessionToSite: Record<string, string> = {};
+      sessions.forEach(s => { sessionToSite[s.id] = s.site_id; });
 
       const summaryBySiteId: Record<string, PcapSummary> = {};
       files.forEach(file => {
-        const siteId = sessionToSite.get(file.session_id);
+        const siteId = sessionToSite[file.session_id];
         if (!siteId) return;
         if (!summaryBySiteId[siteId]) {
           summaryBySiteId[siteId] = { fileCount: 0, totalBytes: 0 };
@@ -200,7 +200,6 @@ const Index = () => {
     })),
   ];
 
-  // Sites with coordinates for the map
   const mapSites = allSiteCards.map(s => ({
     id: s.id,
     identifier: s.identifier,
@@ -342,7 +341,6 @@ const Index = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
             <div className="flex items-center gap-2">
-              {/* View toggle */}
               <div className="flex items-center border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setSitesView('cards')}
@@ -363,7 +361,7 @@ const Index = () => {
                       : 'bg-white text-muted-foreground hover:bg-slate-50'
                   }`}
                 >
-                  <Map className="h-4 w-4" />
+                  <MapIcon className="h-4 w-4" />
                   Map
                 </button>
               </div>
