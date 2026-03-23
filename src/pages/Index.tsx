@@ -129,8 +129,9 @@ const Index = () => {
 
       const summaryByUniqueId: Record<string, PcapSummary> = {};
       sites.forEach(site => {
-        if (site.unique_id && summaryBySiteId[site.id]) {
-          summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id];
+        if (site.unique_id) {
+          // Always set an entry, even if zero
+          summaryByUniqueId[site.unique_id] = summaryBySiteId[site.id] || { fileCount: 0, totalBytes: 0 };
         }
       });
 
@@ -177,7 +178,7 @@ const Index = () => {
       city: site.city,
       state: site.state,
       stats: site.unique_id ? siteStats[site.unique_id] : null,
-      pcap: site.unique_id ? pcapSummaries[site.unique_id] : null,
+      pcap: site.unique_id ? (pcapSummaries[site.unique_id] ?? null) : null,
     })),
     ...unknownSites.map(unknown => ({
       type: 'unregistered' as const,
@@ -188,7 +189,7 @@ const Index = () => {
       city: null,
       state: null,
       stats: siteStats[unknown.identifier] || null,
-      pcap: null,
+      pcap: null as PcapSummary | null,
     })),
   ];
 
@@ -360,8 +361,19 @@ const Index = () => {
                 const TypeIcon = typeConfig?.icon;
                 const isUnregistered = siteCard.type === 'unregistered';
                 const pcap = siteCard.pcap;
-                const hasFooter = (pcap && pcap.fileCount > 0) || (stats?.lastActivity);
-                
+
+                // PCAP line: always show for registered sites (even if 0)
+                const pcapLine = !isUnregistered
+                  ? pcap && pcap.fileCount > 0
+                    ? `${pcap.fileCount} PCAP${pcap.fileCount !== 1 ? 's' : ''} · ${formatFileSize(pcap.totalBytes)}`
+                    : '0 PCAPs'
+                  : null;
+
+                // Last activity line: show relative time or "Not processed yet"
+                const lastActivityLine = stats?.lastActivity
+                  ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })
+                  : 'Not processed yet';
+
                 return (
                   <Card 
                     key={siteCard.id} 
@@ -511,25 +523,26 @@ const Index = () => {
                         </div>
                       )}
 
-                      {/* Footer — always at the bottom */}
-                      {hasFooter && (
-                        <div className="mt-4 pt-3 border-t space-y-1 pb-4">
-                          {pcap && pcap.fileCount > 0 && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <FileArchive className="h-3 w-3 flex-shrink-0" />
-                              <span>
-                                {pcap.fileCount} PCAP{pcap.fileCount !== 1 ? 's' : ''} · {formatFileSize(pcap.totalBytes)}
-                              </span>
-                            </div>
-                          )}
-                          {stats?.lastActivity && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span>Last activity: {formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
-                            </div>
-                          )}
+                      {/* Footer — always two fixed lines at the bottom */}
+                      <div className="mt-4 pt-3 border-t space-y-1 pb-4">
+                        {/* PCAP line — only for registered sites */}
+                        {!isUnregistered && (
+                          <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-slate-400'}`}>
+                            <FileArchive className="h-3 w-3 flex-shrink-0" />
+                            <span>{pcapLine}</span>
+                          </div>
+                        )}
+                        {/* Last activity line — always shown */}
+                        <div className={`flex items-center gap-1.5 text-xs ${stats?.lastActivity ? 'text-muted-foreground' : 'text-slate-400'}`}>
+                          <Clock className="h-3 w-3 flex-shrink-0" />
+                          <span>
+                            {stats?.lastActivity
+                              ? `Last activity: ${lastActivityLine}`
+                              : 'Last activity: not processed yet'
+                            }
+                          </span>
                         </div>
-                      )}
+                      </div>
                     </CardContent>
                   </Card>
                 );
