@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   server: {
     host: "0.0.0.0",
     port: 55118,
-    allowedHosts: ["app.otscanner.qzz.io", "3.16.14.21"],
+    allowedHosts: ["scada.centrii.com", "3.16.14.21"],
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {
