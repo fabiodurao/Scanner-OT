@@ -2,7 +2,10 @@ import { Link } from 'react-router-dom';
 import { Site } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, MapPin, RefreshCw, RefreshCcw, Wind, Sun, Zap, Building, BatteryCharging } from 'lucide-react';
+import { ChevronLeft, MapPin, RefreshCw, RefreshCcw } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { siteTypeConfig } from '@/pages/SitesManagement';
+import React from 'react';
 
 interface DiscoveryHeaderProps {
   site: Site | null;
@@ -13,14 +16,6 @@ interface DiscoveryHeaderProps {
   onSyncEquipment: () => void;
 }
 
-const siteTypeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  eolica: { label: 'Wind', color: 'bg-blue-100 text-blue-700', icon: Wind },
-  fotovoltaica: { label: 'Solar', color: 'bg-amber-100 text-amber-700', icon: Sun },
-  hibrida: { label: 'Hybrid', color: 'bg-purple-100 text-purple-700', icon: Zap },
-  subestacao: { label: 'Substation', color: 'bg-slate-100 text-slate-700', icon: Building },
-  bess: { label: 'BESS', color: 'bg-green-100 text-green-700', icon: BatteryCharging },
-};
-
 export const DiscoveryHeader = ({
   site,
   siteId,
@@ -30,7 +25,6 @@ export const DiscoveryHeader = ({
   onSyncEquipment,
 }: DiscoveryHeaderProps) => {
   const typeConfig = site?.site_type ? siteTypeConfig[site.site_type] : null;
-  const TypeIcon = typeConfig?.icon;
 
   return (
     <div className="mb-4 sm:mb-6">
@@ -45,10 +39,13 @@ export const DiscoveryHeader = ({
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Site type icon */}
-            {TypeIcon && typeConfig && (
-              <div className={`p-2 rounded-lg flex-shrink-0 ${typeConfig.color.split(' ')[0]}`}>
-                <TypeIcon className={`h-6 w-6 ${typeConfig.color.split(' ')[1]}`} />
+            {typeConfig && (
+              <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
+                <FontAwesomeIcon
+                  icon={typeConfig.icon}
+                  style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
+                  className="w-6 h-6"
+                />
               </div>
             )}
 
@@ -56,9 +53,13 @@ export const DiscoveryHeader = ({
               {site?.name || `Site ${siteId?.slice(0, 8)}...`}
             </h1>
 
-            {/* Site type badge */}
             {typeConfig && (
-              <Badge variant="outline" className={typeConfig.color}>
+              <Badge variant="outline" className={`${typeConfig.color} gap-1.5`}>
+                <FontAwesomeIcon
+                  icon={typeConfig.icon}
+                  style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
+                  className="w-3 h-3"
+                />
                 {typeConfig.label}
               </Badge>
             )}

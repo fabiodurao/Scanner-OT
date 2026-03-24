@@ -27,6 +27,8 @@ import {
   Map as MapIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import React from 'react';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
@@ -39,33 +41,6 @@ interface PcapSummary {
   fileCount: number;
   totalBytes: number;
 }
-
-// Inline SVG icon — same as in SitesManagement
-const FaIcon = ({
-  svgPath,
-  viewBox = '0 0 512 512',
-  color,
-  size = 16,
-  className = '',
-}: {
-  svgPath: string;
-  viewBox?: string;
-  color: string;
-  size?: number;
-  className?: string;
-}) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox={viewBox}
-    width={size}
-    height={size}
-    fill={color}
-    className={className}
-    aria-hidden="true"
-  >
-    <path d={svgPath} />
-  </svg>
-);
 
 const Index = () => {
   const navigate = useNavigate();
@@ -332,7 +307,11 @@ const Index = () => {
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           {typeConfig && (
                             <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
-                              <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={16} />
+                              <FontAwesomeIcon
+                                icon={typeConfig.icon}
+                                style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
+                                className="w-4 h-4"
+                              />
                             </div>
                           )}
                           {isUnregistered && <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />}
@@ -348,7 +327,11 @@ const Index = () => {
                           <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">Unregistered</Badge>
                         ) : typeConfig ? (
                           <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
-                            <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={11} />
+                            <FontAwesomeIcon
+                              icon={typeConfig.icon}
+                              style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
+                              className="w-3 h-3"
+                            />
                             {typeConfig.label}
                           </Badge>
                         ) : null}
