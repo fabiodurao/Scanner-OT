@@ -62,46 +62,37 @@ import {
   Variable,
   Clock,
 } from 'lucide-react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { library } from '@fortawesome/fontawesome-svg-core';
-
-// FA Pro Solid
-import { faSolarPanel, faFireFlameCurved, faSeedling, faBuilding } from '@fortawesome/pro-solid-svg-icons';
-// FA Pro Kit (wind-sparkle, wind-turbine, battery-bolt, arrow-up-from-ground-water)
-import { faWindTurbine, faWindSparkle, faBatteryBolt, faArrowUpFromGroundWater } from '@fortawesome/pro-kit-svg-icons';
-
-library.add(
-  faSolarPanel,
-  faFireFlameCurved,
-  faSeedling,
-  faBuilding,
-  faWindTurbine,
-  faWindSparkle,
-  faBatteryBolt,
-  faArrowUpFromGroundWater,
-);
-
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-export const siteTypeConfig: Record<string, {
-  label: string;
-  faIcon: typeof faSolarPanel;
+// Inline SVG icon component
+const FaIcon = ({
+  svgPath,
+  viewBox = '0 0 512 512',
+  color,
+  size = 16,
+  className = '',
+}: {
+  svgPath: string;
+  viewBox?: string;
   color: string;
-  bgColor: string;
-  textColor: string;
-}> = {
-  eolica:          { label: 'Wind Turbine',  faIcon: faWindTurbine,            color: 'bg-blue-100 text-blue-700',     bgColor: '#dbeafe', textColor: '#1d4ed8' },
-  eolica_offshore: { label: 'Wind Offshore', faIcon: faWindSparkle,            color: 'bg-cyan-100 text-cyan-700',     bgColor: '#cffafe', textColor: '#0e7490' },
-  fotovoltaica:    { label: 'Solar',         faIcon: faSolarPanel,             color: 'bg-amber-100 text-amber-700',   bgColor: '#fef3c7', textColor: '#b45309' },
-  bess:            { label: 'BESS',          faIcon: faBatteryBolt,            color: 'bg-green-100 text-green-700',   bgColor: '#dcfce7', textColor: '#15803d' },
-  hidreletrica:    { label: 'Hydropower',    faIcon: faArrowUpFromGroundWater,  color: 'bg-indigo-100 text-indigo-700', bgColor: '#e0e7ff', textColor: '#4338ca' },
-  biomassa:        { label: 'Biomass',       faIcon: faFireFlameCurved,        color: 'bg-orange-100 text-orange-700', bgColor: '#ffedd5', textColor: '#c2410c' },
-  biocombustivel:  { label: 'Biofuels',      faIcon: faSeedling,               color: 'bg-lime-100 text-lime-700',     bgColor: '#f0fdf4', textColor: '#4d7c0f' },
-  subestacao:      { label: 'Substation',    faIcon: faBuilding,               color: 'bg-slate-100 text-slate-700',   bgColor: '#f1f5f9', textColor: '#475569' },
-};
+  size?: number;
+  className?: string;
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox={viewBox}
+    width={size}
+    height={size}
+    fill={color}
+    className={className}
+    aria-hidden="true"
+  >
+    <path d={svgPath} />
+  </svg>
+);
 
-// Keep FA_PATHS for the map pins (SVG inline approach)
+// FA Pro SVG paths (inline, no package needed)
 export const FA_PATHS = {
   windTurbine: {
     viewBox: '0 0 512 512',
@@ -139,6 +130,25 @@ export const FA_PATHS = {
     viewBox: '0 0 384 512',
     path: 'M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V240zM64 96c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V96zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16zm112 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H304c-8.8 0-16-7.2-16-16V96z',
   },
+};
+
+export const siteTypeConfig: Record<string, {
+  label: string;
+  svgPath: string;
+  viewBox: string;
+  color: string;
+  bgColor: string;
+  textColor: string;
+}> = {
+  eolica:          { label: 'Wind Turbine',  svgPath: FA_PATHS.windTurbine.path,            viewBox: FA_PATHS.windTurbine.viewBox,            color: 'bg-blue-100 text-blue-700',     bgColor: '#dbeafe', textColor: '#1d4ed8' },
+  eolica_offshore: { label: 'Wind Offshore', svgPath: FA_PATHS.windSparkle.path,            viewBox: FA_PATHS.windSparkle.viewBox,            color: 'bg-cyan-100 text-cyan-700',     bgColor: '#cffafe', textColor: '#0e7490' },
+  fotovoltaica:    { label: 'Solar',         svgPath: FA_PATHS.solarPanel.path,             viewBox: FA_PATHS.solarPanel.viewBox,             color: 'bg-amber-100 text-amber-700',   bgColor: '#fef3c7', textColor: '#b45309' },
+  bess:            { label: 'BESS',          svgPath: FA_PATHS.batteryBolt.path,            viewBox: FA_PATHS.batteryBolt.viewBox,            color: 'bg-green-100 text-green-700',   bgColor: '#dcfce7', textColor: '#15803d' },
+  hidreletrica:    { label: 'Hydropower',    svgPath: FA_PATHS.arrowUpFromGroundWater.path, viewBox: FA_PATHS.arrowUpFromGroundWater.viewBox, color: 'bg-indigo-100 text-indigo-700', bgColor: '#e0e7ff', textColor: '#4338ca' },
+  biomassa:        { label: 'Biomass',       svgPath: FA_PATHS.fireFlameCurved.path,        viewBox: FA_PATHS.fireFlameCurved.viewBox,        color: 'bg-orange-100 text-orange-700', bgColor: '#ffedd5', textColor: '#c2410c' },
+  biocombustivel:  { label: 'Biofuels',      svgPath: FA_PATHS.seedling.path,               viewBox: FA_PATHS.seedling.viewBox,               color: 'bg-lime-100 text-lime-700',     bgColor: '#f0fdf4', textColor: '#4d7c0f' },
+  hibrida:         { label: 'Hybrid',        svgPath: FA_PATHS.bolt.path,                   viewBox: FA_PATHS.bolt.viewBox,                   color: 'bg-purple-100 text-purple-700', bgColor: '#ede9fe', textColor: '#7c3aed' },
+  subestacao:      { label: 'Substation',    svgPath: FA_PATHS.building.path,               viewBox: FA_PATHS.building.viewBox,               color: 'bg-slate-100 text-slate-700',   bgColor: '#f1f5f9', textColor: '#475569' },
 };
 
 interface SiteFormData {
@@ -410,7 +420,7 @@ const SitesManagement = () => {
                           <TableCell>
                             {typeConfig ? (
                               <Badge className={`${typeConfig.color} gap-1.5`}>
-                                <FontAwesomeIcon icon={typeConfig.faIcon} className="h-3 w-3" />
+                                <FaIcon svgPath={typeConfig.svgPath} viewBox={typeConfig.viewBox} color={typeConfig.textColor} size={12} />
                                 {typeConfig.label}
                               </Badge>
                             ) : <span className="text-muted-foreground">-</span>}
@@ -492,7 +502,7 @@ const SitesManagement = () => {
                         {Object.entries(siteTypeConfig).map(([value, config]) => (
                           <SelectItem key={value} value={value}>
                             <div className="flex items-center gap-2">
-                              <FontAwesomeIcon icon={config.faIcon} style={{ color: config.textColor, width: 14, height: 14 }} />
+                              <FaIcon svgPath={config.svgPath} viewBox={config.viewBox} color={config.textColor} size={14} />
                               {config.label}
                             </div>
                           </SelectItem>
