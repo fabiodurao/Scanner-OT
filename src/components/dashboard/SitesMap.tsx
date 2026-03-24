@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { FA_PATHS } from '@/pages/SitesManagement';
 
 interface SitesMapProps {
   sites: Array<{
@@ -39,34 +38,103 @@ const silverMapStyle = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
 ];
 
-const PIN_W = 31;
-const PIN_H = 39;
-const ICON_SIZE = 15;
-const ICON_OFFSET = Math.round((PIN_W - ICON_SIZE) / 2);
+const PIN_W = 36;
+const PIN_H = 44;
 
-const siteTypeMapConfig: Record<string, { svgPath: string; viewBox: string; bg: string; stroke: string }> = {
-  eolica:          { svgPath: FA_PATHS.windTurbine.path,            viewBox: FA_PATHS.windTurbine.viewBox,            bg: '#dbeafe', stroke: '#2563eb' },
-  eolica_offshore: { svgPath: FA_PATHS.windSparkle.path,            viewBox: FA_PATHS.windSparkle.viewBox,            bg: '#cffafe', stroke: '#0891b2' },
-  fotovoltaica:    { svgPath: FA_PATHS.solarPanel.path,             viewBox: FA_PATHS.solarPanel.viewBox,             bg: '#fef3c7', stroke: '#d97706' },
-  bess:            { svgPath: FA_PATHS.batteryBolt.path,            viewBox: FA_PATHS.batteryBolt.viewBox,            bg: '#dcfce7', stroke: '#16a34a' },
-  hidreletrica:    { svgPath: FA_PATHS.arrowUpFromGroundWater.path, viewBox: FA_PATHS.arrowUpFromGroundWater.viewBox, bg: '#e0e7ff', stroke: '#4f46e5' },
-  biomassa:        { svgPath: FA_PATHS.fireFlameCurved.path,        viewBox: FA_PATHS.fireFlameCurved.viewBox,        bg: '#ffedd5', stroke: '#ea580c' },
-  biocombustivel:  { svgPath: FA_PATHS.seedling.path,               viewBox: FA_PATHS.seedling.viewBox,               bg: '#f0fdf4', stroke: '#65a30d' },
-  hibrida:         { svgPath: FA_PATHS.bolt.path,                   viewBox: FA_PATHS.bolt.viewBox,                   bg: '#ede9fe', stroke: '#7c3aed' },
-  subestacao:      { svgPath: FA_PATHS.building.path,               viewBox: FA_PATHS.building.viewBox,               bg: '#f1f5f9', stroke: '#475569' },
-  default:         { svgPath: FA_PATHS.building.path,               viewBox: FA_PATHS.building.viewBox,               bg: '#f1f5f9', stroke: '#0e182e' },
+// SVG paths for each site type (Tabler Icons paths, viewBox 0 0 24 24)
+const SITE_TYPE_SVG: Record<string, { path: string; bg: string; stroke: string }> = {
+  eolica: {
+    bg: '#dbeafe', stroke: '#1d4ed8',
+    path: 'M12 3a1 1 0 0 1 1 1v4.535l3.929-2.268a1 1 0 1 1 1 1.732L14 10.267V13.73l3.929 2.269a1 1 0 1 1-1 1.732L13 15.464V20a1 1 0 1 1-2 0v-4.535l-3.929 2.268a1 1 0 1 1-1-1.732L10 13.733V10.27L6.071 8a1 1 0 0 1 1-1.732L11 8.535V4a1 1 0 0 1 1-1z',
+  },
+  eolica_offshore: {
+    bg: '#cffafe', stroke: '#0e7490',
+    path: 'M12 3a1 1 0 0 1 1 1v4.535l3.929-2.268a1 1 0 1 1 1 1.732L14 10.267V13.73l3.929 2.269a1 1 0 1 1-1 1.732L13 15.464V20a1 1 0 1 1-2 0v-4.535l-3.929 2.268a1 1 0 1 1-1-1.732L10 13.733V10.27L6.071 8a1 1 0 0 1 1-1.732L11 8.535V4a1 1 0 0 1 1-1z',
+  },
+  fotovoltaica: {
+    bg: '#fef3c7', stroke: '#b45309',
+    path: 'M3 6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6zM3 13a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2zM7 20a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1z',
+  },
+  bess: {
+    bg: '#dcfce7', stroke: '#15803d',
+    path: 'M6 7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm5 3a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0v-4zm4 0a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0v-4zM9 4h6v1H9V4z',
+  },
+  hidreletrica: {
+    bg: '#e0e7ff', stroke: '#4338ca',
+    path: 'M12 3c-1.2 5.4-5 7.6-5 11a5 5 0 0 0 10 0c0-3.4-3.8-5.6-5-11z',
+  },
+  biomassa: {
+    bg: '#ffedd5', stroke: '#c2410c',
+    path: 'M12 2c0 6-4 8-4 13a4 4 0 0 0 8 0c0-5-4-7-4-13zM8 17h8',
+  },
+  biocombustivel: {
+    bg: '#f0fdf4', stroke: '#4d7c0f',
+    path: 'M12 20a8 8 0 0 1-8-8c0-4.314 3.686-8 8-8 1.06 0 2.06.2 3 .57V3a1 1 0 1 1 2 0v2.57A8 8 0 0 1 12 20zm-3-8a3 3 0 0 0 3 3V9a3 3 0 0 0-3 3z',
+  },
+  hibrida: {
+    bg: '#ede9fe', stroke: '#7c3aed',
+    path: 'M13 3l-6 9h5l-1 9 6-9h-5z',
+  },
+  subestacao: {
+    bg: '#f1f5f9', stroke: '#475569',
+    path: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4a3 3 0 0 1 6 0v4',
+  },
+  energia_residuos: {
+    bg: '#fee2e2', stroke: '#b91c1c',
+    path: 'M13 3l-6 9h5l-1 9 6-9h-5z',
+  },
+  geotermica: {
+    bg: '#ffe4e6', stroke: '#be123c',
+    path: 'M12 2c0 6-4 8-4 13a4 4 0 0 0 8 0c0-5-4-7-4-13z',
+  },
+  hidrogenio: {
+    bg: '#e0f2fe', stroke: '#0369a1',
+    path: 'M12 3c-1.2 5.4-5 7.6-5 11a5 5 0 0 0 10 0c0-3.4-3.8-5.6-5-11z',
+  },
+  solar_termico: {
+    bg: '#fef9c3', stroke: '#a16207',
+    path: 'M3 6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6z',
+  },
+  nuclear: {
+    bg: '#ede9fe', stroke: '#6d28d9',
+    path: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0M12 3v3M12 18v3M3 12h3M18 12h3',
+  },
+  ondas: {
+    bg: '#ccfbf1', stroke: '#0f766e',
+    path: 'M3 10c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0M3 14c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0',
+  },
+  mare: {
+    bg: '#dbeafe', stroke: '#1e40af',
+    path: 'M3 10c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0M3 14c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0',
+  },
+  solar_telhado: {
+    bg: '#fff7ed', stroke: '#c2410c',
+    path: 'M3 6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6zm7 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6z',
+  },
+};
+
+const DEFAULT_SITE_SVG = {
+  bg: '#f1f5f9', stroke: '#0e182e',
+  path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
 };
 
 const createMarkerSvg = (siteType: string | null): string => {
-  const config = siteTypeMapConfig[siteType || 'default'] || siteTypeMapConfig.default;
+  const config = SITE_TYPE_SVG[siteType || ''] || DEFAULT_SITE_SVG;
   const cx = PIN_W / 2;
 
-  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}" viewBox="${config.viewBox}"><path fill="${config.stroke}" d="${config.svgPath}"/></svg>`;
+  // Icon area inside the circle
+  const iconSize = 14;
+  const iconOffset = (PIN_W - iconSize) / 2;
+  const iconY = (PIN_W / 2) - (iconSize / 2); // center in the circle part
+
+  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" x="${iconOffset}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="${config.stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${config.path}"/></svg>`;
 
   const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">
-    <path d="M${cx} 0C${(cx * 0.45).toFixed(1)} 0 0 ${(cx * 0.45).toFixed(1)} 0 ${cx}C0 ${(PIN_H * 0.66).toFixed(1)} ${cx} ${PIN_H} ${cx} ${PIN_H}C${cx} ${PIN_H} ${PIN_W} ${(PIN_H * 0.66).toFixed(1)} ${PIN_W} ${cx}C${PIN_W} ${(cx * 0.45).toFixed(1)} ${(cx * 1.55).toFixed(1)} 0 ${cx} 0Z" fill="${config.stroke}"/>
+    <!-- Pin shape -->
+    <path d="M${cx} ${PIN_H} C${cx} ${PIN_H} 2 ${PIN_W * 0.75} 2 ${cx} C2 ${(cx * 0.45).toFixed(1)} ${(cx * 0.45).toFixed(1)} 2 ${cx} 2 C${(cx * 1.55).toFixed(1)} 2 ${PIN_W - 2} ${(cx * 0.45).toFixed(1)} ${PIN_W - 2} ${cx} C${PIN_W - 2} ${PIN_W * 0.75} ${cx} ${PIN_H} ${cx} ${PIN_H}Z" fill="${config.stroke}"/>
+    <!-- White circle background -->
     <circle cx="${cx}" cy="${cx}" r="${(cx * 0.72).toFixed(1)}" fill="${config.bg}"/>
-    <image href="data:image/svg+xml;charset=UTF-8,${encodeURIComponent(iconSvg)}" x="${ICON_OFFSET}" y="${ICON_OFFSET}" width="${ICON_SIZE}" height="${ICON_SIZE}"/>
+    ${iconSvg}
   </svg>`;
 
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(pinSvg)}`;
@@ -135,12 +203,14 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
       bounds.extend(position);
 
+      const markerIcon = createMarkerSvg(site.site_type);
+
       const marker = new google.maps.Marker({
         position,
         map: mapInstanceRef.current,
         title: site.name || site.identifier || 'Site',
         icon: {
-          url: createMarkerSvg(site.site_type),
+          url: markerIcon,
           scaledSize: new google.maps.Size(PIN_W, PIN_H),
           anchor: new google.maps.Point(PIN_W / 2, PIN_H),
         },
