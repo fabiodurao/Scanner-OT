@@ -3,9 +3,8 @@ import { Site } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, MapPin, RefreshCw, RefreshCcw } from 'lucide-react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { siteTypeConfig } from '@/pages/SitesManagement';
-import React from 'react';
+import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 
 interface DiscoveryHeaderProps {
   site: Site | null;
@@ -17,35 +16,24 @@ interface DiscoveryHeaderProps {
 }
 
 export const DiscoveryHeader = ({
-  site,
-  siteId,
-  refreshing,
-  syncing,
-  onRefresh,
-  onSyncEquipment,
+  site, siteId, refreshing, syncing, onRefresh, onSyncEquipment,
 }: DiscoveryHeaderProps) => {
   const typeConfig = site?.site_type ? siteTypeConfig[site.site_type] : null;
+  const IconComponent = site?.site_type ? SITE_TYPE_ICONS[site.site_type] : null;
 
   return (
     <div className="mb-4 sm:mb-6">
-      <Link
-        to="/"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-3 sm:mb-4"
-      >
+      <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-3 sm:mb-4">
         <ChevronLeft className="h-4 w-4 mr-1" />
         Back to Dashboard
       </Link>
-      
+
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {typeConfig && (
+            {typeConfig && IconComponent && (
               <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
-                <FontAwesomeIcon
-                  icon={typeConfig.icon}
-                  style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
-                  className="w-6 h-6"
-                />
+                <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={24} />
               </div>
             )}
 
@@ -53,13 +41,9 @@ export const DiscoveryHeader = ({
               {site?.name || `Site ${siteId?.slice(0, 8)}...`}
             </h1>
 
-            {typeConfig && (
+            {typeConfig && IconComponent && (
               <Badge variant="outline" className={`${typeConfig.color} gap-1.5`}>
-                <FontAwesomeIcon
-                  icon={typeConfig.icon}
-                  style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
-                  className="w-3 h-3"
-                />
+                <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
                 {typeConfig.label}
               </Badge>
             )}
@@ -78,30 +62,17 @@ export const DiscoveryHeader = ({
             </div>
           )}
           <div className="flex items-center gap-2 mt-2">
-            <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono truncate max-w-full">
-              {siteId}
-            </code>
+            <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono truncate max-w-full">{siteId}</code>
           </div>
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onSyncEquipment} 
-            disabled={syncing}
-            className="flex-1 sm:flex-none"
-          >
+          <Button variant="outline" size="sm" onClick={onSyncEquipment} disabled={syncing} className="flex-1 sm:flex-none">
             <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Sync Equipment</span>
             <span className="sm:hidden">Sync</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onRefresh} 
-            disabled={refreshing}
-            className="flex-1 sm:flex-none"
-          >
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="flex-1 sm:flex-none">
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
             <span className="sm:hidden">Refresh</span>

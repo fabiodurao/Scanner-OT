@@ -27,7 +27,7 @@ import {
   Map as MapIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import React from 'react';
 
 const formatFileSize = (bytes: number): string => {
@@ -291,6 +291,7 @@ const Index = () => {
               {allSiteCards.map((siteCard) => {
                 const stats = siteCard.stats;
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
+                const IconComponent = siteCard.site_type ? SITE_TYPE_ICONS[siteCard.site_type] : null;
                 const isUnregistered = siteCard.type === 'unregistered';
                 const pcap = siteCard.pcap;
                 const pcapLine = !isUnregistered ? (pcap && pcap.fileCount > 0 ? `${pcap.fileCount} PCAP${pcap.fileCount !== 1 ? 's' : ''} · ${formatFileSize(pcap.totalBytes)}` : '0 PCAPs') : null;
@@ -305,13 +306,9 @@ const Index = () => {
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {typeConfig && (
+                          {typeConfig && IconComponent && (
                             <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
-                              <FontAwesomeIcon
-                                icon={typeConfig.icon}
-                                style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
-                                className="w-4 h-4"
-                              />
+                              <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={16} />
                             </div>
                           )}
                           {isUnregistered && <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />}
@@ -325,13 +322,9 @@ const Index = () => {
                         </div>
                         {isUnregistered ? (
                           <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">Unregistered</Badge>
-                        ) : typeConfig ? (
+                        ) : typeConfig && IconComponent ? (
                           <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
-                            <FontAwesomeIcon
-                              icon={typeConfig.icon}
-                              style={{ '--fa-primary-color': typeConfig.primaryColor, '--fa-secondary-color': typeConfig.secondaryColor, '--fa-secondary-opacity': 0.4 } as React.CSSProperties}
-                              className="w-3 h-3"
-                            />
+                            <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
                             {typeConfig.label}
                           </Badge>
                         ) : null}
