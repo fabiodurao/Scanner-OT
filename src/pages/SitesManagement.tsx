@@ -32,17 +32,18 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 
-// Keep FA_PATHS for backward compat with SitesMap
+// FA_PATHS kept for backward compat with SitesMap (map marker SVGs)
+// Using simple circle pin for all types now
 export const FA_PATHS = {
-  windTurbine:            { viewBox: '0 0 512 512', path: 'M256 32c-8.8 0-16 7.2-16 16l0 176.2-90.9-52.5c-7.6-4.4-17.4-1.8-21.8 5.9s-1.8 17.4 5.9 21.8L224 251.7l0 8.3c0 17.7 14.3 32 32 32s32-14.3 32-32l0-8.3 90.9-52.5c7.6-4.4 10.3-14.2 5.9-21.8s-14.2-10.3-21.8-5.9L272 224.2 272 48c0-8.8-7.2-16-16-16zM240 320l0 144-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l96 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-32 0 0-144c-5.2 .6-10.5 1-16 1s-10.8-.3-16-1z' },
-  windSparkle:            { viewBox: '0 0 512 512', path: 'M288 32c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64s14.3-32 32-32H288zM0 192c0-17.7 14.3-32 32-32H352c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zm32 96H224c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32z' },
-  arrowUpFromGroundWater: { viewBox: '0 0 576 512', path: 'M288 0c-13.3 0-24 10.7-24 24V142.1l-35.7-35.7c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9L264 210.1c6.2 6.2 14.4 9.4 22.6 9.4H288h1.4c8.2 0 16.4-3.1 22.6-9.4l69.6-69.8c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0L312 142.1V24c0-13.3-10.7-24-24-24zM0 320c0 17.7 14.3 32 32 32H64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h64v32c0 17.7 14.3 32 32 32s32-14.3 32-32V352h32c17.7 0 32-14.3 32-32s-14.3-32-32-32H32c-17.7 0-32 14.3-32 32z' },
-  batteryBolt:            { viewBox: '0 0 576 512', path: 'M464 160c8.8 0 16 7.2 16 16V336c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V176c0-8.8 7.2-16 16-16H464zM80 96C35.8 96 0 131.8 0 176V336c0 44.2 35.8 80 80 80H464c44.2 0 80-35.8 80-80V320c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32V176c0-44.2-35.8-80-80-80H80z' },
-  solarPanel:             { viewBox: '0 0 640 512', path: 'M32 0C14.3 0 0 14.3 0 32V352c0 17.7 14.3 32 32 32H244.4c-3.5 14.1-8.6 27.7-15.3 40.5c-5.8 11.1-4.1 24.6 4.3 33.9S254.3 472 266.7 472h106.7c12.3 0 23.9-5.4 31.6-14.8s10.1-22.8 4.3-33.9c-6.7-12.8-11.8-26.4-15.3-40.5H608c17.7 0 32-14.3 32-32V32c0-17.7-14.3-32-32-32H32z' },
-  fireFlameCurved:        { viewBox: '0 0 384 512', path: 'M153.6 29.9l16-21.3C173.6 3.2 180 0 186.7 0C198.4 0 208 9.6 208 21.3V43.5c0 13.1 5.4 25.7 14.9 34.7L307.6 159C356.4 205.6 384 270.2 384 337.7C384 434 306 512 209.7 512H192C86 512 0 426 0 320v-3.8c0-48.8 19.4-95.6 53.9-130.1l3.5-3.5c4.2-4.2 10-6.6 16-6.6C85.9 176 96 186.1 96 198.6V288c0 35.3 28.7 64 64 64s64-28.7 64-64v-3.9c0-18-7.2-35.3-19.9-48l-38.6-38.6c-24-24-37.5-56.7-37.5-90.7c0-27.7 9-54.8 25.6-76.9z' },
-  seedling:               { viewBox: '0 0 512 512', path: 'M512 32c0 113.6-84.6 207.5-194.2 222c-7.1-53.4-30.6-101.6-65.3-139.3C290.8 46 364 0 448 0l32 0c17.7 0 32 14.3 32 32zM0 96C0 78.3 14.3 64 32 64l32 0c123.7 0 224 100.3 224 224l0 32 0 160c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-160C100.3 320 0 219.7 0 96z' },
-  bolt:                   { viewBox: '0 0 448 512', path: 'M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.5L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.5L349.4 44.6z' },
-  building:               { viewBox: '0 0 384 512', path: 'M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48z' },
+  windTurbine:            { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  windSparkle:            { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  arrowUpFromGroundWater: { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  batteryBolt:            { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  solarPanel:             { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  fireFlameCurved:        { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  seedling:               { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  bolt:                   { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
+  building:               { viewBox: '0 0 24 24', path: 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z' },
 };
 
 export const siteTypeConfig: Record<string, {
@@ -55,7 +56,6 @@ export const siteTypeConfig: Record<string, {
   svgPath: string;
   viewBox: string;
 }> = {
-  // Original types
   eolica:                   { label: 'Wind Turbine',       color: 'bg-blue-100 text-blue-700',     bgColor: '#dbeafe', primaryColor: '#1d4ed8', secondaryColor: '#93c5fd', textColor: '#1d4ed8', svgPath: FA_PATHS.windTurbine.path,            viewBox: FA_PATHS.windTurbine.viewBox },
   eolica_offshore:          { label: 'Wind Offshore',      color: 'bg-cyan-100 text-cyan-700',     bgColor: '#cffafe', primaryColor: '#0e7490', secondaryColor: '#67e8f9', textColor: '#0e7490', svgPath: FA_PATHS.windSparkle.path,            viewBox: FA_PATHS.windSparkle.viewBox },
   fotovoltaica:             { label: 'Solar',              color: 'bg-amber-100 text-amber-700',   bgColor: '#fef3c7', primaryColor: '#b45309', secondaryColor: '#fcd34d', textColor: '#b45309', svgPath: FA_PATHS.solarPanel.path,             viewBox: FA_PATHS.solarPanel.viewBox },
@@ -65,7 +65,6 @@ export const siteTypeConfig: Record<string, {
   biocombustivel:           { label: 'Biofuels',           color: 'bg-lime-100 text-lime-700',     bgColor: '#f0fdf4', primaryColor: '#4d7c0f', secondaryColor: '#a3e635', textColor: '#4d7c0f', svgPath: FA_PATHS.seedling.path,               viewBox: FA_PATHS.seedling.viewBox },
   hibrida:                  { label: 'Hybrid',             color: 'bg-purple-100 text-purple-700', bgColor: '#ede9fe', primaryColor: '#7c3aed', secondaryColor: '#c4b5fd', textColor: '#7c3aed', svgPath: FA_PATHS.bolt.path,                   viewBox: FA_PATHS.bolt.viewBox },
   subestacao:               { label: 'Substation',         color: 'bg-slate-100 text-slate-700',   bgColor: '#f1f5f9', primaryColor: '#475569', secondaryColor: '#94a3b8', textColor: '#475569', svgPath: FA_PATHS.building.path,               viewBox: FA_PATHS.building.viewBox },
-  // New types from main system
   energia_residuos:         { label: 'Energy from Waste',  color: 'bg-red-100 text-red-700',       bgColor: '#fee2e2', primaryColor: '#b91c1c', secondaryColor: '#fca5a5', textColor: '#b91c1c', svgPath: FA_PATHS.bolt.path,                   viewBox: FA_PATHS.bolt.viewBox },
   geotermica:               { label: 'Geothermal',         color: 'bg-rose-100 text-rose-700',     bgColor: '#ffe4e6', primaryColor: '#be123c', secondaryColor: '#fda4af', textColor: '#be123c', svgPath: FA_PATHS.fireFlameCurved.path,        viewBox: FA_PATHS.fireFlameCurved.viewBox },
   hidrogenio:               { label: 'Hydrogen',           color: 'bg-sky-100 text-sky-700',       bgColor: '#e0f2fe', primaryColor: '#0369a1', secondaryColor: '#7dd3fc', textColor: '#0369a1', svgPath: FA_PATHS.arrowUpFromGroundWater.path, viewBox: FA_PATHS.arrowUpFromGroundWater.viewBox },
