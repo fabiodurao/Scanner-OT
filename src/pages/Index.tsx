@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { SitesMap } from '@/components/dashboard/SitesMap';
 import { SiteListView } from '@/components/dashboard/SiteListView';
+import { SiteTypeFilter } from '@/components/dashboard/SiteTypeFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,7 @@ const Index = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sitesView, setSitesView] = useState<'cards' | 'map' | 'list'>('cards');
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadStats = async () => {
@@ -121,13 +123,8 @@ const Index = () => {
     navigate(`/discovery/${identifier || id}`);
   };
 
-  const totalEquipment = Object.values(siteStats).reduce((sum, s) => sum + s.totalEquipment, 0);
-  const totalVariables = Object.values(siteStats).reduce((sum, s) => sum + s.totalVariables, 0);
-  const confirmedVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.confirmed + s.variablesByState.published, 0);
-  const hypothesisVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.hypothesis, 0);
-  const isLoading = sitesLoading || unknownSitesLoading;
-
-  const allSiteCards = [
+  // Build all site cards
+  const allSiteCards = useMemo(() => [
     ...sites.map(site => ({
       type: 'registered' as const,
       id: site.id,
@@ -154,10 +151,45 @@ const Index = () => {
       stats: siteStats[unknown.identifier] || null,
       pcap: null as PcapSummary | null,
     })),
-  ];
+  ], [sites, unknownSites, siteStats, pcapSummaries]);
 
-  // Map sites include stats and pcap for rich tooltips
-  const mapSites = allSiteCards.map(s => ({
+  // Compute type counts (registered sites only, unregistered get their own bucket)
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const card of allSiteCards) {
+      const key = card.site_type || '__unregistered__';
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [allSiteCards]);
+
+  // Initialize selectedTypes when data loads (select all by default)
+  useEffect(() => {
+    if (allSiteCards.length > 0 && selectedTypes.size === 0) {
+      const allTypes = new Set(allSiteCards.map(c => c.site_type || '__unregistered__'));
+      setSelectedTypes(allTypes);
+    }
+  }, [allSiteCards]);
+
+  const handleToggleType = (type: string) => {
+    setSelectedTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  // Filtered site cards based on selected types
+  const filteredSiteCards = useMemo(() =>
+    allSiteCards.filter(c => selectedTypes.has(c.site_type || '__unregistered__')),
+    [allSiteCards, selectedTypes]
+  );
+
+  const mapSites = filteredSiteCards.map(s => ({
     id: s.id,
     identifier: s.identifier,
     name: s.name,
@@ -169,6 +201,12 @@ const Index = () => {
     stats: s.stats,
     pcap: s.pcap,
   }));
+
+  const totalEquipment = Object.values(siteStats).reduce((sum, s) => sum + s.totalEquipment, 0);
+  const totalVariables = Object.values(siteStats).reduce((sum, s) => sum + s.totalVariables, 0);
+  const confirmedVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.confirmed + s.variablesByState.published, 0);
+  const hypothesisVariables = Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.hypothesis, 0);
+  const isLoading = sitesLoading || unknownSitesLoading;
 
   return (
     <MainLayout>
@@ -258,10 +296,21 @@ const Index = () => {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
-            <div className="flex items-center gap-2">
-              {/* View toggle */}
+          {/* Sites header row */}
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h2 className="text-xl font-semibold text-[#1a2744] flex-shrink-0">Sites</h2>
+
+            {/* Type filter island */}
+            {!isLoading && allSiteCards.length > 0 && (
+              <SiteTypeFilter
+                typeCounts={typeCounts}
+                selectedTypes={selectedTypes}
+                onToggleType={handleToggleType}
+              />
+            )}
+
+            {/* View toggle + Add Site */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <div className="flex items-center border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setSitesView('cards')}
@@ -308,18 +357,26 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+          ) : filteredSiteCards.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-40" />
+                <h3 className="font-medium text-lg mb-2">No sites match the selected filters</h3>
+                <p className="text-muted-foreground text-sm">Select at least one site type above to see results.</p>
+              </CardContent>
+            </Card>
           ) : sitesView === 'map' ? (
             <SitesMap sites={mapSites} onSiteClick={handleCardClick} />
           ) : sitesView === 'list' ? (
             <SiteListView
-              sites={allSiteCards}
+              sites={filteredSiteCards}
               loadingStats={loadingStats}
               onRegisterSite={handleRegisterSite}
             />
           ) : (
             // Cards view
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {allSiteCards.map((siteCard) => {
+              {filteredSiteCards.map((siteCard) => {
                 const stats = siteCard.stats;
                 const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
                 const IconComponent = siteCard.site_type ? SITE_TYPE_ICONS[siteCard.site_type] : null;
