@@ -1,33 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Loader2 } from 'lucide-react';
-import {
-  IconWindmill,
-  IconSolarPanel,
-  IconBattery4,
-  IconDroplet,
-  IconFlame,
-  IconLeaf,
-  IconBolt,
-  IconBuildingSkyscraper,
-  IconAtom,
-  IconWaveSine,
-  IconHome,
-} from '@tabler/icons-react';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { siteTypeConfig } from '@/pages/SitesManagement';
+import { SiteDiscoveryStats } from '@/types/discovery';
+import { renderSiteMapCardHTML } from './SiteMapCard';
+
+interface SiteMapData {
+  id: string;
+  identifier: string | null;
+  name: string | null;
+  site_type: string | null;
+  city: string | null;
+  state: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  stats?: SiteDiscoveryStats | null;
+  pcap?: { fileCount: number; totalBytes: number } | null;
+}
 
 interface SitesMapProps {
-  sites: Array<{
-    id: string;
-    identifier: string | null;
-    name: string | null;
-    site_type: string | null;
-    city: string | null;
-    state: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
-  }>;
+  sites: SiteMapData[];
   onSiteClick: (identifier: string | null, id: string) => void;
 }
 
@@ -56,14 +49,11 @@ const createMarkerSvg = (siteType: string | null): string => {
   const cx = PIN_W / 2;
   const cy = PIN_W / 2;
 
-  // Render the Tabler icon to SVG string
   let iconSvgContent = '';
   if (IconComponent) {
-    // renderToStaticMarkup gives us the full <svg> element
     const fullSvg = renderToStaticMarkup(
       IconComponent({ primaryColor: stroke, secondaryColor: stroke, size: 16 })
     );
-    // Extract inner content of the SVG (paths, etc.)
     const innerMatch = fullSvg.match(/<svg[^>]*>([\s\S]*?)<\/svg>/);
     if (innerMatch) {
       iconSvgContent = innerMatch[1];
@@ -75,13 +65,9 @@ const createMarkerSvg = (siteType: string | null): string => {
   const iconY = cy - iconSize / 2;
 
   const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">
-    <!-- Drop shadow -->
     <ellipse cx="${cx}" cy="${PIN_H - 2}" rx="5" ry="2" fill="rgba(0,0,0,0.18)"/>
-    <!-- Pin body (teardrop) -->
     <path d="M${cx} ${PIN_H - 4} C${cx} ${PIN_H - 4} 3 ${(PIN_W * 0.72).toFixed(1)} 3 ${cy} C3 ${(cy * 0.38).toFixed(1)} ${(cx * 0.38).toFixed(1)} 3 ${cx} 3 C${(cx * 1.62).toFixed(1)} 3 ${PIN_W - 3} ${(cy * 0.38).toFixed(1)} ${PIN_W - 3} ${cy} C${PIN_W - 3} ${(PIN_W * 0.72).toFixed(1)} ${cx} ${PIN_H - 4} ${cx} ${PIN_H - 4}Z" fill="${stroke}"/>
-    <!-- White circle background -->
     <circle cx="${cx}" cy="${cy}" r="${(cx * 0.7).toFixed(1)}" fill="${bg}"/>
-    <!-- Icon (nested SVG) -->
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       ${iconSvgContent}
     </svg>
@@ -148,6 +134,8 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     if (sitesWithCoords.length === 0) return;
 
     const bounds = new google.maps.LatLngBounds();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let currentInfoWindow: any = null;
 
     sitesWithCoords.forEach(site => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
@@ -166,22 +154,55 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
         },
       });
 
-      const infoContent = `
-        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; padding: 4px 2px; min-width: 140px;">
-          <div style="font-weight: 600; font-size: 14px; color: #0e182e; margin-bottom: 2px;">${site.name || 'Unnamed Site'}</div>
-          ${site.city || site.state ? `<div style="font-size: 12px; color: #64748b;">${[site.city, site.state].filter(Boolean).join(', ')}</div>` : ''}
-        </div>
-      `;
+      // Rich card HTML for hover tooltip
+      const cardHTML = renderSiteMapCardHTML(
+        { id: site.id, identifier: site.identifier, name: site.name, site_type: site.site_type, city: site.city, state: site.state },
+        site.stats ?? null,
+        site.pcap ?? null
+      );
 
-      const infoWindow = new google.maps.InfoWindow({ content: infoContent, disableAutoPan: true });
-
-      google.maps.event.addListener(infoWindow, 'domready', () => {
-        document.querySelectorAll('.gm-ui-hover-effect').forEach((btn: Element) => { (btn as HTMLElement).style.display = 'none'; });
+      const infoWindow = new google.maps.InfoWindow({
+        content: cardHTML,
+        disableAutoPan: true,
+        pixelOffset: new google.maps.Size(0, -PIN_H + 4),
       });
 
-      marker.addListener('mouseover', () => infoWindow.open(mapInstanceRef.current, marker));
-      marker.addListener('mouseout', () => infoWindow.close());
-      marker.addListener('click', () => onSiteClick(site.identifier, site.id));
+      // Remove default close button styling
+      google.maps.event.addListener(infoWindow, 'domready', () => {
+        // Hide the default close button
+        const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
+        closeButtons.forEach((btn: Element) => {
+          (btn as HTMLElement).style.display = 'none';
+        });
+        // Remove default padding/border from InfoWindow
+        const iwOuter = document.querySelector('.gm-style-iw-d');
+        if (iwOuter) {
+          (iwOuter as HTMLElement).style.overflow = 'hidden';
+          (iwOuter as HTMLElement).style.padding = '0';
+        }
+        const iwContainer = document.querySelector('.gm-style-iw-c');
+        if (iwContainer) {
+          (iwContainer as HTMLElement).style.padding = '0';
+          (iwContainer as HTMLElement).style.borderRadius = '10px';
+          (iwContainer as HTMLElement).style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+        }
+      });
+
+      marker.addListener('mouseover', () => {
+        if (currentInfoWindow) currentInfoWindow.close();
+        infoWindow.open(mapInstanceRef.current, marker);
+        currentInfoWindow = infoWindow;
+      });
+
+      marker.addListener('mouseout', () => {
+        infoWindow.close();
+        currentInfoWindow = null;
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.close();
+        onSiteClick(site.identifier, site.id);
+      });
     });
 
     if (sitesWithCoords.length === 1) {

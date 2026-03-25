@@ -5,6 +5,7 @@ import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { supabase } from '@/integrations/supabase/client';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { SitesMap } from '@/components/dashboard/SitesMap';
+import { SiteListView } from '@/components/dashboard/SiteListView';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
   FileArchive,
   LayoutGrid,
   Map as MapIcon,
+  List,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
@@ -57,7 +59,7 @@ const Index = () => {
   const [pcapSummaries, setPcapSummaries] = useState<Record<string, PcapSummary>>({});
   const [loadingStats, setLoadingStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [sitesView, setSitesView] = useState<'cards' | 'map'>('cards');
+  const [sitesView, setSitesView] = useState<'cards' | 'map' | 'list'>('cards');
 
   useEffect(() => {
     const loadStats = async () => {
@@ -154,6 +156,7 @@ const Index = () => {
     })),
   ];
 
+  // Map sites include stats and pcap for rich tooltips
   const mapSites = allSiteCards.map(s => ({
     id: s.id,
     identifier: s.identifier,
@@ -163,6 +166,8 @@ const Index = () => {
     state: s.state,
     latitude: s.latitude,
     longitude: s.longitude,
+    stats: s.stats,
+    pcap: s.pcap,
   }));
 
   return (
@@ -256,12 +261,31 @@ const Index = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[#1a2744]">Sites</h2>
             <div className="flex items-center gap-2">
+              {/* View toggle */}
               <div className="flex items-center border rounded-lg overflow-hidden">
-                <button onClick={() => setSitesView('cards')} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'cards' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}>
-                  <LayoutGrid className="h-4 w-4" />Cards
+                <button
+                  onClick={() => setSitesView('cards')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'cards' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  title="Card view"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cards</span>
                 </button>
-                <button onClick={() => setSitesView('map')} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'map' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}>
-                  <MapIcon className="h-4 w-4" />Map
+                <button
+                  onClick={() => setSitesView('list')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'list' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  title="List view"
+                >
+                  <List className="h-4 w-4" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  onClick={() => setSitesView('map')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'map' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  title="Map view"
+                >
+                  <MapIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Map</span>
                 </button>
               </div>
               <Link to="/sites-management">
@@ -286,7 +310,14 @@ const Index = () => {
             </Card>
           ) : sitesView === 'map' ? (
             <SitesMap sites={mapSites} onSiteClick={handleCardClick} />
+          ) : sitesView === 'list' ? (
+            <SiteListView
+              sites={allSiteCards}
+              loadingStats={loadingStats}
+              onRegisterSite={handleRegisterSite}
+            />
           ) : (
+            // Cards view
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {allSiteCards.map((siteCard) => {
                 const stats = siteCard.stats;
