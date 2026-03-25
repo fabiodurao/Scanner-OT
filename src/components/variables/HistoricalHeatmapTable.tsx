@@ -8,7 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil, Loader2, Undo } from 'lucide-react';
+import { VariableHistoryDialog } from './VariableHistoryDialog';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil, Loader2, Undo, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,144 +63,82 @@ const learningStateConfig = {
 };
 
 const getScoreColor = (score: number | null): string => {
-  if (score === null || score === undefined) return 'bg-gray-200 text-gray-500';
-  const normalizedScore = Math.min(1, Math.max(0, score));
-  if (normalizedScore >= 0.95) return 'bg-[#00B050] text-white';
-  if (normalizedScore >= 0.90) return 'bg-[#17B169] text-white';
-  if (normalizedScore >= 0.85) return 'bg-[#2DC97A] text-white';
-  if (normalizedScore >= 0.80) return 'bg-[#5DD55D] text-black';
-  if (normalizedScore >= 0.75) return 'bg-[#8DE28D] text-black';
-  if (normalizedScore >= 0.70) return 'bg-[#B5E61D] text-black';
-  if (normalizedScore >= 0.65) return 'bg-[#D4ED26] text-black';
-  if (normalizedScore >= 0.60) return 'bg-[#FFFF00] text-black';
-  if (normalizedScore >= 0.55) return 'bg-[#FFE135] text-black';
-  if (normalizedScore >= 0.50) return 'bg-[#FFC000] text-black';
-  if (normalizedScore >= 0.45) return 'bg-[#FFA500] text-black';
-  if (normalizedScore >= 0.40) return 'bg-[#FF8C00] text-black';
-  if (normalizedScore >= 0.35) return 'bg-[#FF7518] text-white';
-  if (normalizedScore >= 0.30) return 'bg-[#FF5722] text-white';
-  if (normalizedScore >= 0.25) return 'bg-[#FF4500] text-white';
-  if (normalizedScore >= 0.20) return 'bg-[#FF3300] text-white';
-  if (normalizedScore >= 0.15) return 'bg-[#FF1A1A] text-white';
-  if (normalizedScore >= 0.10) return 'bg-[#FF0000] text-white';
-  if (normalizedScore >= 0.05) return 'bg-[#E60000] text-white';
-  if (normalizedScore > 0) return 'bg-[#CC0000] text-white';
-  return 'bg-gray-200 text-gray-500';
+  if (score === null || score === undefined) return 'bg-gray-100 text-gray-400';
+  const s = Math.min(1, Math.max(0, score));
+  if (s >= 0.95) return 'bg-[#00B050] text-white';
+  if (s >= 0.90) return 'bg-[#17B169] text-white';
+  if (s >= 0.85) return 'bg-[#2DC97A] text-white';
+  if (s >= 0.80) return 'bg-[#5DD55D] text-black';
+  if (s >= 0.75) return 'bg-[#8DE28D] text-black';
+  if (s >= 0.70) return 'bg-[#B5E61D] text-black';
+  if (s >= 0.65) return 'bg-[#D4ED26] text-black';
+  if (s >= 0.60) return 'bg-[#FFFF00] text-black';
+  if (s >= 0.55) return 'bg-[#FFE135] text-black';
+  if (s >= 0.50) return 'bg-[#FFC000] text-black';
+  if (s >= 0.45) return 'bg-[#FFA500] text-black';
+  if (s >= 0.40) return 'bg-[#FF8C00] text-black';
+  if (s >= 0.35) return 'bg-[#FF7518] text-white';
+  if (s >= 0.30) return 'bg-[#FF5722] text-white';
+  if (s >= 0.25) return 'bg-[#FF4500] text-white';
+  if (s >= 0.20) return 'bg-[#FF3300] text-white';
+  if (s >= 0.15) return 'bg-[#FF1A1A] text-white';
+  if (s >= 0.10) return 'bg-[#FF0000] text-white';
+  if (s >= 0.05) return 'bg-[#E60000] text-white';
+  if (s > 0) return 'bg-[#CC0000] text-white';
+  return 'bg-gray-100 text-gray-400';
 };
 
-// Format number with English locale (dot as decimal separator)
-const formatNumber = (value: number, decimals: number = 3): string => {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-};
+const formatNumber = (value: number, decimals = 3): string =>
+  value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-// Format scale with appropriate decimal places
 const formatScale = (scale: number): string => {
-  // If scale is 1, show as "1.0"
   if (scale === 1) return '1.0';
-  
-  // If scale has decimals, show up to 3 decimal places (removing trailing zeros)
-  if (scale % 1 !== 0) {
-    const formatted = scale.toLocaleString('en-US', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 3,
-    });
-    return formatted;
-  }
-  
-  // If scale is integer, show with .0
-  return scale.toLocaleString('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
+  if (scale % 1 !== 0) return scale.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 3 });
+  return scale.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 };
 
 const formatValue = (value: number | null, type: string): string => {
   if (value === null || value === undefined) return '-';
   if (type.includes('FLOAT')) {
     if (!isFinite(value) || Math.abs(value) > 1e15) return 'Invalid';
-    if (Math.abs(value) < 0.01 && value !== 0) {
-      // For scientific notation, manually format to ensure dot
-      const exp = value.toExponential(2);
-      return exp.replace(',', '.');
-    }
+    if (Math.abs(value) < 0.01 && value !== 0) return value.toExponential(2);
     return formatNumber(value, 3);
   }
-  // For integers, use en-US locale
   return value.toLocaleString('en-US');
 };
 
 const formatScore = (score: number | null): string => {
-  if (score === null || score === undefined) return '-';
+  if (score === null || score === undefined) return '—';
   return Math.round(score * 100) + '%';
 };
 
-// Compact filter button component
-const FilterButton = ({ 
-  label, 
-  value, 
-  onChange, 
-  placeholder,
-  options,
-}: { 
-  label: string; 
-  value: string; 
-  onChange: (value: string) => void;
-  placeholder?: string;
-  options?: string[];
+const FilterButton = ({
+  label, value, onChange, options,
+}: {
+  label: string; value: string; onChange: (v: string) => void; options?: string[];
 }) => {
   const hasFilter = value.length > 0;
-  
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className={cn(
-            "h-5 w-5 p-0",
-            hasFilter && "text-blue-600"
-          )}
-        >
-          <SlidersHorizontal className={cn("h-3 w-3", hasFilter && "text-blue-600")} />
+        <Button variant="ghost" size="sm" className={cn('h-5 w-5 p-0', hasFilter && 'text-blue-600')}>
+          <SlidersHorizontal className={cn('h-3 w-3', hasFilter && 'text-blue-600')} />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2" align="start">
         <div className="space-y-2">
-          <div className="text-xs font-medium text-muted-foreground mb-1">{label}</div>
-          <Input
-            placeholder={placeholder || `Filter...`}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-8 text-xs"
-            autoFocus
-          />
+          <div className="text-xs font-medium text-muted-foreground">{label}</div>
+          <Input placeholder="Filter..." value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" autoFocus />
           {options && options.length > 0 && (
             <div className="max-h-32 overflow-y-auto space-y-1">
-              {options.filter(opt => opt.toLowerCase().includes(value.toLowerCase())).slice(0, 10).map(opt => (
-                <Button
-                  key={opt}
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start h-7 text-xs font-mono"
-                  onClick={() => onChange(opt)}
-                >
-                  {opt}
-                </Button>
+              {options.filter(o => o.toLowerCase().includes(value.toLowerCase())).slice(0, 10).map(o => (
+                <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-7 text-xs font-mono" onClick={() => onChange(o)}>{o}</Button>
               ))}
             </div>
           )}
           {hasFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full h-7 text-xs text-red-600"
-              onClick={() => onChange('')}
-            >
-              <X className="h-3 w-3 mr-1" />
-              Clear
+            <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-red-600" onClick={() => onChange('')}>
+              <X className="h-3 w-3 mr-1" />Clear
             </Button>
           )}
         </div>
@@ -216,68 +155,27 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   const [isCompactView, setIsCompactView] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [undoingId, setUndoingId] = useState<string | null>(null);
-  
-  // Edit dialog state
+
+  // History dialog
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyVariable, setHistoryVariable] = useState<DiscoveredVariable | null>(null);
+
+  // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingVariable, setEditingVariable] = useState<DiscoveredVariable | null>(null);
-  const [editForm, setEditForm] = useState({
-    semantic_label: '',
-    semantic_unit: '',
-    semantic_category: '',
-    data_type: '',
-    scale: '1',
-  });
+  const [editForm, setEditForm] = useState({ semantic_label: '', semantic_unit: '', semantic_category: '', data_type: '', scale: '1' });
   const [saving, setSaving] = useState(false);
 
-  // Helper functions
-  const getInterpretedValue = (variable: DiscoveredVariable): string => {
-    const winner = variable.winner;
-    if (!winner) return '-';
-    
-    // Convert winner to UPPERCASE to match column names (UINT16, INT16, etc.)
-    const winnerUppercase = winner.toUpperCase();
-    
-    // Access the value from the uppercase column
-    const rawValue = (variable as any)[winnerUppercase] as number | null;
-    
-    if (rawValue === null || rawValue === undefined) return '-';
-    
-    // Apply scale (default to 1 if not set)
-    const scale = (variable as any).scale || 1;
-    const scaledValue = rawValue * scale;
-    
-    return formatValue(scaledValue, winnerUppercase);
-  };
-
-  const getWinnerConfidence = (variable: DiscoveredVariable): number | null => {
-    const winner = variable.winner;
-    if (!winner) return null;
-    
-    // Map winner to the corresponding score column
-    const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
-    return variable[scoreKey] as number | null;
-  };
-
-  const getSuggestedType = (variable: DiscoveredVariable): string | null => {
-    return variable.winner || variable.ai_suggested_type;
-  };
-
-  // Filter to only show variables with historical data
-  const varsWithHistory = useMemo(() => 
-    variables.filter(v => v.winner !== null || v.historical_scores_uint16 !== null),
-    [variables]
-  );
-
   const uniqueValues = useMemo(() => ({
-    sourceIps: [...new Set(varsWithHistory.map(v => v.source_ip).filter((ip): ip is string => Boolean(ip)))].sort(),
-    addresses: [...new Set(varsWithHistory.map(v => v.address?.toString()).filter((addr): addr is string => Boolean(addr)))].sort((a, b) => parseInt(a) - parseInt(b)),
-    fcs: [...new Set(varsWithHistory.map(v => v.function_code?.toString()).filter((fc): fc is string => Boolean(fc)))].sort((a, b) => parseInt(a) - parseInt(b)),
-    winners: [...new Set(varsWithHistory.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
+    sourceIps: [...new Set(variables.map(v => v.source_ip).filter(Boolean))].sort(),
+    addresses: [...new Set(variables.map(v => v.address?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
+    fcs: [...new Set(variables.map(v => v.function_code?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
+    winners: [...new Set(variables.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
     learningStates: ['unknown', 'hypothesis', 'confirmed', 'published'],
-  }), [varsWithHistory]);
+  }), [variables]);
 
   const filteredVariables = useMemo(() => {
-    return varsWithHistory.filter(v => {
+    return variables.filter(v => {
       if (filters.sourceIp && !v.source_ip?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
       if (filters.address && !v.address?.toString().includes(filters.address)) return false;
       if (filters.fc && v.function_code?.toString() !== filters.fc) return false;
@@ -285,393 +183,233 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       if (filters.learningState && v.learning_state !== filters.learningState) return false;
       return true;
     });
-  }, [varsWithHistory, filters]);
+  }, [variables, filters]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredVariables.length / pageSize);
   const paginatedVariables = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredVariables.slice(start, start + pageSize);
   }, [filteredVariables, currentPage, pageSize]);
 
-  // Reset to page 1 when filters change
-  useMemo(() => {
-    setCurrentPage(1);
-  }, [filters, pageSize]);
+  useMemo(() => { setCurrentPage(1); }, [filters, pageSize]);
 
   const hasActiveFilters = Object.values(filters).some(f => f.length > 0);
+  const clearAllFilters = () => { setFilters(emptyFilters); setCurrentPage(1); };
+  const updateFilter = (key: keyof ColumnFilters, value: string) => { setFilters(prev => ({ ...prev, [key]: value })); setCurrentPage(1); };
+  const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
-  const clearAllFilters = () => {
-    setFilters(emptyFilters);
-    setCurrentPage(1);
+  const getSuggestedType = (v: DiscoveredVariable) => v.winner || v.ai_suggested_type;
+  const getWinnerConfidence = (v: DiscoveredVariable) => {
+    const winner = v.winner;
+    if (!winner) return null;
+    const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
+    return v[scoreKey] as number | null;
   };
 
-  const updateFilter = (key: keyof ColumnFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setCurrentPage(1);
+  const getInterpretedValue = (v: DiscoveredVariable): string => {
+    const winner = v.winner;
+    if (!winner) return '-';
+    const col = winner.toUpperCase();
+    const rawValue = (v as any)[col] as number | null;
+    if (rawValue === null || rawValue === undefined) return '-';
+    const scale = (v as any).scale || 1;
+    return formatValue(rawValue * scale, col);
   };
 
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  const handleOpenHistory = (v: DiscoveredVariable) => {
+    setHistoryVariable(v);
+    setHistoryDialogOpen(true);
   };
 
-  // Confirm winner as data_type
-  const handleConfirm = async (variable: DiscoveredVariable) => {
-    if (!variable.winner || !user) return;
-    
-    setConfirmingId(variable.id);
-    
-    const winnerConfidence = getWinnerConfidence(variable);
-    
-    const { error } = await supabase
-      .from('discovered_variables')
-      .update({
-        data_type: variable.winner.toLowerCase(),
-        learning_state: 'confirmed',
-        confidence_score: winnerConfidence || 0.95,
-        confirmed_by: user.id,
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', variable.id);
-    
-    if (error) {
-      toast.error('Error confirming: ' + error.message);
-    } else {
-      toast.success('Variable confirmed!');
-      onVariableUpdated?.();
-    }
-    
+  const handleConfirm = async (v: DiscoveredVariable) => {
+    if (!v.winner || !user) return;
+    setConfirmingId(v.id);
+    const { error } = await supabase.from('discovered_variables').update({
+      data_type: v.winner.toLowerCase(),
+      learning_state: 'confirmed',
+      confidence_score: getWinnerConfidence(v) || 0.95,
+      confirmed_by: user.id,
+      confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', v.id);
+    if (error) toast.error('Error confirming: ' + error.message);
+    else { toast.success('Variable confirmed!'); onVariableUpdated?.(); }
     setConfirmingId(null);
   };
 
-  // Undo confirmation - reset to unknown
-  const handleUndo = async (variable: DiscoveredVariable) => {
+  const handleUndo = async (v: DiscoveredVariable) => {
     if (!user) return;
-    
-    setUndoingId(variable.id);
-    
-    const { error } = await supabase
-      .from('discovered_variables')
-      .update({
-        learning_state: 'unknown',
-        data_type: null,
-        semantic_label: null,
-        semantic_unit: null,
-        semantic_category: null,
-        confidence_score: 0,
-        confirmed_by: null,
-        confirmed_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', variable.id);
-    
-    if (error) {
-      toast.error('Error undoing: ' + error.message);
-    } else {
-      toast.success('Reset to unknown!');
-      onVariableUpdated?.();
-    }
-    
+    setUndoingId(v.id);
+    const { error } = await supabase.from('discovered_variables').update({
+      learning_state: 'unknown', data_type: null, semantic_label: null,
+      semantic_unit: null, semantic_category: null, confidence_score: 0,
+      confirmed_by: null, confirmed_at: null, updated_at: new Date().toISOString(),
+    }).eq('id', v.id);
+    if (error) toast.error('Error undoing: ' + error.message);
+    else { toast.success('Reset to unknown!'); onVariableUpdated?.(); }
     setUndoingId(null);
   };
 
-  // Open edit dialog
-  const handleOpenEdit = (variable: DiscoveredVariable) => {
-    setEditingVariable(variable);
-    const currentScale = (variable as any).scale || 1;
+  const handleOpenEdit = (v: DiscoveredVariable) => {
+    setEditingVariable(v);
+    const currentScale = (v as any).scale || 1;
     setEditForm({
-      semantic_label: variable.semantic_label || '',
-      semantic_unit: variable.semantic_unit || '',
-      semantic_category: variable.semantic_category || '',
-      data_type: variable.data_type || variable.winner?.toLowerCase() || variable.ai_suggested_type || '',
-      scale: currentScale.toString().replace(',', '.'), // Ensure dot decimal
+      semantic_label: v.semantic_label || '',
+      semantic_unit: v.semantic_unit || '',
+      semantic_category: v.semantic_category || '',
+      data_type: v.data_type || v.winner?.toLowerCase() || v.ai_suggested_type || '',
+      scale: currentScale.toString().replace(',', '.'),
     });
     setEditDialogOpen(true);
   };
 
-  // Save edited variable
   const handleSaveEdit = async () => {
-    if (!editingVariable || !user) return;
-    
-    if (!editForm.data_type) {
-      toast.error('Data type is required');
-      return;
-    }
-    
+    if (!editingVariable || !user || !editForm.data_type) return;
     setSaving(true);
-    
-    // Parse scale with dot decimal
-    const scaleStr = editForm.scale.replace(',', '.');
-    const scale = parseFloat(scaleStr) || 1;
-    
-    const { error } = await supabase
-      .from('discovered_variables')
-      .update({
-        data_type: editForm.data_type.toLowerCase(),
-        semantic_label: editForm.semantic_label.trim() || null,
-        semantic_unit: editForm.semantic_unit.trim() || null,
-        semantic_category: editForm.semantic_category.trim() || null,
-        scale: scale,
-        learning_state: 'confirmed',
-        confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
-        confirmed_by: user.id,
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', editingVariable.id);
-    
-    if (error) {
-      toast.error('Error saving: ' + error.message);
-      setSaving(false);
-      return;
-    }
-    
-    toast.success('Variable updated & confirmed!');
+    const scale = parseFloat(editForm.scale.replace(',', '.')) || 1;
+    const { error } = await supabase.from('discovered_variables').update({
+      data_type: editForm.data_type.toLowerCase(),
+      semantic_label: editForm.semantic_label.trim() || null,
+      semantic_unit: editForm.semantic_unit.trim() || null,
+      semantic_category: editForm.semantic_category.trim() || null,
+      scale,
+      learning_state: 'confirmed',
+      confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
+      confirmed_by: user.id,
+      confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', editingVariable.id);
+    if (error) toast.error('Error saving: ' + error.message);
+    else { toast.success('Saved & confirmed!'); setEditDialogOpen(false); onVariableUpdated?.(); }
     setSaving(false);
-    setEditDialogOpen(false);
-    onVariableUpdated?.();
   };
 
-  // Calculate column count for colspan
+  const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
   const visibleColumnCount = isCompactView ? 8 + dataTypeColumns.length : 11 + dataTypeColumns.length;
 
-  if (varsWithHistory.length === 0) {
+  if (variables.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-        <p>No variables with AI historical analysis yet.</p>
-        <p className="text-sm mt-2">Click "Historical Analysis" to generate historical scores.</p>
+        <p>No variables discovered yet.</p>
+        <p className="text-sm mt-2">Upload and process a PCAP file to start discovering variables.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Score legend */}
+      {/* Legend + controls */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 text-xs flex-wrap">
-          <span className="text-muted-foreground">Score:</span>
+          <span className="text-muted-foreground">Score (after analysis):</span>
+          {[['#00B050', 'High'], ['#B5E61D', 'Good'], ['#FFC000', 'Med'], ['#FF5722', 'Low'], ['#FF0000', 'Poor']].map(([color, label]) => (
+            <div key={label} className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
+              <span>{label}</span>
+            </div>
+          ))}
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-[#00B050]" />
-            <span>High</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-[#B5E61D]" />
-            <span>Good</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-[#FFC000]" />
-            <span>Med</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-[#FF5722]" />
-            <span>Low</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-[#FF0000]" />
-            <span>Poor</span>
+            <div className="w-3 h-3 rounded bg-gray-100 border" />
+            <span className="text-muted-foreground">No analysis yet</span>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
           {hasActiveFilters && (
             <Button variant="outline" size="sm" onClick={clearAllFilters} className="h-7 text-xs">
-              <X className="h-3 w-3 mr-1" />
-              Clear filters
+              <X className="h-3 w-3 mr-1" />Clear filters
             </Button>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant={isCompactView ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setIsCompactView(!isCompactView)} 
-                className="h-7 text-xs"
-              >
-                {isCompactView ? (
-                  <>
-                    <Maximize2 className="h-3 w-3 mr-1" />
-                    Full View
-                  </>
-                ) : (
-                  <>
-                    <Minimize2 className="h-3 w-3 mr-1" />
-                    Compact
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {isCompactView ? 'Show explanation, unit and scale columns' : 'Hide extra columns for compact view'}
-            </TooltipContent>
-          </Tooltip>
+          <Button variant={isCompactView ? 'default' : 'outline'} size="sm" onClick={() => setIsCompactView(!isCompactView)} className="h-7 text-xs">
+            {isCompactView ? <><Maximize2 className="h-3 w-3 mr-1" />Full View</> : <><Minimize2 className="h-3 w-3 mr-1" />Compact</>}
+          </Button>
         </div>
       </div>
 
-      {/* Pagination controls - top */}
+      {/* Summary */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span>{variables.length} total variables</span>
+        <span>•</span>
+        <span className="text-purple-600 font-medium">{variables.filter(hasAnalysis).length} with historical analysis</span>
+        <span>•</span>
+        <span className="text-slate-500">{variables.filter(v => !hasAnalysis(v)).length} awaiting analysis</span>
+      </div>
+
+      {/* Pagination top */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows:</span>
           <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
-            <SelectTrigger className="w-16 h-7 text-xs">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-16 h-7 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {PAGE_SIZE_OPTIONS.map(size => (
-                <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-              ))}
+              {PAGE_SIZE_OPTIONS.map(s => <SelectItem key={s} value={s.toString()}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {filteredVariables.length > 0 ? (
-              <>
-                {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredVariables.length)} of {filteredVariables.length}
-              </>
-            ) : (
-              '0 results'
-            )}
+            {filteredVariables.length > 0
+              ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredVariables.length)} of ${filteredVariables.length}`
+              : '0 results'}
           </span>
           <div className="flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => goToPage(1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs px-1">
-              {currentPage}/{totalPages || 1}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => goToPage(totalPages)}
-              disabled={currentPage >= totalPages}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-xs px-1">{currentPage}/{totalPages || 1}</span>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(totalPages)} disabled={currentPage >= totalPages}><ChevronsRight className="h-4 w-4" /></Button>
           </div>
         </div>
       </div>
 
+      {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn("w-full", isCompactView ? "min-w-[1700px]" : "min-w-[2400px]")}>
+          <table className={cn('w-full', isCompactView ? 'min-w-[1700px]' : 'min-w-[2400px]')}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Source IP</span>
-                    <FilterButton 
-                      label="Source IP"
-                      value={filters.sourceIp} 
-                      onChange={(v) => updateFilter('sourceIp', v)}
-                      options={uniqueValues.sourceIps}
-                    />
+                    <FilterButton label="Source IP" value={filters.sourceIp} onChange={v => updateFilter('sourceIp', v)} options={uniqueValues.sourceIps} />
                   </div>
                 </th>
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Address</span>
-                    <FilterButton 
-                      label="Address" 
-                      value={filters.address} 
-                      onChange={(v) => updateFilter('address', v)}
-                      options={uniqueValues.addresses}
-                    />
+                    <FilterButton label="Address" value={filters.address} onChange={v => updateFilter('address', v)} options={uniqueValues.addresses} />
                   </div>
                 </th>
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">FC</span>
-                    <FilterButton 
-                      label="Function Code" 
-                      value={filters.fc} 
-                      onChange={(v) => updateFilter('fc', v)}
-                      options={uniqueValues.fcs}
-                    />
+                    <FilterButton label="Function Code" value={filters.fc} onChange={v => updateFilter('fc', v)} options={uniqueValues.fcs} />
                   </div>
                 </th>
-                <th className="px-2 py-2 text-left whitespace-nowrap">
-                  <span className="font-medium">Label</span>
-                </th>
-                {!isCompactView && (
-                  <th className="px-2 py-2 text-left whitespace-nowrap">
-                    <span className="font-medium">Unit</span>
-                  </th>
-                )}
-                {!isCompactView && (
-                  <th className="px-2 py-2 text-left whitespace-nowrap">
-                    <span className="font-medium">Scale</span>
-                  </th>
-                )}
+                <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Label</span></th>
+                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Unit</span></th>}
+                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">State</span>
-                    <FilterButton 
-                      label="Learning State" 
-                      value={filters.learningState} 
-                      onChange={(v) => updateFilter('learningState', v)}
-                      options={uniqueValues.learningStates}
-                    />
+                    <FilterButton label="Learning State" value={filters.learningState} onChange={v => updateFilter('learningState', v)} options={uniqueValues.learningStates} />
                   </div>
                 </th>
-                <th className="px-2 py-2 text-left whitespace-nowrap">
-                  <span className="font-medium">Current Value</span>
-                </th>
+                <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
+                <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
-                    <span className="font-medium">AI Type</span>
-                    <FilterButton 
-                      label="AI Suggested Type" 
-                      value={filters.winner} 
-                      onChange={(v) => updateFilter('winner', v)}
-                      options={uniqueValues.winners}
-                    />
+                    <span className="font-medium">Best Type</span>
+                    <FilterButton label="Best Type" value={filters.winner} onChange={v => updateFilter('winner', v)} options={uniqueValues.winners} />
                   </div>
                 </th>
-                {!isCompactView && (
-                  <th className="px-2 py-2 text-left whitespace-nowrap w-32">
-                    <span className="font-medium">Explanation</span>
-                  </th>
-                )}
-                <th className="px-2 py-2 text-center whitespace-nowrap">
-                  <span className="font-medium">Actions</span>
-                </th>
+                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap w-32"><span className="font-medium">Explanation</span></th>}
+                <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Actions</span></th>
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
-                      <th className="px-1 py-2 text-center whitespace-nowrap font-medium cursor-help text-xs">
-                        {col.label}
-                      </th>
+                      <th className="px-1 py-2 text-center whitespace-nowrap font-medium cursor-help text-xs">{col.label}</th>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      <span className="font-mono font-medium">{col.key}</span>
-                    </TooltipContent>
+                    <TooltipContent>{col.key}</TooltipContent>
                   </Tooltip>
                 ))}
               </tr>
@@ -692,32 +430,31 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   const canUndo = variable.learning_state === 'confirmed' || variable.learning_state === 'published';
                   const interpretedValue = getInterpretedValue(variable);
                   const scale = (variable as any).scale || 1;
-                  
+                  const varHasAnalysis = hasAnalysis(variable);
+
                   return (
-                    <tr key={variable.id} className="hover:bg-slate-50 border-b text-xs">
+                    <tr
+                      key={variable.id}
+                      className={cn(
+                        'border-b text-xs',
+                        varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80'
+                      )}
+                    >
                       <td className="px-2 py-1.5 font-mono text-xs">{variable.source_ip}</td>
                       <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
                       <td className="px-2 py-1.5">
-                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">
-                          {variable.function_code}
-                        </Badge>
+                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
                       </td>
                       <td className="px-2 py-1.5">
-                        {variable.semantic_label ? (
-                          <span className="text-xs font-medium">{variable.semantic_label}</span>
-                        ) : (
-                          <span className="text-muted-foreground italic text-xs">-</span>
-                        )}
+                        {variable.semantic_label
+                          ? <span className="text-xs font-medium">{variable.semantic_label}</span>
+                          : <span className="text-muted-foreground italic text-xs">—</span>}
                       </td>
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
-                          {variable.semantic_unit ? (
-                            <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
-                              {variable.semantic_unit}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
+                          {variable.semantic_unit
+                            ? <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
+                            : <span className="text-muted-foreground">—</span>}
                         </td>
                       )}
                       {!isCompactView && (
@@ -727,22 +464,24 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                       <td className="px-2 py-1.5">
                         <Badge className={stateConfig.color}>
-                          <StateIcon className="h-3 w-3 mr-1" />
-                          {stateConfig.label}
+                          <StateIcon className="h-3 w-3 mr-1" />{stateConfig.label}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
+                          {variable.sample_count?.toLocaleString() || 0}
                         </Badge>
                       </td>
                       <td className="px-2 py-1.5">
                         {variable.winner ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             <span className="font-mono font-bold text-sm">{interpretedValue}</span>
                             {variable.semantic_unit && (
-                              <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
-                                {variable.semantic_unit}
-                              </Badge>
+                              <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
                             )}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-muted-foreground text-xs italic">awaiting analysis</span>
                         )}
                       </td>
                       <td className="px-2 py-1.5">
@@ -753,18 +492,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                 {suggestedType}
                               </Badge>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-xs p-3 bg-white border-2 border-purple-200 shadow-xl">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2 pb-2 border-b">
-                                  <Badge className="bg-purple-600 text-white font-mono">
-                                    {suggestedType}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {variable.winner ? 'Historical Winner' : 'AI Suggestion'}
-                                  </span>
-                                </div>
+                            <TooltipContent className="max-w-xs p-3">
+                              <div className="space-y-1">
+                                <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
                                 {(variable.explanation || variable.ai_reasoning) && (
-                                  <p className="text-xs leading-relaxed text-slate-700">
+                                  <p className="text-xs leading-relaxed text-slate-700 mt-2">
                                     {variable.explanation || variable.ai_reasoning}
                                   </p>
                                 )}
@@ -772,7 +504,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-muted-foreground text-xs italic">—</span>
                         )}
                       </td>
                       {!isCompactView && (
@@ -780,41 +512,40 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           {variable.explanation ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-xs text-muted-foreground truncate cursor-help hover:text-foreground transition-colors">
+                                <div className="text-xs text-muted-foreground truncate cursor-help hover:text-foreground">
                                   {variable.explanation}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-md p-4 bg-white border-2 border-emerald-200 shadow-xl">
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-2 pb-2 border-b">
-                                    <Badge className="bg-emerald-600 text-white font-mono">
-                                      {variable.winner}
-                                    </Badge>
-                                    <span className="text-xs font-medium text-emerald-700">AI Explanation</span>
-                                  </div>
-                                  <p className="text-sm leading-relaxed text-slate-700">
-                                    {variable.explanation}
-                                  </p>
-                                </div>
+                              <TooltipContent className="max-w-md p-4">
+                                <p className="text-sm leading-relaxed">{variable.explanation}</p>
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                       )}
                       <td className="px-2 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => handleOpenEdit(variable)}
-                          >
-                            <Pencil className="h-3 w-3 mr-1" />
-                            Edit
+                          {/* History chart button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => handleOpenHistory(variable)}
+                              >
+                                <TrendingUp className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View historical chart</TooltipContent>
+                          </Tooltip>
+
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleOpenEdit(variable)}>
+                            <Pencil className="h-3 w-3 mr-1" />Edit
                           </Button>
-                          
+
                           {canConfirm ? (
                             <Button
                               size="sm"
@@ -823,14 +554,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               onClick={() => handleConfirm(variable)}
                               disabled={confirmingId === variable.id}
                             >
-                              {confirmingId === variable.id ? (
-                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Confirm
-                                </>
-                              )}
+                              {confirmingId === variable.id
+                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                                : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
                             </Button>
                           ) : canUndo ? (
                             <Button
@@ -839,25 +565,22 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                               onClick={() => handleUndo(variable)}
                               disabled={undoingId === variable.id}
-                              title="Reset to unknown"
                             >
-                              {undoingId === variable.id ? (
-                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                              ) : (
-                                <>
-                                  <Undo className="h-3 w-3 mr-1" />
-                                  Undo
-                                </>
-                              )}
+                              {undoingId === variable.id
+                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                                : <><Undo className="h-3 w-3 mr-1" />Undo</>}
                             </Button>
                           ) : null}
                         </div>
                       </td>
 
+                      {/* Heatmap columns */}
                       {dataTypeColumns.map(col => {
                         const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
                         const value = variable[col.key as keyof DiscoveredVariable] as number | null;
-                        
+                        const isWinner = variable.winner?.toUpperCase() === col.key;
+
+                        // Stats for tooltip
                         const countKey = `stats_${col.key}_count` as keyof DiscoveredVariable;
                         const avgValueKey = `stats_${col.key}_avg_value` as keyof DiscoveredVariable;
                         const stdKey = `stats_${col.key}_std` as keyof DiscoveredVariable;
@@ -866,7 +589,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         const nullsKey = `stats_${col.key}_nulls` as keyof DiscoveredVariable;
                         const zerosKey = `stats_${col.key}_zeros` as keyof DiscoveredVariable;
                         const avgScoreKey = `stats_${col.key}_avg_score` as keyof DiscoveredVariable;
-                        
+
                         const count = variable[countKey] as number | null;
                         const avgValue = variable[avgValueKey] as number | null;
                         const std = variable[stdKey] as number | null;
@@ -875,19 +598,17 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         const nulls = variable[nullsKey] as number | null;
                         const zeros = variable[zerosKey] as number | null;
                         const avgScore = variable[avgScoreKey] as number | null;
-                        
                         const hasStats = count !== null;
-                        const isWinner = variable.winner?.toUpperCase() === col.key;
-                        
+
                         return (
                           <td key={col.key} className="px-0.5 py-0.5">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div 
+                                <div
                                   className={cn(
-                                    "px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105",
+                                    'px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105',
                                     getScoreColor(score),
-                                    isWinner && "ring-2 ring-emerald-500 ring-offset-1"
+                                    isWinner && 'ring-2 ring-emerald-500 ring-offset-1'
                                   )}
                                 >
                                   <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">
@@ -901,117 +622,58 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
                                 {hasStats ? (
                                   <div className="p-4 space-y-3">
-                                    <div className="flex items-center justify-between pb-3 border-b-2">
-                                      <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">
-                                        {col.key}
-                                      </Badge>
-                                      <Badge 
-                                        className={cn(
-                                          "font-bold text-sm px-2 py-1",
-                                          score && score >= 0.8 ? "bg-emerald-600 text-white" :
-                                          score && score >= 0.5 ? "bg-amber-500 text-white" :
-                                          "bg-red-600 text-white"
-                                        )}
-                                      >
-                                        {formatScore(score)}
-                                      </Badge>
+                                    <div className="flex items-center justify-between pb-2 border-b-2">
+                                      <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">{col.key}</Badge>
+                                      <Badge className={cn('font-bold text-sm px-2 py-1',
+                                        score && score >= 0.8 ? 'bg-emerald-600 text-white' :
+                                        score && score >= 0.5 ? 'bg-amber-500 text-white' : 'bg-red-600 text-white'
+                                      )}>{formatScore(score)}</Badge>
                                     </div>
-
                                     {isWinner && (
                                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
                                         <CheckCircle className="h-4 w-4 text-emerald-600" />
                                         <span className="text-xs font-semibold text-emerald-800">AI Winner</span>
                                       </div>
                                     )}
-
                                     <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
                                       <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                      <div className="font-mono font-bold text-2xl text-blue-900">
-                                        {formatValue(value, col.key)}
-                                      </div>
+                                      <div className="font-mono font-bold text-2xl text-blue-900">{formatValue(value, col.key)}</div>
                                     </div>
-
                                     <div className="space-y-2">
                                       <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
                                         <span>Historical Statistics</span>
                                         <Badge variant="secondary" className="text-[10px]">{count?.toLocaleString('en-US')} samples</Badge>
                                       </div>
-                                      
                                       <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
-                                          <div className="text-purple-700 text-[10px] mb-0.5 font-medium">Avg Score</div>
-                                          <div className="font-mono font-bold text-purple-900">{formatScore(avgScore)}</div>
-                                        </div>
-                                        
-                                        <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                                          <div className="text-blue-700 text-[10px] mb-0.5 font-medium">Avg Value</div>
-                                          <div className="font-mono font-bold text-blue-900 truncate">
-                                            {avgValue !== null ? formatNumber(avgValue, 3) : '-'}
+                                        {[
+                                          { label: 'Avg Score', value: formatScore(avgScore), bg: 'bg-purple-50 border-purple-100', text: 'text-purple-700', val: 'text-purple-900' },
+                                          { label: 'Avg Value', value: avgValue !== null ? formatNumber(avgValue, 3) : '-', bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700', val: 'text-blue-900' },
+                                          { label: 'Std Dev', value: std !== null ? formatNumber(std, 3) : '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
+                                          { label: 'Avg Jump', value: avgJump !== null ? formatNumber(avgJump, 3) : '-', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-700', val: 'text-amber-900' },
+                                          { label: 'Max Jump', value: maxJump !== null ? formatNumber(maxJump, 3) : '-', bg: 'bg-red-50 border-red-100', text: 'text-red-700', val: 'text-red-900' },
+                                          { label: 'Nulls', value: nulls?.toLocaleString('en-US') ?? '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
+                                          { label: 'Zeros', value: zeros?.toLocaleString('en-US') ?? '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
+                                          { label: 'Data Quality', value: count && nulls !== null && zeros !== null ? `${Math.round(((count - nulls - zeros) / count) * 100)}%` : '-', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', val: 'text-emerald-900' },
+                                        ].map(item => (
+                                          <div key={item.label} className={`rounded-lg p-2 border ${item.bg}`}>
+                                            <div className={`text-[10px] mb-0.5 font-medium ${item.text}`}>{item.label}</div>
+                                            <div className={`font-mono font-bold truncate ${item.val}`}>{item.value}</div>
                                           </div>
-                                        </div>
-                                        
-                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
-                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Std Dev</div>
-                                          <div className="font-mono font-bold text-slate-900 truncate">
-                                            {std !== null ? formatNumber(std, 3) : '-'}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="bg-amber-50 rounded-lg p-2 border border-amber-100">
-                                          <div className="text-amber-700 text-[10px] mb-0.5 font-medium">Avg Jump</div>
-                                          <div className="font-mono font-bold text-amber-900 truncate">
-                                            {avgJump !== null ? formatNumber(avgJump, 3) : '-'}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="bg-red-50 rounded-lg p-2 border border-red-100">
-                                          <div className="text-red-700 text-[10px] mb-0.5 font-medium">Max Jump</div>
-                                          <div className="font-mono font-bold text-red-900 truncate">
-                                            {maxJump !== null ? formatNumber(maxJump, 3) : '-'}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
-                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Nulls</div>
-                                          <div className="font-mono font-bold text-slate-900">{nulls?.toLocaleString('en-US') ?? '-'}</div>
-                                        </div>
-                                        
-                                        <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
-                                          <div className="text-slate-700 text-[10px] mb-0.5 font-medium">Zeros</div>
-                                          <div className="font-mono font-bold text-slate-900">{zeros?.toLocaleString('en-US') ?? '-'}</div>
-                                        </div>
-                                        
-                                        <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-200">
-                                          <div className="text-emerald-700 text-[10px] mb-0.5 font-medium">Data Quality</div>
-                                          <div className="font-mono font-bold text-emerald-900">
-                                            {count && nulls !== null && zeros !== null 
-                                              ? `${Math.round(((count - nulls - zeros) / count) * 100)}%`
-                                              : '-'
-                                            }
-                                          </div>
-                                        </div>
+                                        ))}
                                       </div>
                                     </div>
                                   </div>
                                 ) : (
                                   <div className="p-4 space-y-2">
                                     <div className="flex items-center justify-between pb-2 border-b">
-                                      <Badge className="bg-blue-600 text-white font-mono">
-                                        {col.key}
-                                      </Badge>
-                                      <Badge className="bg-slate-500 text-white">
-                                        {formatScore(score)}
-                                      </Badge>
+                                      <Badge className="bg-blue-600 text-white font-mono">{col.key}</Badge>
+                                      <Badge className="bg-gray-200 text-gray-600">No analysis</Badge>
                                     </div>
                                     <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
                                       <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                      <div className="font-mono font-bold text-xl text-blue-900">
-                                        {formatValue(value, col.key)}
-                                      </div>
+                                      <div className="font-mono font-bold text-xl text-blue-900">{formatValue(value, col.key)}</div>
                                     </div>
-                                    <p className="text-xs text-muted-foreground italic">
-                                      No historical statistics available
-                                    </p>
+                                    <p className="text-xs text-muted-foreground italic">Run historical analysis to see scores.</p>
                                   </div>
                                 )}
                               </TooltipContent>
@@ -1030,10 +692,18 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
       <div className="text-xs text-muted-foreground">
         {paginatedVariables.length} of {filteredVariables.length} variables
-        {hasActiveFilters && ` • filtered from ${varsWithHistory.length}`}
-        {isCompactView && ' • Compact view (unit, scale & explanation hidden)'}
+        {hasActiveFilters && ` • filtered from ${variables.length}`}
+        {isCompactView && ' • Compact view'}
       </div>
 
+      {/* History Chart Dialog */}
+      <VariableHistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
+        variable={historyVariable}
+      />
+
+      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1044,54 +714,27 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               <span className="font-mono">{editingVariable?.function_code}</span>
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             {editingVariable && getSuggestedType(editingVariable) && (
               <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-3">
                 <div className="text-sm font-semibold text-purple-900 mb-2">AI Suggestion</div>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-purple-600 text-white font-mono">
-                    {getSuggestedType(editingVariable)}
-                  </Badge>
+                  <Badge className="bg-purple-600 text-white font-mono">{getSuggestedType(editingVariable)}</Badge>
                   {(() => {
-                    const winnerConf = getWinnerConfidence(editingVariable);
-                    const aiConf = editingVariable.ai_confidence;
-                    const displayConf = winnerConf !== null ? winnerConf : aiConf;
-                    
-                    return displayConf !== null && (
-                      <span className="text-xs text-purple-800">
-                        {Math.round(displayConf * 100)}% confidence
-                      </span>
-                    );
+                    const conf = editingVariable ? getWinnerConfidence(editingVariable) ?? editingVariable.ai_confidence : null;
+                    return conf !== null && <span className="text-xs text-purple-800">{Math.round(conf * 100)}% confidence</span>;
                   })()}
                 </div>
-                {(editingVariable.explanation || editingVariable.ai_reasoning) && (
-                  <p className="text-xs text-purple-800 mt-2 leading-relaxed">
-                    {editingVariable.explanation || editingVariable.ai_reasoning}
-                  </p>
-                )}
               </div>
             )}
-
             <div className="space-y-2">
-              <Label htmlFor="label">Parameter Name</Label>
-              <Input
-                id="label"
-                placeholder="e.g., Active Power, Wind Speed"
-                value={editForm.semantic_label}
-                onChange={(e) => setEditForm(prev => ({ ...prev, semantic_label: e.target.value }))}
-              />
+              <Label>Parameter Name</Label>
+              <Input placeholder="e.g., Active Power" value={editForm.semantic_label} onChange={e => setEditForm(p => ({ ...p, semantic_label: e.target.value }))} />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="data-type">Parameter Data Type *</Label>
-              <Select 
-                value={editForm.data_type} 
-                onValueChange={(value) => setEditForm(prev => ({ ...prev, data_type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select data type..." />
-                </SelectTrigger>
+              <Label>Data Type *</Label>
+              <Select value={editForm.data_type} onValueChange={v => setEditForm(p => ({ ...p, data_type: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select data type..." /></SelectTrigger>
                 <SelectContent>
                   {dataTypeColumns.map(col => (
                     <SelectItem key={col.key} value={col.key.toLowerCase()}>
@@ -1101,62 +744,25 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="unit">Unit</Label>
-                <Input
-                  id="unit"
-                  placeholder="e.g., kW, m/s, °C"
-                  value={editForm.semantic_unit}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, semantic_unit: e.target.value }))}
-                />
+                <Label>Unit</Label>
+                <Input placeholder="e.g., kW" value={editForm.semantic_unit} onChange={e => setEditForm(p => ({ ...p, semantic_unit: e.target.value }))} />
               </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  placeholder="e.g., Power"
-                  value={editForm.semantic_category}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, semantic_category: e.target.value }))}
-                />
+                <Label>Category</Label>
+                <Input placeholder="e.g., Power" value={editForm.semantic_category} onChange={e => setEditForm(p => ({ ...p, semantic_category: e.target.value }))} />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="scale">Scale</Label>
-                <Input
-                  id="scale"
-                  type="text"
-                  placeholder="e.g., 0.1, 10"
-                  value={editForm.scale}
-                  onChange={(e) => {
-                    // Allow only numbers and dot
-                    const value = e.target.value.replace(',', '.');
-                    setEditForm(prev => ({ ...prev, scale: value }));
-                  }}
-                />
+                <Label>Scale</Label>
+                <Input type="text" placeholder="e.g., 0.1" value={editForm.scale} onChange={e => setEditForm(p => ({ ...p, scale: e.target.value.replace(',', '.') }))} />
               </div>
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSaveEdit} 
-              disabled={!editForm.data_type || saving}
-              className="bg-[#2563EB] hover:bg-[#1d4ed8]"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save & Confirm'
-              )}
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={!editForm.data_type || saving} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Save & Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

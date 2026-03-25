@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDiscoveryData } from './useDiscoveryData';
-import { LearningSample, SiteDiscoveryStats, DiscoveredEquipment, DiscoveredVariable } from '@/types/discovery';
+import { SiteDiscoveryStats, DiscoveredEquipment, DiscoveredVariable } from '@/types/discovery';
 import { Site } from '@/types/upload';
 import { toast } from 'sonner';
 
@@ -10,20 +10,17 @@ export const useDiscoveryPage = () => {
   const { siteId } = useParams<{ siteId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { getSiteStats, getSiteEquipment, syncSiteEquipment, getVariables, getDiscoveredVariables } = useDiscoveryData();
+  const { getSiteStats, getSiteEquipment, syncSiteEquipment, getDiscoveredVariables } = useDiscoveryData();
 
   const [site, setSite] = useState<Site | null>(null);
   const [stats, setStats] = useState<SiteDiscoveryStats | null>(null);
   const [equipment, setEquipment] = useState<DiscoveredEquipment[]>([]);
-  const [variables, setVariables] = useState<LearningSample[]>([]);
   const [discoveredVariables, setDiscoveredVariables] = useState<DiscoveredVariable[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [loadingFiltered, setLoadingFiltered] = useState(false);
 
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'variables');
-  const [activeSourceIpFilter, setActiveSourceIpFilter] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'historical');
 
   const loadData = useCallback(async () => {
     if (!siteId) return;
@@ -37,25 +34,21 @@ export const useDiscoveryPage = () => {
       .eq('unique_id', siteId)
       .single();
 
-    if (siteData) {
-      setSite(siteData);
-    }
+    if (siteData) setSite(siteData);
 
-    const siteStats = await getSiteStats(siteId);
+    const [siteStats, siteEquipment, discoveredVars] = await Promise.all([
+      getSiteStats(siteId),
+      getSiteEquipment(siteId),
+      getDiscoveredVariables(siteId),
+    ]);
+
     setStats(siteStats);
-
-    const siteEquipment = await getSiteEquipment(siteId);
     setEquipment(siteEquipment);
-
-    const siteVariables = await getVariables(siteId);
-    setVariables(siteVariables);
-
-    const discoveredVars = await getDiscoveredVariables(siteId);
     setDiscoveredVariables(discoveredVars);
 
-    console.log('[Discovery] Data loading complete');
+    console.log('[Discovery] Data loading complete. Variables:', discoveredVars.length);
     setLoading(false);
-  }, [siteId, getSiteStats, getSiteEquipment, getVariables, getDiscoveredVariables]);
+  }, [siteId, getSiteStats, getSiteEquipment, getDiscoveredVariables]);
 
   useEffect(() => {
     loadData();
@@ -63,38 +56,32 @@ export const useDiscoveryPage = () => {
 
   useEffect(() => {
     const handleReloadData = (event: CustomEvent) => {
-      console.log('[Discovery] 🔄 Received reload-discovery-data event:', event.detail);
       if (event.detail.siteId === siteId) {
-        console.log('[Discovery] 🔄 Site matches, reloading data...');
+        console.log('[Discovery] Reloading data after analysis...');
         loadData();
       }
     };
-
     window.addEventListener('reload-discovery-data', handleReloadData as EventListener);
-    return () => {
-      window.removeEventListener('reload-discovery-data', handleReloadData as EventListener);
-    };
+    return () => window.removeEventListener('reload-discovery-data', handleReloadData as EventListener);
   }, [siteId, loadData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setActiveSourceIpFilter(null);
     await loadData();
     setRefreshing(false);
   };
 
   const handleSyncEquipment = async () => {
     if (!siteId) return;
-
     setSyncing(true);
     try {
       const count = await syncSiteEquipment(siteId);
       toast.success(`Synced ${count} equipment`);
-
-      const siteEquipment = await getSiteEquipment(siteId);
+      const [siteEquipment, siteStats] = await Promise.all([
+        getSiteEquipment(siteId),
+        getSiteStats(siteId),
+      ]);
       setEquipment(siteEquipment);
-
-      const siteStats = await getSiteStats(siteId);
       setStats(siteStats);
     } catch (error) {
       console.error('Error syncing equipment:', error);
@@ -103,39 +90,9 @@ export const useDiscoveryPage = () => {
     setSyncing(false);
   };
 
-  const handleTableSourceIpFilter = async (ip: string | null) => {
-    if (!siteId) return;
-
-    if (!ip) {
-      setActiveSourceIpFilter(null);
-      const siteVariables = await getVariables(siteId);
-      setVariables(siteVariables);
-      return;
-    }
-
-    setLoadingFiltered(true);
-    setActiveSourceIpFilter(ip);
-
-    const { data, error } = await supabase
-      .from('learning_samples')
-      .select('*')
-      .eq('Identifier', siteId)
-      .ilike('SourceIp', `%${ip}%`)
-      .order('time', { ascending: false })
-      .limit(5000);
-
-    if (error) {
-      console.error('Error fetching filtered variables:', error);
-    } else {
-      setVariables((data || []) as LearningSample[]);
-    }
-
-    setLoadingFiltered(false);
-  };
-
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    if (value === 'variables') {
+    if (value === 'historical') {
       searchParams.delete('tab');
     } else {
       searchParams.set('tab', value);
@@ -148,17 +105,13 @@ export const useDiscoveryPage = () => {
     site,
     stats,
     equipment,
-    variables,
     discoveredVariables,
     loading,
     refreshing,
     syncing,
-    loadingFiltered,
     activeTab,
-    activeSourceIpFilter,
     handleRefresh,
     handleSyncEquipment,
-    handleTableSourceIpFilter,
     handleTabChange,
     loadData,
   };

@@ -52,7 +52,7 @@ export interface DiscoveredVariable {
   last_raw_value: string | null;
   last_interpreted_value: number | null;
   
-  // RAW VALUES - Uppercase columns (from learning_samples)
+  // RAW VALUES - last known value per type (from last learning_sample)
   UINT16: number | null;
   INT16: number | null;
   UINT32BE: number | null;
@@ -70,17 +70,17 @@ export interface DiscoveredVariable {
   HEX: string | null;
   BIN: string | null;
   
-  // Semantic (for future use - not in JSON yet)
+  // Semantic
   semantic_label: string | null;
   semantic_unit: string | null;
   semantic_category: string | null;
-  scale: number | null; // Scaling factor (default: 1)
+  scale: number | null;
   
   // Learning
   learning_state: LearningState;
   confidence_score: number;
 
-  // AI fields (simple suggestions - legacy, keeping for compatibility)
+  // AI fields
   ai_suggested_type: DataType | null;
   ai_confidence: number;
   ai_analysis_at: string | null;
@@ -90,7 +90,7 @@ export interface DiscoveredVariable {
   winner: string | null;
   explanation: string | null;
 
-  // AI historical scores (individual columns for n8n auto-mapping)
+  // AI historical scores (populated after historical analysis)
   historical_scores_uint16: number | null;
   historical_scores_int16: number | null;
   historical_scores_uint32be: number | null;
@@ -106,7 +106,7 @@ export interface DiscoveredVariable {
   historical_scores_float64be: number | null;
   historical_scores_float64le: number | null;
 
-  // Stats for UINT16 (case-sensitive for n8n auto-mapping)
+  // Stats per type (populated after historical analysis)
   stats_UINT16_count: number | null;
   stats_UINT16_avg_value: number | null;
   stats_UINT16_std: number | null;
@@ -116,7 +116,6 @@ export interface DiscoveredVariable {
   stats_UINT16_zeros: number | null;
   stats_UINT16_avg_score: number | null;
 
-  // Stats for INT16
   stats_INT16_count: number | null;
   stats_INT16_avg_value: number | null;
   stats_INT16_std: number | null;
@@ -126,7 +125,6 @@ export interface DiscoveredVariable {
   stats_INT16_zeros: number | null;
   stats_INT16_avg_score: number | null;
 
-  // Stats for UINT32BE
   stats_UINT32BE_count: number | null;
   stats_UINT32BE_avg_value: number | null;
   stats_UINT32BE_std: number | null;
@@ -136,7 +134,6 @@ export interface DiscoveredVariable {
   stats_UINT32BE_zeros: number | null;
   stats_UINT32BE_avg_score: number | null;
 
-  // Stats for INT32BE
   stats_INT32BE_count: number | null;
   stats_INT32BE_avg_value: number | null;
   stats_INT32BE_std: number | null;
@@ -146,7 +143,6 @@ export interface DiscoveredVariable {
   stats_INT32BE_zeros: number | null;
   stats_INT32BE_avg_score: number | null;
 
-  // Stats for UINT32LE
   stats_UINT32LE_count: number | null;
   stats_UINT32LE_avg_value: number | null;
   stats_UINT32LE_std: number | null;
@@ -156,7 +152,6 @@ export interface DiscoveredVariable {
   stats_UINT32LE_zeros: number | null;
   stats_UINT32LE_avg_score: number | null;
 
-  // Stats for INT32LE
   stats_INT32LE_count: number | null;
   stats_INT32LE_avg_value: number | null;
   stats_INT32LE_std: number | null;
@@ -166,7 +161,6 @@ export interface DiscoveredVariable {
   stats_INT32LE_zeros: number | null;
   stats_INT32LE_avg_score: number | null;
 
-  // Stats for FLOAT32BE
   stats_FLOAT32BE_count: number | null;
   stats_FLOAT32BE_avg_value: number | null;
   stats_FLOAT32BE_std: number | null;
@@ -176,7 +170,6 @@ export interface DiscoveredVariable {
   stats_FLOAT32BE_zeros: number | null;
   stats_FLOAT32BE_avg_score: number | null;
 
-  // Stats for FLOAT32LE
   stats_FLOAT32LE_count: number | null;
   stats_FLOAT32LE_avg_value: number | null;
   stats_FLOAT32LE_std: number | null;
@@ -186,7 +179,6 @@ export interface DiscoveredVariable {
   stats_FLOAT32LE_zeros: number | null;
   stats_FLOAT32LE_avg_score: number | null;
 
-  // Stats for UINT64BE
   stats_UINT64BE_count: number | null;
   stats_UINT64BE_avg_value: number | null;
   stats_UINT64BE_std: number | null;
@@ -196,7 +188,6 @@ export interface DiscoveredVariable {
   stats_UINT64BE_zeros: number | null;
   stats_UINT64BE_avg_score: number | null;
 
-  // Stats for INT64BE
   stats_INT64BE_count: number | null;
   stats_INT64BE_avg_value: number | null;
   stats_INT64BE_std: number | null;
@@ -206,7 +197,6 @@ export interface DiscoveredVariable {
   stats_INT64BE_zeros: number | null;
   stats_INT64BE_avg_score: number | null;
 
-  // Stats for UINT64LE
   stats_UINT64LE_count: number | null;
   stats_UINT64LE_avg_value: number | null;
   stats_UINT64LE_std: number | null;
@@ -216,7 +206,6 @@ export interface DiscoveredVariable {
   stats_UINT64LE_zeros: number | null;
   stats_UINT64LE_avg_score: number | null;
 
-  // Stats for INT64LE
   stats_INT64LE_count: number | null;
   stats_INT64LE_avg_value: number | null;
   stats_INT64LE_std: number | null;
@@ -226,7 +215,6 @@ export interface DiscoveredVariable {
   stats_INT64LE_zeros: number | null;
   stats_INT64LE_avg_score: number | null;
 
-  // Stats for FLOAT64BE
   stats_FLOAT64BE_count: number | null;
   stats_FLOAT64BE_avg_value: number | null;
   stats_FLOAT64BE_std: number | null;
@@ -236,7 +224,6 @@ export interface DiscoveredVariable {
   stats_FLOAT64BE_zeros: number | null;
   stats_FLOAT64BE_avg_score: number | null;
 
-  // Stats for FLOAT64LE
   stats_FLOAT64LE_count: number | null;
   stats_FLOAT64LE_avg_value: number | null;
   stats_FLOAT64LE_std: number | null;
@@ -249,29 +236,6 @@ export interface DiscoveredVariable {
   confirmed_by: string | null;
   confirmed_at: string | null;
   
-  // Legacy fields (keeping for compatibility with old data)
-  stats_min: number | null;
-  stats_max: number | null;
-  stats_mean: number | null;
-  stats_std_dev: number | null;
-  stats_jump_count: number | null;
-  
-  // Legacy scores (keeping for compatibility)
-  score_uint16: number;
-  score_int16: number;
-  score_uint32be: number;
-  score_int32be: number;
-  score_uint32le: number;
-  score_int32le: number;
-  score_float32be: number;
-  score_float32le: number;
-  score_uint64be: number;
-  score_int64be: number;
-  score_uint64le: number;
-  score_int64le: number;
-  score_float64be: number;
-  score_float64le: number;
-  
   // Stats
   sample_count: number;
   first_seen_at: string;
@@ -281,6 +245,7 @@ export interface DiscoveredVariable {
   updated_at: string;
 }
 
+// Raw sample from learning_samples table (no scores - just raw values)
 export interface LearningSample {
   id: number;
   Identifier: string;
@@ -295,7 +260,6 @@ export interface LearningSample {
   unid_Id: number | null;
   Address: number | null;
   FC: number | null;
-  'Best Type': string | null;
   UINT16: number | null;
   INT16: number | null;
   UINT32BE: number | null;
@@ -312,21 +276,8 @@ export interface LearningSample {
   FLOAT64LE: number | null;
   HEX: string | null;
   BIN: string | null;
-  score_uint16: number | null;
-  score_int16: number | null;
-  score_uint32be: number | null;
-  score_int32be: number | null;
-  score_uint32le: number | null;
-  score_int32le: number | null;
-  score_float32be: number | null;
-  score_float32le: number | null;
-  score_uint64be: number | null;
-  score_int64be: number | null;
-  score_uint64le: number | null;
-  score_int64le: number | null;
-  score_float64be: number | null;
-  score_float64le: number | null;
   time: string | null;
+  data_source: string | null;
 }
 
 // Equipment discovered from PCAP analysis (stored in discovered_equipment table)
@@ -338,7 +289,6 @@ export interface DiscoveredEquipment {
   lastSeen: string;
   protocols: string[];
   
-  // Enrichment data (for future use)
   manufacturer?: string | null;
   model?: string | null;
   deviceName?: string | null;

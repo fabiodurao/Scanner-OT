@@ -23,10 +23,10 @@ export const HistoricalTab = ({
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
-              Historical Analysis
+              Variables & Historical Analysis
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Detailed statistical analysis across all data types with AI winner selection
+              All discovered variables — scores appear after running historical analysis
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -36,8 +36,8 @@ export const HistoricalTab = ({
         </div>
       </CardHeader>
       <CardContent>
-        <HistoricalHeatmapTable 
-          variables={discoveredVariables} 
+        <HistoricalHeatmapTable
+          variables={discoveredVariables}
           onVariableUpdated={onVariableUpdated}
         />
       </CardContent>
