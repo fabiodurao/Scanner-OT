@@ -6,11 +6,9 @@ import { DiscoveryStats } from '@/components/discovery/DiscoveryStats';
 import { VariablesTab } from '@/components/discovery/VariablesTab';
 import { HistoricalTab } from '@/components/discovery/HistoricalTab';
 import { EquipmentTab } from '@/components/discovery/EquipmentTab';
-import { NetworkTab } from '@/components/discovery/NetworkTab';
 import { SiteSettingsTab } from '@/components/discovery/SiteSettingsTab';
-import { AssetDetailSheet } from '@/components/network/AssetDetailSheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Variable, Grid3x3, Server, Network as NetworkIcon, Settings } from 'lucide-react';
+import { Loader2, Variable, Grid3x3, Server, Settings } from 'lucide-react';
 
 const countUniqueVariables = (variables: Array<{ SourceIp: string | null; DestinationIp: string | null; Address: number | null; FC: number | null }>): number => {
   const uniqueKeys = new Set<string>();
@@ -30,24 +28,17 @@ const Discovery = () => {
     equipment,
     variables,
     discoveredVariables,
-    networkAssets,
     loading,
     refreshing,
     syncing,
     loadingFiltered,
-    networkLoading,
     activeTab,
     activeSourceIpFilter,
-    selectedAsset,
-    assetSheetOpen,
     handleRefresh,
     handleSyncEquipment,
     handleTableSourceIpFilter,
     handleTabChange,
-    handleAssetClick,
-    setAssetSheetOpen,
     loadData,
-    refreshNetwork,
   } = useDiscoveryPage();
 
   const isAdmin = profile?.is_admin === true;
@@ -99,14 +90,14 @@ const Discovery = () => {
         />
 
         {stats && (
-          <DiscoveryStats 
-            stats={stats} 
+          <DiscoveryStats
+            stats={stats}
             slaveEquipmentCount={slaveEquipment.length}
           />
         )}
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 h-auto">
+          <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto">
             <TabsTrigger value="variables" className="text-xs sm:text-sm py-2 sm:py-1.5">
               <Variable className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Variables ({uniqueVariableCount})</span>
@@ -122,11 +113,6 @@ const Discovery = () => {
               <span className="hidden sm:inline">Equipment ({equipment.length})</span>
               <span className="sm:hidden">Equip</span>
             </TabsTrigger>
-            <TabsTrigger value="network" className="text-xs sm:text-sm py-2 sm:py-1.5">
-              <NetworkIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Network ({networkAssets.length})</span>
-              <span className="sm:hidden">Net</span>
-            </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="settings" className="text-xs sm:text-sm py-2 sm:py-1.5">
                 <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -135,7 +121,7 @@ const Discovery = () => {
               </TabsTrigger>
             )}
           </TabsList>
-          
+
           <TabsContent value="variables">
             <VariablesTab
               siteId={siteId}
@@ -146,7 +132,7 @@ const Discovery = () => {
               onFilterBySourceIp={handleTableSourceIpFilter}
             />
           </TabsContent>
-          
+
           <TabsContent value="historical">
             <HistoricalTab
               siteId={siteId}
@@ -154,7 +140,7 @@ const Discovery = () => {
               onVariableUpdated={loadData}
             />
           </TabsContent>
-          
+
           <TabsContent value="equipment">
             <EquipmentTab
               equipment={equipment}
@@ -165,18 +151,9 @@ const Discovery = () => {
             />
           </TabsContent>
 
-          <TabsContent value="network">
-            <NetworkTab
-              networkAssets={networkAssets}
-              networkLoading={networkLoading}
-              onRefreshNetwork={refreshNetwork}
-              onAssetClick={handleAssetClick}
-            />
-          </TabsContent>
-
           {isAdmin && (
             <TabsContent value="settings">
-              <SiteSettingsTab 
+              <SiteSettingsTab
                 siteIdentifier={siteId}
                 siteName={site?.name}
                 onDataCleared={loadData}
@@ -184,12 +161,6 @@ const Discovery = () => {
             </TabsContent>
           )}
         </Tabs>
-
-        <AssetDetailSheet
-          asset={selectedAsset}
-          open={assetSheetOpen}
-          onOpenChange={setAssetSheetOpen}
-        />
       </div>
     </MainLayout>
   );
