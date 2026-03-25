@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { CheckCircle, XCircle, Shield, Clock, UserCheck, UserX, Users } from 'lucide-react';
+import { CheckCircle, XCircle, Shield, Clock, UserCheck, UserX, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -38,6 +38,7 @@ interface Profile {
 
 const UserManagement = () => {
   const [users, setUsers] = useState<Profile[]>([]);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -72,20 +73,35 @@ const UserManagement = () => {
   };
 
   const handleRejectPending = async (userId: string) => {
-    // Delete the profile record
-    const { error: profileError } = await supabase
+    setRejectingId(userId);
+
+    console.log('Attempting to delete profile:', userId);
+
+    const { error: profileError, count } = await supabase
       .from('profiles')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', userId);
 
+    console.log('Delete result:', { error: profileError, count });
+
     if (profileError) {
-      toast.error('Error rejecting user');
-      console.error(profileError);
+      toast.error('Error rejecting user: ' + profileError.message);
+      console.error('Delete error:', profileError);
+      setRejectingId(null);
       return;
     }
 
+    if (count === 0) {
+      toast.error('Could not delete user. Check RLS permissions in Supabase.');
+      console.error('Delete returned 0 rows - likely RLS policy blocking delete');
+      setRejectingId(null);
+      return;
+    }
+
+    // Optimistic update - remove from local state immediately
+    setUsers(prev => prev.filter(u => u.id !== userId));
     toast.success('Access request rejected and user removed');
-    fetchUsers();
+    setRejectingId(null);
   };
 
   const handleRevoke = async (userId: string) => {
@@ -202,8 +218,12 @@ const UserManagement = () => {
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive">
-                                  <UserX className="h-4 w-4 mr-1" />
+                                <Button size="sm" variant="destructive" disabled={rejectingId === user.id}>
+                                  {rejectingId === user.id ? (
+                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <UserX className="h-4 w-4 mr-1" />
+                                  )}
                                   Reject
                                 </Button>
                               </AlertDialogTrigger>
