@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { siteTypeConfig } from '@/pages/SitesManagement';
@@ -15,6 +16,10 @@ import {
   Activity,
   Plus,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  HardDrive,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -39,6 +44,9 @@ interface SiteListViewProps {
   onRegisterSite: (identifier: string, e: React.MouseEvent) => void;
 }
 
+type SortKey = 'name' | 'equipment' | 'variables' | 'pcapCount' | 'pcapSize' | 'lastActivity';
+type SortDir = 'asc' | 'desc';
+
 const formatFileSize = (bytes: number): string => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
   if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
@@ -46,28 +54,109 @@ const formatFileSize = (bytes: number): string => {
   return bytes + ' B';
 };
 
+const SortIcon = ({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) => {
+  if (col !== sortKey) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+  return sortDir === 'asc'
+    ? <ArrowUp className="h-3 w-3 text-[#2563EB]" />
+    : <ArrowDown className="h-3 w-3 text-[#2563EB]" />;
+};
+
 export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListViewProps) => {
   const navigate = useNavigate();
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sorted = [...sites].sort((a, b) => {
+    let valA: number | string = 0;
+    let valB: number | string = 0;
+
+    switch (sortKey) {
+      case 'name':
+        valA = (a.name || a.identifier || '').toLowerCase();
+        valB = (b.name || b.identifier || '').toLowerCase();
+        break;
+      case 'equipment':
+        valA = a.stats?.totalEquipment ?? -1;
+        valB = b.stats?.totalEquipment ?? -1;
+        break;
+      case 'variables':
+        valA = a.stats?.totalVariables ?? -1;
+        valB = b.stats?.totalVariables ?? -1;
+        break;
+      case 'pcapCount':
+        valA = a.pcap?.fileCount ?? -1;
+        valB = b.pcap?.fileCount ?? -1;
+        break;
+      case 'pcapSize':
+        valA = a.pcap?.totalBytes ?? -1;
+        valB = b.pcap?.totalBytes ?? -1;
+        break;
+      case 'lastActivity':
+        valA = a.stats?.lastActivity ? new Date(a.stats.lastActivity).getTime() : -1;
+        valB = b.stats?.lastActivity ? new Date(b.stats.lastActivity).getTime() : -1;
+        break;
+    }
+
+    if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const handleClick = (identifier: string | null, id: string) => {
     navigate(`/discovery/${identifier || id}`);
   };
 
+  const ColHeader = ({ label, col, className }: { label: string; col: SortKey; className?: string }) => (
+    <button
+      onClick={() => handleSort(col)}
+      className={cn(
+        'flex items-center gap-1 hover:text-[#2563EB] transition-colors group',
+        sortKey === col && 'text-[#2563EB]',
+        className
+      )}
+    >
+      <span>{label}</span>
+      <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} />
+    </button>
+  );
+
   return (
     <div className="rounded-lg border overflow-hidden">
-      {/* Header — 12 cols: site=4, equip=1, vars=1, progress=3, pcaps=1, activity=2 */}
+      {/* Header — 12 cols: site=4, equip=1, vars=1, progress=2, pcapCount=1, pcapSize=1, activity=2 */}
       <div className="grid grid-cols-12 gap-3 px-4 py-2 bg-slate-50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        <div className="col-span-4">Site</div>
-        <div className="col-span-1 text-center">Equip.</div>
-        <div className="col-span-1 text-center">Vars</div>
-        <div className="col-span-3">Learning Progress</div>
-        <div className="col-span-1 text-center">PCAPs</div>
-        <div className="col-span-2 text-right">Last Activity</div>
+        <div className="col-span-4">
+          <ColHeader label="Site" col="name" />
+        </div>
+        <div className="col-span-1 flex justify-center">
+          <ColHeader label="Equip." col="equipment" className="justify-center" />
+        </div>
+        <div className="col-span-1 flex justify-center">
+          <ColHeader label="Vars" col="variables" className="justify-center" />
+        </div>
+        <div className="col-span-2 text-muted-foreground">Learning Progress</div>
+        <div className="col-span-1 flex justify-center">
+          <ColHeader label="PCAPs" col="pcapCount" className="justify-center" />
+        </div>
+        <div className="col-span-1 flex justify-center">
+          <ColHeader label="Size" col="pcapSize" className="justify-center" />
+        </div>
+        <div className="col-span-2 flex justify-end">
+          <ColHeader label="Last Activity" col="lastActivity" className="justify-end" />
+        </div>
       </div>
 
       {/* Rows */}
       <div className="divide-y">
-        {sites.map((site) => {
+        {sorted.map((site) => {
           const typeConfig = site.site_type ? siteTypeConfig[site.site_type] : null;
           const IconComponent = site.site_type ? SITE_TYPE_ICONS[site.site_type] : null;
           const stats = site.stats;
@@ -88,7 +177,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                 isUnregistered && 'bg-amber-50/40 hover:bg-amber-50'
               )}
             >
-              {/* Site name + type — col-span-4 */}
+              {/* Site — col-span-4 */}
               <div className="col-span-4 flex items-center gap-3 min-w-0">
                 {typeConfig && IconComponent ? (
                   <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: typeConfig.bgColor }}>
@@ -101,11 +190,9 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                 )}
                 <div className="min-w-0">
                   <div className="font-medium text-sm text-[#1a2744] truncate">
-                    {isUnregistered ? (
-                      <code className="font-mono text-xs">{site.identifier?.slice(0, 16)}...</code>
-                    ) : (
-                      site.name
-                    )}
+                    {isUnregistered
+                      ? <code className="font-mono text-xs">{site.identifier?.slice(0, 16)}...</code>
+                      : site.name}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {typeConfig ? (
@@ -155,8 +242,8 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                 )}
               </div>
 
-              {/* Learning Progress — col-span-3 */}
-              <div className="col-span-3">
+              {/* Learning Progress — col-span-2 (compact) */}
+              <div className="col-span-2">
                 {loadingStats ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : stats && total > 0 ? (
@@ -170,12 +257,13 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                         {Math.round((confirmed / total) * 100)}%
                       </span>
                     </div>
-                    <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-100">
+                    {/* Bar at 70% width */}
+                    <div className="w-[70%] flex h-1.5 rounded-full overflow-hidden bg-slate-100">
                       <div className="bg-emerald-500 transition-all" style={{ width: `${publishedPct}%` }} />
                       <div className="bg-blue-500 transition-all" style={{ width: `${confirmedPct}%` }} />
                       <div className="bg-amber-400 transition-all" style={{ width: `${hypothesisPct}%` }} />
                     </div>
-                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
                       <span className="flex items-center gap-0.5">
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         {stats.variablesByState.published}
@@ -207,17 +295,28 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                 )}
               </div>
 
-              {/* PCAPs — col-span-1 */}
+              {/* PCAP Count — col-span-1 */}
               <div className="col-span-1 text-center">
                 {isUnregistered ? (
                   <span className="text-muted-foreground text-xs">—</span>
                 ) : pcap && pcap.fileCount > 0 ? (
                   <div className="flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-1">
-                      <FileArchive className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold text-sm">{pcap.fileCount}</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{formatFileSize(pcap.totalBytes)}</span>
+                    <FileArchive className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-semibold text-sm">{pcap.fileCount}</span>
+                  </div>
+                ) : (
+                  <span className="text-slate-400 text-xs">—</span>
+                )}
+              </div>
+
+              {/* PCAP Size — col-span-1 */}
+              <div className="col-span-1 text-center">
+                {isUnregistered ? (
+                  <span className="text-muted-foreground text-xs">—</span>
+                ) : pcap && pcap.totalBytes > 0 ? (
+                  <div className="flex flex-col items-center gap-0.5">
+                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{formatFileSize(pcap.totalBytes)}</span>
                   </div>
                 ) : (
                   <span className="text-slate-400 text-xs">—</span>
