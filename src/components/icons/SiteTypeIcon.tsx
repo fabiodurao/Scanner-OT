@@ -13,6 +13,9 @@ import {
   IconHome,
   IconBuildingSkyscraper,
   IconSun,
+  IconWind,
+  IconRipple,
+  IconRecycle,
 } from '@tabler/icons-react';
 
 interface SiteIconProps {
@@ -31,7 +34,7 @@ const makeIcon = (Icon: React.FC<{ size?: number; color?: string; className?: st
   );
 
 export const WindTurbineIcon    = makeIcon(IconWindmill);
-export const WindOffshoreIcon   = makeIcon(IconWindmill);
+export const WindOffshoreIcon   = makeIcon(IconWind);      // Changed to IconWind
 export const SolarPanelIcon     = makeIcon(IconSolarPanel);
 export const BatteryBoltIcon    = makeIcon(IconBattery4);
 export const HydropowerIcon     = makeIcon(IconDroplet);
@@ -43,10 +46,10 @@ export const EnergyFromWasteIcon = makeIcon(IconBuildingFactory2);
 export const GeothermalIcon     = makeIcon(IconFlame);
 export const HydrogenIcon       = makeIcon(IconDroplet);
 export const SolarThermalIcon   = makeIcon(IconSun);
-export const NonEnergyWasteIcon = makeIcon(IconBuildingFactory2);
+export const NonEnergyWasteIcon = makeIcon(IconRecycle);   // Changed to IconRecycle
 export const NuclearIcon        = makeIcon(IconAtom);
 export const WaveIcon           = makeIcon(IconWaveSine);
-export const TidalIcon          = makeIcon(IconWaveSine);
+export const TidalIcon          = makeIcon(IconRipple);    // Changed to IconRipple
 export const SolarRooftopIcon   = makeIcon(IconHome);
 
 export const SITE_TYPE_ICONS: Record<string, SiteIconComponent> = {
