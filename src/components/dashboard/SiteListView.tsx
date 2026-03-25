@@ -119,7 +119,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
     <button
       onClick={() => handleSort(col)}
       className={cn(
-        'flex items-center gap-1 hover:text-[#2563EB] transition-colors group',
+        'flex items-center gap-1 hover:text-[#2563EB] transition-colors',
         sortKey === col && 'text-[#2563EB]',
         className
       )}
@@ -144,10 +144,10 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
         </div>
         <div className="col-span-2 text-muted-foreground">Learning Progress</div>
         <div className="col-span-1 flex justify-center">
-          <ColHeader label="PCAPs" col="pcapCount" className="justify-center" />
+          <ColHeader label="PCAPs Files" col="pcapCount" className="justify-center" />
         </div>
         <div className="col-span-1 flex justify-center">
-          <ColHeader label="Size" col="pcapSize" className="justify-center" />
+          <ColHeader label="PCAPs Size" col="pcapSize" className="justify-center" />
         </div>
         <div className="col-span-2 flex justify-end">
           <ColHeader label="Last Activity" col="lastActivity" className="justify-end" />
@@ -242,7 +242,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                 )}
               </div>
 
-              {/* Learning Progress — col-span-2 (compact) */}
+              {/* Learning Progress — col-span-2 */}
               <div className="col-span-2">
                 {loadingStats ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -257,7 +257,6 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                         {Math.round((confirmed / total) * 100)}%
                       </span>
                     </div>
-                    {/* Bar at 70% width */}
                     <div className="w-[70%] flex h-1.5 rounded-full overflow-hidden bg-slate-100">
                       <div className="bg-emerald-500 transition-all" style={{ width: `${publishedPct}%` }} />
                       <div className="bg-blue-500 transition-all" style={{ width: `${confirmedPct}%` }} />
