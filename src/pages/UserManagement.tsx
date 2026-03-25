@@ -71,6 +71,23 @@ const UserManagement = () => {
     }
   };
 
+  const handleRejectPending = async (userId: string) => {
+    // Delete the profile record
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (profileError) {
+      toast.error('Error rejecting user');
+      console.error(profileError);
+      return;
+    }
+
+    toast.success('Access request rejected and user removed');
+    fetchUsers();
+  };
+
   const handleRevoke = async (userId: string) => {
     const { error } = await supabase
       .from('profiles')
@@ -194,16 +211,16 @@ const UserManagement = () => {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Reject request?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action will keep the user without access to the system.
+                                    This will permanently remove <strong>{user.full_name}</strong>'s access request from the system. They will need to register again if they want access.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleRevoke(user.id)}
+                                    onClick={() => handleRejectPending(user.id)}
                                     className="bg-red-600 hover:bg-red-700"
                                   >
-                                    Reject
+                                    Reject & Remove
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
