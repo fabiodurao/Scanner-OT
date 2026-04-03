@@ -123,11 +123,11 @@ const formatScore = (score: number | null): string => {
   return Math.round(score * 100) + '%';
 };
 
-// Format timestamp as ISO 8601: YYYY-MM-DDTHH:mm:ss
+// Format timestamp as "YYYY-MM-DD | HH:mm:ss"
 const formatTimestamp = (ts: string | null | undefined): string => {
   if (!ts) return '—';
   try {
-    return format(new Date(ts), "yyyy-MM-dd'T'HH:mm:ss");
+    return format(new Date(ts), "yyyy-MM-dd' | 'HH:mm:ss");
   } catch {
     return '—';
   }
@@ -681,7 +681,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Last Update — ISO 8601: YYYY-MM-DDTHH:mm:ss */}
+                    {/* Last Update — "YYYY-MM-DD | HH:mm:ss" */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         <span className="font-mono text-[10px] text-slate-600">
