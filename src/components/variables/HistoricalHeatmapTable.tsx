@@ -285,7 +285,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   };
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
-  const visibleColumnCount = isCompactView ? 8 + dataTypeColumns.length : 11 + dataTypeColumns.length;
+  // +1 for the new Port column (always visible)
+  const visibleColumnCount = isCompactView ? 9 + dataTypeColumns.length : 12 + dataTypeColumns.length;
 
   if (variables.length === 0) {
     return (
@@ -369,8 +370,17 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               <tr className="text-xs">
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
-                    <span className="font-medium">Source IP</span>
+                    <div className="flex flex-col leading-tight">
+                      <span className="font-medium">Src IP</span>
+                      <span className="font-medium text-slate-400">Dst IP</span>
+                    </div>
                     <FilterButton label="Source IP" value={filters.sourceIp} onChange={v => updateFilter('sourceIp', v)} options={uniqueValues.sourceIps} />
+                  </div>
+                </th>
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <div className="flex flex-col leading-tight">
+                    <span className="font-medium">Src Port</span>
+                    <span className="font-medium text-slate-400">Dst Port</span>
                   </div>
                 </th>
                 <th className="px-2 py-2 text-left whitespace-nowrap">
@@ -440,7 +450,20 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80'
                       )}
                     >
-                      <td className="px-2 py-1.5 font-mono text-xs">{variable.source_ip}</td>
+                      {/* IP column: src on top, dst below */}
+                      <td className="px-2 py-1.5 font-mono text-xs">
+                        <div className="flex flex-col leading-tight gap-0.5">
+                          <span className="text-slate-800">{variable.source_ip || '—'}</span>
+                          <span className="text-slate-400">{variable.destination_ip || '—'}</span>
+                        </div>
+                      </td>
+                      {/* Port column: src on top, dst below */}
+                      <td className="px-2 py-1.5 font-mono text-xs">
+                        <div className="flex flex-col leading-tight gap-0.5">
+                          <span className="text-slate-800">{variable.source_port ?? '—'}</span>
+                          <span className="text-slate-400">{variable.destination_port ?? '—'}</span>
+                        </div>
+                      </td>
                       <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
                       <td className="px-2 py-1.5">
                         <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
