@@ -285,8 +285,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   };
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
-  // +1 for the new Port column (always visible)
-  const visibleColumnCount = isCompactView ? 9 + dataTypeColumns.length : 12 + dataTypeColumns.length;
+  // Protocol + Unit ID + HEX always visible; Eng.Unit + Scale only in full view
+  const visibleColumnCount = isCompactView ? 12 + dataTypeColumns.length : 15 + dataTypeColumns.length;
 
   if (variables.length === 0) {
     return (
@@ -395,8 +395,26 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                     <FilterButton label="Function Code" value={filters.fc} onChange={v => updateFilter('fc', v)} options={uniqueValues.fcs} />
                   </div>
                 </th>
+                <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Protocol</span></th>
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="font-medium cursor-help border-b border-dashed border-slate-400">Unit ID</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Slave Unit ID (e.g. 1, 2, 3...)</TooltipContent>
+                  </Tooltip>
+                </th>
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Label</span></th>
-                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Unit</span></th>}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="font-medium cursor-help border-b border-dashed border-slate-400">Eng. Unit</span>
+                      </TooltipTrigger>
+                      <TooltipContent>Engineering unit (e.g. kW, V, °C)</TooltipContent>
+                    </Tooltip>
+                  </th>
+                )}
                 {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
@@ -422,6 +440,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                     <TooltipContent>{col.key}</TooltipContent>
                   </Tooltip>
                 ))}
+                <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">HEX</span></th>
               </tr>
             </thead>
             <tbody>
@@ -467,6 +486,18 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
                       <td className="px-2 py-1.5">
                         <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
+                      </td>
+                      {/* Protocol */}
+                      <td className="px-2 py-1.5">
+                        {variable.protocol
+                          ? <Badge variant="secondary" className="text-[10px] px-1 py-0">{variable.protocol}</Badge>
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      {/* Unit ID (slave ID) */}
+                      <td className="px-2 py-1.5 font-mono text-xs text-center">
+                        {variable.unit_id != null
+                          ? <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.unit_id}</Badge>
+                          : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-2 py-1.5">
                         {variable.semantic_label
@@ -704,6 +735,22 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           </td>
                         );
                       })}
+
+                      {/* HEX column - always last */}
+                      <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
+                        {variable.HEX ? (() => {
+                          const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
+                          const pairs = clean.match(/.{1,2}/g) || [];
+                          const line1 = pairs.slice(0, 4).join(' ');
+                          const line2 = pairs.slice(4, 8).join(' ');
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-slate-700 whitespace-nowrap">{line1}</span>
+                              {line2 && <span className="text-slate-400 whitespace-nowrap">{line2}</span>}
+                            </div>
+                          );
+                        })() : <span className="text-muted-foreground">—</span>}
+                      </td>
                     </tr>
                   );
                 })
