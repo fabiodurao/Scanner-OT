@@ -22,6 +22,11 @@ interface HistoricalHeatmapTableProps {
 
 interface ColumnFilters {
   sourceIp: string;
+  destinationIp: string;
+  sourcePort: string;
+  destinationPort: string;
+  unitId: string;
+  protocol: string;
   address: string;
   fc: string;
   winner: string;
@@ -30,6 +35,11 @@ interface ColumnFilters {
 
 const emptyFilters: ColumnFilters = {
   sourceIp: '',
+  destinationIp: '',
+  sourcePort: '',
+  destinationPort: '',
+  unitId: '',
+  protocol: '',
   address: '',
   fc: '',
   winner: '',
@@ -112,6 +122,7 @@ const formatScore = (score: number | null): string => {
   return Math.round(score * 100) + '%';
 };
 
+// Simple single-field filter button
 const FilterButton = ({
   label, value, onChange, options,
 }: {
@@ -125,7 +136,7 @@ const FilterButton = ({
           <SlidersHorizontal className={cn('h-3 w-3', hasFilter && 'text-blue-600')} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="start">
+      <PopoverContent className="w-52 p-2" align="start">
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground">{label}</div>
           <Input placeholder="Filter..." value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" autoFocus />
@@ -147,6 +158,71 @@ const FilterButton = ({
   );
 };
 
+// Dual-field filter button (src + dst in one popover)
+const DualFilterButton = ({
+  labelSrc, labelDst,
+  valueSrc, valueDst,
+  onChangeSrc, onChangeDst,
+  optionsSrc, optionsDst,
+}: {
+  labelSrc: string; labelDst: string;
+  valueSrc: string; valueDst: string;
+  onChangeSrc: (v: string) => void; onChangeDst: (v: string) => void;
+  optionsSrc?: string[]; optionsDst?: string[];
+}) => {
+  const hasFilter = valueSrc.length > 0 || valueDst.length > 0;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={cn('h-5 w-5 p-0', hasFilter && 'text-blue-600')}>
+          <SlidersHorizontal className={cn('h-3 w-3', hasFilter && 'text-blue-600')} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="space-y-3">
+          {/* Source field */}
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-slate-700">{labelSrc}</div>
+            <Input placeholder="Filter..." value={valueSrc} onChange={(e) => onChangeSrc(e.target.value)} className="h-7 text-xs" />
+            {optionsSrc && optionsSrc.length > 0 && (
+              <div className="max-h-24 overflow-y-auto space-y-0.5">
+                {optionsSrc.filter(o => o.toLowerCase().includes(valueSrc.toLowerCase())).slice(0, 6).map(o => (
+                  <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-6 text-xs font-mono" onClick={() => onChangeSrc(o)}>{o}</Button>
+                ))}
+              </div>
+            )}
+            {valueSrc && (
+              <Button variant="ghost" size="sm" className="w-full h-6 text-xs text-red-600" onClick={() => onChangeSrc('')}>
+                <X className="h-3 w-3 mr-1" />Clear
+              </Button>
+            )}
+          </div>
+
+          <div className="border-t" />
+
+          {/* Destination field */}
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-slate-400">{labelDst}</div>
+            <Input placeholder="Filter..." value={valueDst} onChange={(e) => onChangeDst(e.target.value)} className="h-7 text-xs" />
+            {optionsDst && optionsDst.length > 0 && (
+              <div className="max-h-24 overflow-y-auto space-y-0.5">
+                {optionsDst.filter(o => o.toLowerCase().includes(valueDst.toLowerCase())).slice(0, 6).map(o => (
+                  <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-6 text-xs font-mono" onClick={() => onChangeDst(o)}>{o}</Button>
+                ))}
+              </div>
+            )}
+            {valueDst && (
+              <Button variant="ghost" size="sm" className="w-full h-6 text-xs text-red-600" onClick={() => onChangeDst('')}>
+                <X className="h-3 w-3 mr-1" />Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: HistoricalHeatmapTableProps) => {
   const { user } = useAuth();
   const [filters, setFilters] = useState<ColumnFilters>(emptyFilters);
@@ -156,11 +232,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [undoingId, setUndoingId] = useState<string | null>(null);
 
-  // History dialog
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyVariable, setHistoryVariable] = useState<DiscoveredVariable | null>(null);
 
-  // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingVariable, setEditingVariable] = useState<DiscoveredVariable | null>(null);
   const [editForm, setEditForm] = useState({ semantic_label: '', semantic_unit: '', semantic_category: '', data_type: '', scale: '1' });
@@ -168,6 +242,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
   const uniqueValues = useMemo(() => ({
     sourceIps: [...new Set(variables.map(v => v.source_ip).filter(Boolean))].sort(),
+    destinationIps: [...new Set(variables.map(v => v.destination_ip).filter(Boolean))].sort(),
+    sourcePorts: [...new Set(variables.map(v => v.source_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
+    destinationPorts: [...new Set(variables.map(v => v.destination_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
+    unitIds: [...new Set(variables.map(v => v.unit_id?.toString()).filter((u): u is string => Boolean(u)))].sort((a, b) => parseInt(a) - parseInt(b)),
+    protocols: [...new Set(variables.map(v => v.protocol).filter((p): p is string => Boolean(p)))].sort(),
     addresses: [...new Set(variables.map(v => v.address?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
     fcs: [...new Set(variables.map(v => v.function_code?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
     winners: [...new Set(variables.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
@@ -177,6 +256,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   const filteredVariables = useMemo(() => {
     return variables.filter(v => {
       if (filters.sourceIp && !v.source_ip?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
+      if (filters.destinationIp && !v.destination_ip?.toLowerCase().includes(filters.destinationIp.toLowerCase())) return false;
+      if (filters.sourcePort && v.source_port?.toString() !== filters.sourcePort) return false;
+      if (filters.destinationPort && v.destination_port?.toString() !== filters.destinationPort) return false;
+      if (filters.unitId && v.unit_id?.toString() !== filters.unitId) return false;
+      if (filters.protocol && !v.protocol?.toLowerCase().includes(filters.protocol.toLowerCase())) return false;
       if (filters.address && !v.address?.toString().includes(filters.address)) return false;
       if (filters.fc && v.function_code?.toString() !== filters.fc) return false;
       if (filters.winner && !v.winner?.toLowerCase().includes(filters.winner.toLowerCase())) return false;
@@ -216,10 +300,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     return formatValue(rawValue * scale, col);
   };
 
-  const handleOpenHistory = (v: DiscoveredVariable) => {
-    setHistoryVariable(v);
-    setHistoryDialogOpen(true);
-  };
+  const handleOpenHistory = (v: DiscoveredVariable) => { setHistoryVariable(v); setHistoryDialogOpen(true); };
 
   const handleConfirm = async (v: DiscoveredVariable) => {
     if (!v.winner || !user) return;
@@ -285,8 +366,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   };
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
-  // Protocol + Unit ID + HEX always visible; Eng.Unit + Scale only in full view
-  const visibleColumnCount = isCompactView ? 12 + dataTypeColumns.length : 15 + dataTypeColumns.length;
+  // fixed cols: IP, Port, Protocol, Unit ID, Address, FC, Label, State, Samples, Current Value, Best Type, Actions, HEX = 13 always
+  // + Eng.Unit + Scale in full view = +2
+  const visibleColumnCount = isCompactView ? 13 + dataTypeColumns.length : 15 + dataTypeColumns.length;
 
   if (variables.length === 0) {
     return (
@@ -365,46 +447,81 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn('w-full', isCompactView ? 'min-w-[1700px]' : 'min-w-[2400px]')}>
+          <table className={cn('w-full', isCompactView ? 'min-w-[1800px]' : 'min-w-[2500px]')}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
+
+                {/* IP column — dual filter */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
                       <span className="font-medium">Src IP</span>
                       <span className="font-medium text-slate-400">Dst IP</span>
                     </div>
-                    <FilterButton label="Source IP" value={filters.sourceIp} onChange={v => updateFilter('sourceIp', v)} options={uniqueValues.sourceIps} />
+                    <DualFilterButton
+                      labelSrc="Source IP" labelDst="Destination IP"
+                      valueSrc={filters.sourceIp} valueDst={filters.destinationIp}
+                      onChangeSrc={v => updateFilter('sourceIp', v)} onChangeDst={v => updateFilter('destinationIp', v)}
+                      optionsSrc={uniqueValues.sourceIps} optionsDst={uniqueValues.destinationIps}
+                    />
                   </div>
                 </th>
+
+                {/* Port column — dual filter */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
-                  <div className="flex flex-col leading-tight">
-                    <span className="font-medium">Src Port</span>
-                    <span className="font-medium text-slate-400">Dst Port</span>
+                  <div className="flex items-center gap-1">
+                    <div className="flex flex-col leading-tight">
+                      <span className="font-medium">Src Port</span>
+                      <span className="font-medium text-slate-400">Dst Port</span>
+                    </div>
+                    <DualFilterButton
+                      labelSrc="Source Port" labelDst="Destination Port"
+                      valueSrc={filters.sourcePort} valueDst={filters.destinationPort}
+                      onChangeSrc={v => updateFilter('sourcePort', v)} onChangeDst={v => updateFilter('destinationPort', v)}
+                      optionsSrc={uniqueValues.sourcePorts} optionsDst={uniqueValues.destinationPorts}
+                    />
                   </div>
                 </th>
+
+                {/* Protocol — before Address */}
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Protocol</span>
+                    <FilterButton label="Protocol" value={filters.protocol} onChange={v => updateFilter('protocol', v)} options={uniqueValues.protocols} />
+                  </div>
+                </th>
+
+                {/* Unit ID */}
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="font-medium cursor-help border-b border-dashed border-slate-400">Unit ID</span>
+                      </TooltipTrigger>
+                      <TooltipContent>Slave Unit ID (e.g. 1, 2, 3...)</TooltipContent>
+                    </Tooltip>
+                    <FilterButton label="Unit ID" value={filters.unitId} onChange={v => updateFilter('unitId', v)} options={uniqueValues.unitIds} />
+                  </div>
+                </th>
+
+                {/* Address */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Address</span>
                     <FilterButton label="Address" value={filters.address} onChange={v => updateFilter('address', v)} options={uniqueValues.addresses} />
                   </div>
                 </th>
+
+                {/* FC */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">FC</span>
                     <FilterButton label="Function Code" value={filters.fc} onChange={v => updateFilter('fc', v)} options={uniqueValues.fcs} />
                   </div>
                 </th>
-                <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Protocol</span></th>
-                <th className="px-2 py-2 text-left whitespace-nowrap">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="font-medium cursor-help border-b border-dashed border-slate-400">Unit ID</span>
-                    </TooltipTrigger>
-                    <TooltipContent>Slave Unit ID (e.g. 1, 2, 3...)</TooltipContent>
-                  </Tooltip>
-                </th>
+
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Label</span></th>
+
                 {!isCompactView && (
                   <th className="px-2 py-2 text-left whitespace-nowrap">
                     <Tooltip>
@@ -416,22 +533,27 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </th>
                 )}
                 {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>}
+
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">State</span>
                     <FilterButton label="Learning State" value={filters.learningState} onChange={v => updateFilter('learningState', v)} options={uniqueValues.learningStates} />
                   </div>
                 </th>
+
                 <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
+
+                {/* Best Type — explanation in tooltip */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Best Type</span>
                     <FilterButton label="Best Type" value={filters.winner} onChange={v => updateFilter('winner', v)} options={uniqueValues.winners} />
                   </div>
                 </th>
-                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap w-32"><span className="font-medium">Explanation</span></th>}
+
                 <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Actions</span></th>
+
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
@@ -440,6 +562,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                     <TooltipContent>{col.key}</TooltipContent>
                   </Tooltip>
                 ))}
+
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">HEX</span></th>
               </tr>
             </thead>
@@ -460,6 +583,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   const interpretedValue = getInterpretedValue(variable);
                   const scale = (variable as any).scale || 1;
                   const varHasAnalysis = hasAnalysis(variable);
+                  const explanation = variable.explanation || variable.ai_reasoning;
 
                   return (
                     <tr
@@ -469,41 +593,52 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80'
                       )}
                     >
-                      {/* IP column: src on top, dst below */}
+                      {/* IP: src on top, dst below */}
                       <td className="px-2 py-1.5 font-mono text-xs">
                         <div className="flex flex-col leading-tight gap-0.5">
                           <span className="text-slate-800">{variable.source_ip || '—'}</span>
                           <span className="text-slate-400">{variable.destination_ip || '—'}</span>
                         </div>
                       </td>
-                      {/* Port column: src on top, dst below */}
+
+                      {/* Port: src on top, dst below */}
                       <td className="px-2 py-1.5 font-mono text-xs">
                         <div className="flex flex-col leading-tight gap-0.5">
                           <span className="text-slate-800">{variable.source_port ?? '—'}</span>
                           <span className="text-slate-400">{variable.destination_port ?? '—'}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
-                      <td className="px-2 py-1.5">
-                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
-                      </td>
+
                       {/* Protocol */}
                       <td className="px-2 py-1.5">
                         {variable.protocol
                           ? <Badge variant="secondary" className="text-[10px] px-1 py-0">{variable.protocol}</Badge>
                           : <span className="text-muted-foreground">—</span>}
                       </td>
-                      {/* Unit ID (slave ID) */}
-                      <td className="px-2 py-1.5 font-mono text-xs text-center">
+
+                      {/* Unit ID */}
+                      <td className="px-2 py-1.5 text-center">
                         {variable.unit_id != null
                           ? <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.unit_id}</Badge>
                           : <span className="text-muted-foreground">—</span>}
                       </td>
+
+                      {/* Address */}
+                      <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
+
+                      {/* FC */}
+                      <td className="px-2 py-1.5">
+                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
+                      </td>
+
+                      {/* Label */}
                       <td className="px-2 py-1.5">
                         {variable.semantic_label
                           ? <span className="text-xs font-medium">{variable.semantic_label}</span>
                           : <span className="text-muted-foreground italic text-xs">—</span>}
                       </td>
+
+                      {/* Eng. Unit (full view only) */}
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
                           {variable.semantic_unit
@@ -511,21 +646,29 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                             : <span className="text-muted-foreground">—</span>}
                         </td>
                       )}
+
+                      {/* Scale (full view only) */}
                       {!isCompactView && (
                         <td className="px-2 py-1.5">
                           <span className="font-mono text-xs">{formatScale(scale)}</span>
                         </td>
                       )}
+
+                      {/* State */}
                       <td className="px-2 py-1.5">
                         <Badge className={stateConfig.color}>
                           <StateIcon className="h-3 w-3 mr-1" />{stateConfig.label}
                         </Badge>
                       </td>
+
+                      {/* Samples */}
                       <td className="px-2 py-1.5 text-center">
                         <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
                           {variable.sample_count?.toLocaleString() || 0}
                         </Badge>
                       </td>
+
+                      {/* Current Value */}
                       <td className="px-2 py-1.5">
                         {variable.winner ? (
                           <div className="flex items-center gap-1">
@@ -538,6 +681,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           <span className="text-muted-foreground text-xs italic">awaiting analysis</span>
                         )}
                       </td>
+
+                      {/* Best Type — explanation embedded in tooltip */}
                       <td className="px-2 py-1.5">
                         {suggestedType ? (
                           <Tooltip>
@@ -546,13 +691,20 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                 {suggestedType}
                               </Badge>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-xs p-3">
-                              <div className="space-y-1">
-                                <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
-                                {(variable.explanation || variable.ai_reasoning) && (
-                                  <p className="text-xs leading-relaxed text-slate-700 mt-2">
-                                    {variable.explanation || variable.ai_reasoning}
-                                  </p>
+                            <TooltipContent className="max-w-sm p-3 bg-white border-2 border-purple-200 shadow-xl">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+                                  <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
+                                  {getWinnerConfidence(variable) !== null && (
+                                    <span className="text-xs text-purple-700 font-medium">
+                                      {Math.round((getWinnerConfidence(variable) ?? 0) * 100)}% confidence
+                                    </span>
+                                  )}
+                                </div>
+                                {explanation ? (
+                                  <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground italic">No explanation available.</p>
                                 )}
                               </div>
                             </TooltipContent>
@@ -561,27 +713,10 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           <span className="text-muted-foreground text-xs italic">—</span>
                         )}
                       </td>
-                      {!isCompactView && (
-                        <td className="px-2 py-1.5 max-w-[130px]">
-                          {variable.explanation ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="text-xs text-muted-foreground truncate cursor-help hover:text-foreground">
-                                  {variable.explanation}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-md p-4">
-                                <p className="text-sm leading-relaxed">{variable.explanation}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      )}
+
+                      {/* Actions */}
                       <td className="px-2 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {/* History chart button */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -634,7 +769,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         const value = variable[col.key as keyof DiscoveredVariable] as number | null;
                         const isWinner = variable.winner?.toUpperCase() === col.key;
 
-                        // Stats for tooltip
                         const countKey = `stats_${col.key}_count` as keyof DiscoveredVariable;
                         const avgValueKey = `stats_${col.key}_avg_value` as keyof DiscoveredVariable;
                         const stdKey = `stats_${col.key}_std` as keyof DiscoveredVariable;
@@ -736,7 +870,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         );
                       })}
 
-                      {/* HEX column - always last */}
+                      {/* HEX — always last */}
                       <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
                         {variable.HEX ? (() => {
                           const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
@@ -766,14 +900,12 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
         {isCompactView && ' • Compact view'}
       </div>
 
-      {/* History Chart Dialog */}
       <VariableHistoryDialog
         open={historyDialogOpen}
         onOpenChange={setHistoryDialogOpen}
         variable={historyVariable}
       />
 
-      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -816,7 +948,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label>Unit</Label>
+                <Label>Eng. Unit</Label>
                 <Input placeholder="e.g., kW" value={editForm.semantic_unit} onChange={e => setEditForm(p => ({ ...p, semantic_unit: e.target.value }))} />
               </div>
               <div className="space-y-2">
