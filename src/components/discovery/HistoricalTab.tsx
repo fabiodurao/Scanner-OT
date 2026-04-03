@@ -48,34 +48,44 @@ export const HistoricalTab = ({
   const [sampleMetaLoading, setSampleMetaLoading] = useState(false);
   const sampleMetaRef = useRef<Record<string, SampleMeta>>({});
 
-  // Fetch sample counts AND max(time) from learning_samples in one query
+  // Fetch sample counts AND max(time) from learning_samples — paginating to get ALL rows
   const fetchSampleMeta = useCallback(async () => {
     if (!siteId) return;
     setSampleMetaLoading(true);
 
-    const { data, error } = await supabase
-      .from('learning_samples')
-      .select('SourceIp, DestinationIp, Address, FC, unid_Id, time')
-      .eq('Identifier', siteId);
-
-    if (error) {
-      console.error('[HistoricalTab] Error fetching sample meta:', error);
-      setSampleMetaLoading(false);
-      return;
-    }
-
-    // Build meta map: count + MAX(time) per variable key
+    const PAGE = 1000; // Supabase PostgREST max per request
     const meta: Record<string, SampleMeta> = {};
-    for (const row of data || []) {
-      const key = `${row.SourceIp}|${row.DestinationIp}|${row.Address}|${row.FC}|${row.unid_Id}`;
-      if (!meta[key]) {
-        meta[key] = { count: 0, lastTime: null };
+    let from = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('learning_samples')
+        .select('SourceIp, DestinationIp, Address, FC, unid_Id, time')
+        .eq('Identifier', siteId)
+        .range(from, from + PAGE - 1);
+
+      if (error) {
+        console.error('[HistoricalTab] Error fetching sample meta:', error);
+        setSampleMetaLoading(false);
+        return;
       }
-      meta[key].count += 1;
-      // Keep the latest timestamp
-      if (row.time && (!meta[key].lastTime || row.time > meta[key].lastTime!)) {
-        meta[key].lastTime = row.time;
+
+      for (const row of data || []) {
+        const key = `${row.SourceIp}|${row.DestinationIp}|${row.Address}|${row.FC}|${row.unid_Id}`;
+        if (!meta[key]) {
+          meta[key] = { count: 0, lastTime: null };
+        }
+        meta[key].count += 1;
+        // Keep the latest timestamp
+        if (row.time && (!meta[key].lastTime || row.time > meta[key].lastTime!)) {
+          meta[key].lastTime = row.time;
+        }
       }
+
+      // If we got fewer rows than PAGE, we've reached the end
+      hasMore = (data?.length ?? 0) === PAGE;
+      from += PAGE;
     }
 
     sampleMetaRef.current = meta;
