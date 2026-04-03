@@ -122,6 +122,8 @@ const Discovery = () => {
               masterEquipmentCount={masterEquipment.length}
               syncing={syncing}
               onSyncEquipment={handleSyncEquipment}
+              siteIdentifier={siteId}
+              onDataChanged={loadData}
             />
           </TabsContent>
 

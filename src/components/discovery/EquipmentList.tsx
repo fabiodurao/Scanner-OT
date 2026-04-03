@@ -1,4 +1,8 @@
+import { useState, useEffect } from 'react';
 import { DiscoveredEquipment } from '@/types/discovery';
+import { EquipmentCatalogLink } from '@/types/catalog';
+import { useEquipmentCatalog } from '@/hooks/useEquipmentCatalog';
+import { CatalogLinkSelector } from '@/components/catalog/CatalogLinkSelector';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Server, Cpu, Network, Variable, Clock } from 'lucide-react';
@@ -7,6 +11,10 @@ import { cn } from '@/lib/utils';
 
 interface EquipmentListProps {
   equipment: DiscoveredEquipment[];
+  siteIdentifier?: string;
+  equipmentIds?: Map<string, string>; // ip -> equipment id
+  catalogLinks?: Map<string, EquipmentCatalogLink>;
+  onCatalogLinkChanged?: () => void;
 }
 
 const roleConfig = {
@@ -30,7 +38,7 @@ const roleConfig = {
   },
 };
 
-export const EquipmentList = ({ equipment }: EquipmentListProps) => {
+export const EquipmentList = ({ equipment, siteIdentifier, equipmentIds, catalogLinks, onCatalogLinkChanged }: EquipmentListProps) => {
   // Separate by role
   const slaves = equipment.filter(e => e.role === 'slave');
   const masters = equipment.filter(e => e.role === 'master');
@@ -39,6 +47,8 @@ export const EquipmentList = ({ equipment }: EquipmentListProps) => {
   const renderEquipmentCard = (eq: DiscoveredEquipment) => {
     const config = roleConfig[eq.role];
     const Icon = config.icon;
+    const eqId = equipmentIds?.get(eq.ip);
+    const catalogLink = eqId ? catalogLinks?.get(eqId) || null : null;
     
     return (
       <Card key={eq.ip} className="hover:shadow-md transition-shadow">
@@ -71,6 +81,19 @@ export const EquipmentList = ({ equipment }: EquipmentListProps) => {
               )}
             </div>
           </div>
+
+          {/* Catalog Link Section */}
+          {siteIdentifier && eqId && eq.role === 'slave' && (
+            <div className="mt-4 pt-3 border-t">
+              <CatalogLinkSelector
+                equipmentId={eqId}
+                equipmentIp={eq.ip}
+                siteIdentifier={siteIdentifier}
+                existingLink={catalogLink}
+                onLinkChanged={onCatalogLinkChanged || (() => {})}
+              />
+            </div>
+          )}
           
           <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">

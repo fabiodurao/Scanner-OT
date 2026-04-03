@@ -26,6 +26,8 @@ import PendingApproval from "./pages/PendingApproval";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 import VariablesReview from "./pages/VariablesReview";
+import EquipmentCatalog from "./pages/EquipmentCatalog";
+import EquipmentCatalogDetail from "./pages/EquipmentCatalogDetail";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,8 @@ const AppRoutes = () => {
       <Route path="/discovery/:siteId" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
       <Route path="/discovery/:siteId/variables" element={<ProtectedRoute><VariablesReview /></ProtectedRoute>} />
       <Route path="/customers" element={<Navigate to="/sites-management" replace />} />
+      <Route path="/equipment-catalog" element={<ProtectedRoute><EquipmentCatalog /></ProtectedRoute>} />
+      <Route path="/equipment-catalog/:catalogId" element={<ProtectedRoute><EquipmentCatalogDetail /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute requireAdmin><UserManagement /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />

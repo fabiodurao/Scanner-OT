@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { DiscoveredVariable } from '@/types/discovery';
+import { SemanticSourceBadge } from '@/components/catalog/SemanticSourceBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,7 +124,6 @@ const formatScore = (score: number | null): string => {
   return Math.round(score * 100) + '%';
 };
 
-// Format timestamp as "YYYY-MM-DD | HH:mm:ss"
 const formatTimestamp = (ts: string | null | undefined): string => {
   if (!ts) return '—';
   try {
@@ -133,7 +133,6 @@ const formatTimestamp = (ts: string | null | undefined): string => {
   }
 };
 
-// Single-field filter popover
 const FilterButton = ({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options?: string[];
 }) => {
@@ -167,7 +166,6 @@ const FilterButton = ({ label, value, onChange, options }: {
   );
 };
 
-// Dual-field filter popover (src + dst)
 const DualFilterButton = ({
   labelSrc, labelDst, valueSrc, valueDst, onChangeSrc, onChangeDst, optionsSrc, optionsDst,
 }: {
@@ -308,6 +306,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       data_type: v.winner.toLowerCase(), learning_state: 'confirmed',
       confidence_score: getWinnerConfidence(v) || 0.95,
       confirmed_by: user.id, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      modification_source: 'manual',
     }).eq('id', v.id);
     if (error) toast.error('Error confirming: ' + error.message);
     else { toast.success('Variable confirmed!'); onVariableUpdated?.(); }
@@ -321,6 +320,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       learning_state: 'unknown', data_type: null, semantic_label: null,
       semantic_unit: null, semantic_category: null, confidence_score: 0,
       confirmed_by: null, confirmed_at: null, updated_at: new Date().toISOString(),
+      modification_source: 'ai',
     }).eq('id', v.id);
     if (error) toast.error('Error undoing: ' + error.message);
     else { toast.success('Reset to unknown!'); onVariableUpdated?.(); }
@@ -351,6 +351,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       scale, learning_state: 'confirmed',
       confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
       confirmed_by: user.id, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      modification_source: 'manual',
     }).eq('id', editingVariable.id);
     if (error) toast.error('Error saving: ' + error.message);
     else { toast.success('Saved & confirmed!'); setEditDialogOpen(false); onVariableUpdated?.(); }
@@ -361,7 +362,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
   const visibleColumnCount = isCompactView
     ? 10 + dataTypeColumns.length
-    : 15 + dataTypeColumns.length;
+    : 16 + dataTypeColumns.length;
 
   if (variables.length === 0) {
     return (
@@ -438,7 +439,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn('w-full', isCompactView ? 'min-w-[1600px]' : 'min-w-[2600px]')}>
+          <table className={cn('w-full', isCompactView ? 'min-w-[1600px]' : 'min-w-[2800px]')}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
 
@@ -530,6 +531,10 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 </th>
 
                 {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Source</span></th>
+                )}
+
+                {!isCompactView && (
                   <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
                 )}
 
@@ -586,11 +591,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 const explanation = variable.explanation || variable.ai_reasoning || null;
                 const winnerConfidence = getWinnerConfidence(variable);
                 const lastReadingAt = variable.last_reading_at ?? null;
+                const modificationSource = (variable as any).modification_source || null;
 
                 return (
                   <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80')}>
 
-                    {/* IP */}
                     <td className="px-2 py-1.5 font-mono text-xs">
                       <div className="flex flex-col leading-tight gap-0.5">
                         <span className="text-slate-800">{variable.source_ip || '—'}</span>
@@ -598,7 +603,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </div>
                     </td>
 
-                    {/* Port */}
                     <td className="px-2 py-1.5 font-mono text-xs">
                       <div className="flex flex-col leading-tight gap-0.5">
                         <span className="text-slate-800">{variable.source_port ?? '—'}</span>
@@ -606,36 +610,30 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </div>
                     </td>
 
-                    {/* Address */}
                     <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
 
-                    {/* Protocol */}
                     <td className="px-2 py-1.5">
                       {variable.protocol
                         ? <Badge variant="secondary" className="text-[10px] px-1 py-0">{variable.protocol}</Badge>
                         : <span className="text-muted-foreground">—</span>}
                     </td>
 
-                    {/* Unit ID */}
                     <td className="px-2 py-1.5 text-center">
                       {variable.unit_id != null
                         ? <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.unit_id}</Badge>
                         : <span className="text-muted-foreground">—</span>}
                     </td>
 
-                    {/* FC */}
                     <td className="px-2 py-1.5">
                       <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
                     </td>
 
-                    {/* Label */}
                     <td className="px-2 py-1.5">
                       {variable.semantic_label
                         ? <span className="text-xs font-medium">{variable.semantic_label}</span>
                         : <span className="text-muted-foreground italic text-xs">—</span>}
                     </td>
 
-                    {/* Eng. Unit */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         {variable.semantic_unit
@@ -644,21 +642,24 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </td>
                     )}
 
-                    {/* Scale */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         <span className="font-mono text-xs">{formatScale(scale)}</span>
                       </td>
                     )}
 
-                    {/* State */}
                     <td className="px-2 py-1.5">
                       <Badge className={stateConfig.color}>
                         <StateIcon className="h-3 w-3 mr-1" />{stateConfig.label}
                       </Badge>
                     </td>
 
-                    {/* Samples */}
+                    {!isCompactView && (
+                      <td className="px-2 py-1.5">
+                        <SemanticSourceBadge source={modificationSource} />
+                      </td>
+                    )}
+
                     {!isCompactView && (
                       <td className="px-2 py-1.5 text-center">
                         <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
@@ -667,7 +668,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </td>
                     )}
 
-                    {/* Current Value */}
                     <td className="px-2 py-1.5">
                       {variable.winner ? (
                         <div className="flex items-center gap-1">
@@ -681,7 +681,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Last Update — "YYYY-MM-DD | HH:mm:ss" */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         <span className="font-mono text-[10px] text-slate-600">
@@ -690,7 +689,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </td>
                     )}
 
-                    {/* Best Type */}
                     <td className="px-2 py-1.5">
                       {suggestedType ? (
                         <Tooltip>
@@ -725,7 +723,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Actions */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -759,7 +756,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </td>
                     )}
 
-                    {/* Heatmap columns */}
                     {dataTypeColumns.map(col => {
                       const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
                       const value = variable[col.key as keyof DiscoveredVariable] as number | null;
@@ -847,7 +843,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       );
                     })}
 
-                    {/* HEX */}
                     <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
                       {variable.HEX ? (() => {
                         const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
@@ -871,7 +866,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="text-xs text-muted-foreground">
         {paginatedVariables.length} of {filteredVariables.length} variables
         {hasActiveFilters && ` • filtered from ${variables.length}`}
-        {isCompactView && ' • Compact view (Samples, Timestamp and Actions hidden)'}
+        {isCompactView && ' • Compact view (some columns hidden)'}
       </div>
 
       <VariableHistoryDialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen} variable={historyVariable} />

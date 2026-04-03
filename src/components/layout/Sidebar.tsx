@@ -21,6 +21,7 @@ import {
   PanelLeft,
   Menu,
   X,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -73,6 +74,7 @@ const Sidebar = () => {
   ];
 
   const bottomNavigation = [
+    { name: 'Equipment Catalog', href: '/equipment-catalog', icon: BookOpen },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
