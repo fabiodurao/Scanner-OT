@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { EquipmentCatalog, CatalogProtocol, EquipmentCatalogLink } from '@/types/catalog';
+import { EquipmentCatalogLink } from '@/types/catalog';
 import { useEquipmentCatalog } from '@/hooks/useEquipmentCatalog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,7 @@ interface CatalogOption {
 export const CatalogLinkSelector = ({
   equipmentId, equipmentIp, siteIdentifier, existingLink, onLinkChanged,
 }: CatalogLinkSelectorProps) => {
-  const { fetchCatalogs, linkCatalogToEquipment, unlinkCatalogFromEquipment } = useEquipmentCatalog();
+  const { fetchCatalogs, fetchCatalogDetail, linkCatalogToEquipment, unlinkCatalogFromEquipment } = useEquipmentCatalog();
 
   const [options, setOptions] = useState<CatalogOption[]>([]);
   const [selectedValue, setSelectedValue] = useState<string>('');
@@ -49,11 +49,13 @@ export const CatalogLinkSelector = ({
       setLoading(true);
       const catalogs = await fetchCatalogs();
 
-      // For each catalog, fetch its protocols
       const allOptions: CatalogOption[] = [];
+
+      // fetchCatalogs doesn't include full protocol details, so fetch each catalog's detail
       for (const catalog of catalogs) {
-        if (catalog.protocols) {
-          for (const protocol of catalog.protocols) {
+        const detail = await fetchCatalogDetail(catalog.id);
+        if (detail?.protocols) {
+          for (const protocol of detail.protocols) {
             allOptions.push({
               catalogId: catalog.id,
               protocolId: protocol.id,
@@ -67,33 +69,12 @@ export const CatalogLinkSelector = ({
         }
       }
 
-      // If catalogs don't have protocols loaded, fetch them separately
-      if (allOptions.length === 0 && catalogs.length > 0) {
-        const { fetchCatalogDetail } = useEquipmentCatalog();
-        for (const catalog of catalogs) {
-          const detail = await fetchCatalogDetail(catalog.id);
-          if (detail?.protocols) {
-            for (const protocol of detail.protocols) {
-              allOptions.push({
-                catalogId: catalog.id,
-                protocolId: protocol.id,
-                label: `${catalog.manufacturer} / ${catalog.model} / ${protocol.protocol}`,
-                manufacturer: catalog.manufacturer,
-                model: catalog.model,
-                protocol: protocol.protocol,
-                registerCount: protocol.register_count,
-              });
-            }
-          }
-        }
-      }
-
       setOptions(allOptions);
       setLoading(false);
     };
 
     loadOptions();
-  }, [fetchCatalogs]);
+  }, [fetchCatalogs, fetchCatalogDetail]);
 
   const handleSelectChange = (value: string) => {
     setPendingSelection(value);
