@@ -13,12 +13,13 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   SlidersHorizontal, X, Maximize2, Minimize2,
   CheckCircle, HelpCircle, Lightbulb, Upload,
-  Pencil, Loader2, Undo, TrendingUp,
+  Pencil, Loader2, Undo, TrendingUp, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface HistoricalHeatmapTableProps {
   variables: DiscoveredVariable[];
@@ -348,7 +349,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   };
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
-  const visibleColumnCount = isCompactView ? 13 + dataTypeColumns.length : 15 + dataTypeColumns.length;
+
+  // Column count for empty state colspan
+  // Full: IP, Port, Addr, Proto, UnitID, FC, Label, EngUnit, Scale, State, Samples, CurVal, Timestamp, BestType, Actions, 14 heatmap, HEX
+  // Compact: IP, Port, Addr, Proto, UnitID, FC, Label, State, CurVal, BestType, 14 heatmap, HEX
+  const visibleColumnCount = isCompactView
+    ? 10 + dataTypeColumns.length   // no EngUnit, Scale, Samples, Timestamp, Actions
+    : 15 + dataTypeColumns.length;  // all columns (added Timestamp)
 
   if (variables.length === 0) {
     return (
@@ -425,11 +432,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
-          <table className={cn('w-full', isCompactView ? 'min-w-[1800px]' : 'min-w-[2500px]')}>
+          <table className={cn('w-full', isCompactView ? 'min-w-[1600px]' : 'min-w-[2600px]')}>
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
 
-                {/* IP — dual filter */}
+                {/* IP */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
@@ -445,7 +452,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Port — dual filter */}
+                {/* Port */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
@@ -461,7 +468,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Address — BEFORE Protocol */}
+                {/* Address */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Address</span>
@@ -469,7 +476,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Protocol — after Address */}
+                {/* Protocol */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Protocol</span>
@@ -498,8 +505,10 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
+                {/* Label */}
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Label</span></th>
 
+                {/* Eng. Unit — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-left whitespace-nowrap">
                     <Tooltip>
@@ -510,8 +519,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                     </Tooltip>
                   </th>
                 )}
-                {!isCompactView && <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>}
 
+                {/* Scale — hidden in compact */}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>
+                )}
+
+                {/* State */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">State</span>
@@ -519,8 +533,23 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
+                {/* Samples — hidden in compact */}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
+                )}
+
+                {/* Current Value */}
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
+
+                {/* Timestamp — hidden in compact */}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-left whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-medium">Last Update</span>
+                    </div>
+                  </th>
+                )}
 
                 {/* Best Type */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
@@ -530,8 +559,12 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Actions</span></th>
+                {/* Actions — hidden in compact */}
+                {!isCompactView && (
+                  <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Actions</span></th>
+                )}
 
+                {/* Heatmap columns */}
                 {dataTypeColumns.map(col => (
                   <Tooltip key={col.key}>
                     <TooltipTrigger asChild>
@@ -541,6 +574,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </Tooltip>
                 ))}
 
+                {/* HEX */}
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">HEX</span></th>
               </tr>
             </thead>
@@ -562,6 +596,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 const varHasAnalysis = hasAnalysis(variable);
                 const explanation = variable.explanation || variable.ai_reasoning || null;
                 const winnerConfidence = getWinnerConfidence(variable);
+                const lastSeenAt = variable.last_seen_at || null;
 
                 return (
                   <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80')}>
@@ -582,7 +617,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </div>
                     </td>
 
-                    {/* Address — BEFORE Protocol */}
+                    {/* Address */}
                     <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
 
                     {/* Protocol */}
@@ -611,6 +646,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         : <span className="text-muted-foreground italic text-xs">—</span>}
                     </td>
 
+                    {/* Eng. Unit — hidden in compact */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         {variable.semantic_unit
@@ -618,6 +654,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           : <span className="text-muted-foreground">—</span>}
                       </td>
                     )}
+
+                    {/* Scale — hidden in compact */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         <span className="font-mono text-xs">{formatScale(scale)}</span>
@@ -631,12 +669,14 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </Badge>
                     </td>
 
-                    {/* Samples */}
-                    <td className="px-2 py-1.5 text-center">
-                      <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
-                        {variable.sample_count?.toLocaleString() || 0}
-                      </Badge>
-                    </td>
+                    {/* Samples — hidden in compact */}
+                    {!isCompactView && (
+                      <td className="px-2 py-1.5 text-center">
+                        <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
+                          {variable.sample_count?.toLocaleString() || 0}
+                        </Badge>
+                      </td>
+                    )}
 
                     {/* Current Value */}
                     <td className="px-2 py-1.5">
@@ -652,12 +692,33 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Best Type — same Tooltip pattern as heatmap cells */}
+                    {/* Timestamp — hidden in compact */}
+                    {!isCompactView && (
+                      <td className="px-2 py-1.5">
+                        {lastSeenAt ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex flex-col leading-tight cursor-help">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {formatDistanceToNow(new Date(lastSeenAt), { addSuffix: true })}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {format(new Date(lastSeenAt), 'MM/dd/yyyy HH:mm:ss')}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Best Type */}
                     <td className="px-2 py-1.5">
                       {suggestedType ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            {/* plain div as trigger — same pattern as heatmap cells */}
                             <div className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-mono text-[10px] cursor-help hover:bg-purple-200 transition-colors">
                               {suggestedType}
                             </div>
@@ -688,37 +749,39 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Actions */}
-                    <td className="px-2 py-1.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleOpenHistory(variable)}>
-                              <TrendingUp className="h-3.5 w-3.5" />
+                    {/* Actions — hidden in compact */}
+                    {!isCompactView && (
+                      <td className="px-2 py-1.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleOpenHistory(variable)}>
+                                <TrendingUp className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View historical chart</TooltipContent>
+                          </Tooltip>
+
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleOpenEdit(variable)}>
+                            <Pencil className="h-3 w-3 mr-1" />Edit
+                          </Button>
+
+                          {canConfirm ? (
+                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300" onClick={() => handleConfirm(variable)} disabled={confirmingId === variable.id}>
+                              {confirmingId === variable.id
+                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                                : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
                             </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>View historical chart</TooltipContent>
-                        </Tooltip>
-
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleOpenEdit(variable)}>
-                          <Pencil className="h-3 w-3 mr-1" />Edit
-                        </Button>
-
-                        {canConfirm ? (
-                          <Button size="sm" variant="outline" className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300" onClick={() => handleConfirm(variable)} disabled={confirmingId === variable.id}>
-                            {confirmingId === variable.id
-                              ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-                              : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
-                          </Button>
-                        ) : canUndo ? (
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => handleUndo(variable)} disabled={undoingId === variable.id}>
-                            {undoingId === variable.id
-                              ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                              : <><Undo className="h-3 w-3 mr-1" />Undo</>}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
+                          ) : canUndo ? (
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => handleUndo(variable)} disabled={undoingId === variable.id}>
+                              {undoingId === variable.id
+                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                                : <><Undo className="h-3 w-3 mr-1" />Undo</>}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </td>
+                    )}
 
                     {/* Heatmap columns */}
                     {dataTypeColumns.map(col => {
@@ -808,7 +871,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       );
                     })}
 
-                    {/* HEX — always last */}
+                    {/* HEX */}
                     <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
                       {variable.HEX ? (() => {
                         const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
@@ -832,7 +895,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="text-xs text-muted-foreground">
         {paginatedVariables.length} of {filteredVariables.length} variables
         {hasActiveFilters && ` • filtered from ${variables.length}`}
-        {isCompactView && ' • Compact view'}
+        {isCompactView && ' • Compact view (Samples, Timestamp and Actions hidden)'}
       </div>
 
       <VariableHistoryDialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen} variable={historyVariable} />
