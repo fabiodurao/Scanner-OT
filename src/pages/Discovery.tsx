@@ -1,3 +1,4 @@
+import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDiscoveryPage } from '@/hooks/useDiscoveryPage';
@@ -30,6 +31,12 @@ const Discovery = () => {
   const isAdmin = profile?.is_admin === true;
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
   const masterEquipment = equipment.filter(e => e.role === 'master');
+
+  // Override stats.sampleCount with the real count from learning_samples
+  const [realSampleCount, setRealSampleCount] = React.useState<number | null>(null);
+  const displayStats = stats && realSampleCount !== null
+    ? { ...stats, sampleCount: realSampleCount }
+    : stats;
 
   if (loading) {
     return (
@@ -71,9 +78,9 @@ const Discovery = () => {
           onSyncEquipment={handleSyncEquipment}
         />
 
-        {stats && (
+        {displayStats && (
           <DiscoveryStats
-            stats={stats}
+            stats={displayStats}
             slaveEquipmentCount={slaveEquipment.length}
           />
         )}
@@ -104,6 +111,7 @@ const Discovery = () => {
               siteId={siteId}
               discoveredVariables={discoveredVariables}
               onVariableUpdated={loadData}
+              onSampleCountLoaded={setRealSampleCount}
             />
           </TabsContent>
 

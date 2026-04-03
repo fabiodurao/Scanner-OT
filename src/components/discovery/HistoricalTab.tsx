@@ -11,6 +11,7 @@ interface HistoricalTabProps {
   siteId: string;
   discoveredVariables: DiscoveredVariable[];
   onVariableUpdated: () => void;
+  onSampleCountLoaded?: (total: number) => void;
 }
 
 interface SampleMeta {
@@ -41,6 +42,7 @@ export const HistoricalTab = ({
   siteId,
   discoveredVariables,
   onVariableUpdated,
+  onSampleCountLoaded,
 }: HistoricalTabProps) => {
   const [enrichedVariables, setEnrichedVariables] = useState<DiscoveredVariable[]>(discoveredVariables);
   const [sampleMetaLoading, setSampleMetaLoading] = useState(false);
@@ -78,6 +80,11 @@ export const HistoricalTab = ({
 
     sampleMetaRef.current = meta;
     setEnrichedVariables(prev => mergeSampleMeta(prev, meta));
+
+    // Notify parent with the real total sample count
+    const total = Object.values(meta).reduce((sum, m) => sum + m.count, 0);
+    onSampleCountLoaded?.(total);
+
     setSampleMetaLoading(false);
   }, [siteId]);
 
