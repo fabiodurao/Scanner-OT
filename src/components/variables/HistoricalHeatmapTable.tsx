@@ -9,7 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VariableHistoryDialog } from './VariableHistoryDialog';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, SlidersHorizontal, X, Maximize2, Minimize2, CheckCircle, HelpCircle, Lightbulb, Upload, Pencil, Loader2, Undo, TrendingUp } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  SlidersHorizontal, X, Maximize2, Minimize2,
+  CheckCircle, HelpCircle, Lightbulb, Upload,
+  Pencil, Loader2, Undo, TrendingUp,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,42 +39,37 @@ interface ColumnFilters {
 }
 
 const emptyFilters: ColumnFilters = {
-  sourceIp: '',
-  destinationIp: '',
-  sourcePort: '',
-  destinationPort: '',
-  unitId: '',
-  protocol: '',
-  address: '',
-  fc: '',
-  winner: '',
-  learningState: '',
+  sourceIp: '', destinationIp: '',
+  sourcePort: '', destinationPort: '',
+  unitId: '', protocol: '',
+  address: '', fc: '',
+  winner: '', learningState: '',
 };
 
 const dataTypeColumns = [
-  { key: 'UINT16', scoreKey: 'historical_scores_uint16', label: 'UINT16' },
-  { key: 'INT16', scoreKey: 'historical_scores_int16', label: 'INT16' },
+  { key: 'UINT16',   scoreKey: 'historical_scores_uint16',   label: 'UINT16'   },
+  { key: 'INT16',    scoreKey: 'historical_scores_int16',    label: 'INT16'    },
   { key: 'UINT32BE', scoreKey: 'historical_scores_uint32be', label: 'UINT32BE' },
   { key: 'UINT32LE', scoreKey: 'historical_scores_uint32le', label: 'UINT32LE' },
-  { key: 'INT32BE', scoreKey: 'historical_scores_int32be', label: 'INT32BE' },
-  { key: 'INT32LE', scoreKey: 'historical_scores_int32le', label: 'INT32LE' },
-  { key: 'FLOAT32BE', scoreKey: 'historical_scores_float32be', label: 'FLOAT32BE' },
-  { key: 'FLOAT32LE', scoreKey: 'historical_scores_float32le', label: 'FLOAT32LE' },
+  { key: 'INT32BE',  scoreKey: 'historical_scores_int32be',  label: 'INT32BE'  },
+  { key: 'INT32LE',  scoreKey: 'historical_scores_int32le',  label: 'INT32LE'  },
+  { key: 'FLOAT32BE',scoreKey: 'historical_scores_float32be',label: 'FLOAT32BE'},
+  { key: 'FLOAT32LE',scoreKey: 'historical_scores_float32le',label: 'FLOAT32LE'},
   { key: 'UINT64BE', scoreKey: 'historical_scores_uint64be', label: 'UINT64BE' },
   { key: 'UINT64LE', scoreKey: 'historical_scores_uint64le', label: 'UINT64LE' },
-  { key: 'INT64BE', scoreKey: 'historical_scores_int64be', label: 'INT64BE' },
-  { key: 'INT64LE', scoreKey: 'historical_scores_int64le', label: 'INT64LE' },
-  { key: 'FLOAT64BE', scoreKey: 'historical_scores_float64be', label: 'FLOAT64BE' },
-  { key: 'FLOAT64LE', scoreKey: 'historical_scores_float64le', label: 'FLOAT64LE' },
+  { key: 'INT64BE',  scoreKey: 'historical_scores_int64be',  label: 'INT64BE'  },
+  { key: 'INT64LE',  scoreKey: 'historical_scores_int64le',  label: 'INT64LE'  },
+  { key: 'FLOAT64BE',scoreKey: 'historical_scores_float64be',label: 'FLOAT64BE'},
+  { key: 'FLOAT64LE',scoreKey: 'historical_scores_float64le',label: 'FLOAT64LE'},
 ] as const;
 
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500, 1000];
 
 const learningStateConfig = {
-  unknown: { label: 'Unknown', icon: HelpCircle, color: 'bg-slate-100 text-slate-700' },
-  hypothesis: { label: 'Hypothesis', icon: Lightbulb, color: 'bg-amber-100 text-amber-700' },
-  confirmed: { label: 'Confirmed', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
-  published: { label: 'Published', icon: Upload, color: 'bg-blue-100 text-blue-700' },
+  unknown:   { label: 'Unknown',   icon: HelpCircle,   color: 'bg-slate-100 text-slate-700'  },
+  hypothesis:{ label: 'Hypothesis',icon: Lightbulb,    color: 'bg-amber-100 text-amber-700'  },
+  confirmed: { label: 'Confirmed', icon: CheckCircle,  color: 'bg-emerald-100 text-emerald-700'},
+  published: { label: 'Published', icon: Upload,       color: 'bg-blue-100 text-blue-700'    },
 };
 
 const getScoreColor = (score: number | null): string => {
@@ -94,11 +94,11 @@ const getScoreColor = (score: number | null): string => {
   if (s >= 0.15) return 'bg-[#FF1A1A] text-white';
   if (s >= 0.10) return 'bg-[#FF0000] text-white';
   if (s >= 0.05) return 'bg-[#E60000] text-white';
-  if (s > 0) return 'bg-[#CC0000] text-white';
+  if (s > 0)     return 'bg-[#CC0000] text-white';
   return 'bg-gray-100 text-gray-400';
 };
 
-const formatNumber = (value: number, decimals = 3): string =>
+const formatNumber = (value: number, decimals = 3) =>
   value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const formatScale = (scale: number): string => {
@@ -122,10 +122,8 @@ const formatScore = (score: number | null): string => {
   return Math.round(score * 100) + '%';
 };
 
-// Simple single-field filter button
-const FilterButton = ({
-  label, value, onChange, options,
-}: {
+// Single-field filter popover
+const FilterButton = ({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options?: string[];
 }) => {
   const hasFilter = value.length > 0;
@@ -139,10 +137,10 @@ const FilterButton = ({
       <PopoverContent className="w-52 p-2" align="start">
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground">{label}</div>
-          <Input placeholder="Filter..." value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" autoFocus />
+          <Input placeholder="Filter..." value={value} onChange={e => onChange(e.target.value)} className="h-8 text-xs" autoFocus />
           {options && options.length > 0 && (
-            <div className="max-h-32 overflow-y-auto space-y-1">
-              {options.filter(o => o.toLowerCase().includes(value.toLowerCase())).slice(0, 10).map(o => (
+            <div className="max-h-40 overflow-y-auto space-y-0.5">
+              {options.filter(o => o.toLowerCase().includes(value.toLowerCase())).map(o => (
                 <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-7 text-xs font-mono" onClick={() => onChange(o)}>{o}</Button>
               ))}
             </div>
@@ -158,12 +156,9 @@ const FilterButton = ({
   );
 };
 
-// Dual-field filter button (src + dst in one popover)
+// Dual-field filter popover (src + dst)
 const DualFilterButton = ({
-  labelSrc, labelDst,
-  valueSrc, valueDst,
-  onChangeSrc, onChangeDst,
-  optionsSrc, optionsDst,
+  labelSrc, labelDst, valueSrc, valueDst, onChangeSrc, onChangeDst, optionsSrc, optionsDst,
 }: {
   labelSrc: string; labelDst: string;
   valueSrc: string; valueDst: string;
@@ -180,13 +175,12 @@ const DualFilterButton = ({
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="start">
         <div className="space-y-3">
-          {/* Source field */}
           <div className="space-y-1">
-            <div className="text-xs font-medium text-slate-700">{labelSrc}</div>
-            <Input placeholder="Filter..." value={valueSrc} onChange={(e) => onChangeSrc(e.target.value)} className="h-7 text-xs" />
+            <div className="text-xs font-semibold text-slate-700">{labelSrc}</div>
+            <Input placeholder="Filter..." value={valueSrc} onChange={e => onChangeSrc(e.target.value)} className="h-7 text-xs" />
             {optionsSrc && optionsSrc.length > 0 && (
-              <div className="max-h-24 overflow-y-auto space-y-0.5">
-                {optionsSrc.filter(o => o.toLowerCase().includes(valueSrc.toLowerCase())).slice(0, 6).map(o => (
+              <div className="max-h-28 overflow-y-auto space-y-0.5">
+                {optionsSrc.filter(o => o.toLowerCase().includes(valueSrc.toLowerCase())).map(o => (
                   <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-6 text-xs font-mono" onClick={() => onChangeSrc(o)}>{o}</Button>
                 ))}
               </div>
@@ -197,16 +191,13 @@ const DualFilterButton = ({
               </Button>
             )}
           </div>
-
           <div className="border-t" />
-
-          {/* Destination field */}
           <div className="space-y-1">
-            <div className="text-xs font-medium text-slate-400">{labelDst}</div>
-            <Input placeholder="Filter..." value={valueDst} onChange={(e) => onChangeDst(e.target.value)} className="h-7 text-xs" />
+            <div className="text-xs font-semibold text-slate-400">{labelDst}</div>
+            <Input placeholder="Filter..." value={valueDst} onChange={e => onChangeDst(e.target.value)} className="h-7 text-xs" />
             {optionsDst && optionsDst.length > 0 && (
-              <div className="max-h-24 overflow-y-auto space-y-0.5">
-                {optionsDst.filter(o => o.toLowerCase().includes(valueDst.toLowerCase())).slice(0, 6).map(o => (
+              <div className="max-h-28 overflow-y-auto space-y-0.5">
+                {optionsDst.filter(o => o.toLowerCase().includes(valueDst.toLowerCase())).map(o => (
                   <Button key={o} variant="ghost" size="sm" className="w-full justify-start h-6 text-xs font-mono" onClick={() => onChangeDst(o)}>{o}</Button>
                 ))}
               </div>
@@ -222,6 +213,38 @@ const DualFilterButton = ({
     </Popover>
   );
 };
+
+// Explanation popup for Best Type cell — uses Popover so it works inside <table>
+const BestTypeCell = ({ suggestedType, confidence, explanation }: {
+  suggestedType: string;
+  confidence: number | null;
+  explanation: string | null;
+}) => (
+  <Popover>
+    <PopoverTrigger asChild>
+      <Badge className="bg-purple-100 text-purple-800 font-mono text-[10px] px-1 py-0 cursor-pointer hover:bg-purple-200 transition-colors">
+        {suggestedType}
+      </Badge>
+    </PopoverTrigger>
+    <PopoverContent className="w-72 p-3 bg-white border-2 border-purple-200 shadow-xl" align="start">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+          <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
+          {confidence !== null && (
+            <span className="text-xs text-purple-700 font-medium">
+              {Math.round(confidence * 100)}% confidence
+            </span>
+          )}
+        </div>
+        {explanation ? (
+          <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No explanation available.</p>
+        )}
+      </div>
+    </PopoverContent>
+  </Popover>
+);
 
 export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: HistoricalHeatmapTableProps) => {
   const { user } = useAuth();
@@ -240,34 +263,33 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   const [editForm, setEditForm] = useState({ semantic_label: '', semantic_unit: '', semantic_category: '', data_type: '', scale: '1' });
   const [saving, setSaving] = useState(false);
 
+  // Build unique option lists from ALL variables (no limit)
   const uniqueValues = useMemo(() => ({
-    sourceIps: [...new Set(variables.map(v => v.source_ip).filter(Boolean))].sort(),
-    destinationIps: [...new Set(variables.map(v => v.destination_ip).filter(Boolean))].sort(),
-    sourcePorts: [...new Set(variables.map(v => v.source_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
-    destinationPorts: [...new Set(variables.map(v => v.destination_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => parseInt(a) - parseInt(b)),
-    unitIds: [...new Set(variables.map(v => v.unit_id?.toString()).filter((u): u is string => Boolean(u)))].sort((a, b) => parseInt(a) - parseInt(b)),
-    protocols: [...new Set(variables.map(v => v.protocol).filter((p): p is string => Boolean(p)))].sort(),
-    addresses: [...new Set(variables.map(v => v.address?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
-    fcs: [...new Set(variables.map(v => v.function_code?.toString()).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b)),
-    winners: [...new Set(variables.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
-    learningStates: ['unknown', 'hypothesis', 'confirmed', 'published'],
+    sourceIps:        [...new Set(variables.map(v => v.source_ip).filter(Boolean))].sort(),
+    destinationIps:   [...new Set(variables.map(v => v.destination_ip).filter(Boolean))].sort(),
+    sourcePorts:      [...new Set(variables.map(v => v.source_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => +a - +b),
+    destinationPorts: [...new Set(variables.map(v => v.destination_port?.toString()).filter((p): p is string => Boolean(p)))].sort((a, b) => +a - +b),
+    unitIds:          [...new Set(variables.map(v => v.unit_id?.toString()).filter((u): u is string => Boolean(u)))].sort((a, b) => +a - +b),
+    protocols:        [...new Set(variables.map(v => v.protocol).filter((p): p is string => Boolean(p)))].sort(),
+    addresses:        [...new Set(variables.map(v => v.address?.toString()).filter(Boolean))].sort((a, b) => +a - +b),
+    fcs:              [...new Set(variables.map(v => v.function_code?.toString()).filter(Boolean))].sort((a, b) => +a - +b),
+    winners:          [...new Set(variables.map(v => v.winner).filter((w): w is string => Boolean(w)))].sort(),
+    learningStates:   ['unknown', 'hypothesis', 'confirmed', 'published'],
   }), [variables]);
 
-  const filteredVariables = useMemo(() => {
-    return variables.filter(v => {
-      if (filters.sourceIp && !v.source_ip?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
-      if (filters.destinationIp && !v.destination_ip?.toLowerCase().includes(filters.destinationIp.toLowerCase())) return false;
-      if (filters.sourcePort && v.source_port?.toString() !== filters.sourcePort) return false;
-      if (filters.destinationPort && v.destination_port?.toString() !== filters.destinationPort) return false;
-      if (filters.unitId && v.unit_id?.toString() !== filters.unitId) return false;
-      if (filters.protocol && !v.protocol?.toLowerCase().includes(filters.protocol.toLowerCase())) return false;
-      if (filters.address && !v.address?.toString().includes(filters.address)) return false;
-      if (filters.fc && v.function_code?.toString() !== filters.fc) return false;
-      if (filters.winner && !v.winner?.toLowerCase().includes(filters.winner.toLowerCase())) return false;
-      if (filters.learningState && v.learning_state !== filters.learningState) return false;
-      return true;
-    });
-  }, [variables, filters]);
+  const filteredVariables = useMemo(() => variables.filter(v => {
+    if (filters.sourceIp      && !v.source_ip?.toLowerCase().includes(filters.sourceIp.toLowerCase())) return false;
+    if (filters.destinationIp && !v.destination_ip?.toLowerCase().includes(filters.destinationIp.toLowerCase())) return false;
+    if (filters.sourcePort    && v.source_port?.toString() !== filters.sourcePort) return false;
+    if (filters.destinationPort && v.destination_port?.toString() !== filters.destinationPort) return false;
+    if (filters.unitId        && v.unit_id?.toString() !== filters.unitId) return false;
+    if (filters.protocol      && !v.protocol?.toLowerCase().includes(filters.protocol.toLowerCase())) return false;
+    if (filters.address       && !v.address?.toString().includes(filters.address)) return false;
+    if (filters.fc            && v.function_code?.toString() !== filters.fc) return false;
+    if (filters.winner        && !v.winner?.toLowerCase().includes(filters.winner.toLowerCase())) return false;
+    if (filters.learningState && v.learning_state !== filters.learningState) return false;
+    return true;
+  }), [variables, filters]);
 
   const totalPages = Math.ceil(filteredVariables.length / pageSize);
   const paginatedVariables = useMemo(() => {
@@ -279,25 +301,24 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
   const hasActiveFilters = Object.values(filters).some(f => f.length > 0);
   const clearAllFilters = () => { setFilters(emptyFilters); setCurrentPage(1); };
-  const updateFilter = (key: keyof ColumnFilters, value: string) => { setFilters(prev => ({ ...prev, [key]: value })); setCurrentPage(1); };
+  const updateFilter = (key: keyof ColumnFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+  };
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
   const getSuggestedType = (v: DiscoveredVariable) => v.winner || v.ai_suggested_type;
-  const getWinnerConfidence = (v: DiscoveredVariable) => {
-    const winner = v.winner;
-    if (!winner) return null;
-    const scoreKey = `historical_scores_${winner.toLowerCase()}` as keyof DiscoveredVariable;
-    return v[scoreKey] as number | null;
+  const getWinnerConfidence = (v: DiscoveredVariable): number | null => {
+    if (!v.winner) return null;
+    const key = `historical_scores_${v.winner.toLowerCase()}` as keyof DiscoveredVariable;
+    return v[key] as number | null;
   };
-
   const getInterpretedValue = (v: DiscoveredVariable): string => {
-    const winner = v.winner;
-    if (!winner) return '-';
-    const col = winner.toUpperCase();
-    const rawValue = (v as any)[col] as number | null;
-    if (rawValue === null || rawValue === undefined) return '-';
-    const scale = (v as any).scale || 1;
-    return formatValue(rawValue * scale, col);
+    if (!v.winner) return '-';
+    const col = v.winner.toUpperCase();
+    const raw = (v as any)[col] as number | null;
+    if (raw === null || raw === undefined) return '-';
+    return formatValue(raw * ((v as any).scale || 1), col);
   };
 
   const handleOpenHistory = (v: DiscoveredVariable) => { setHistoryVariable(v); setHistoryDialogOpen(true); };
@@ -306,12 +327,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
     if (!v.winner || !user) return;
     setConfirmingId(v.id);
     const { error } = await supabase.from('discovered_variables').update({
-      data_type: v.winner.toLowerCase(),
-      learning_state: 'confirmed',
+      data_type: v.winner.toLowerCase(), learning_state: 'confirmed',
       confidence_score: getWinnerConfidence(v) || 0.95,
-      confirmed_by: user.id,
-      confirmed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      confirmed_by: user.id, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', v.id);
     if (error) toast.error('Error confirming: ' + error.message);
     else { toast.success('Variable confirmed!'); onVariableUpdated?.(); }
@@ -333,13 +351,12 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
   const handleOpenEdit = (v: DiscoveredVariable) => {
     setEditingVariable(v);
-    const currentScale = (v as any).scale || 1;
+    const s = (v as any).scale || 1;
     setEditForm({
-      semantic_label: v.semantic_label || '',
-      semantic_unit: v.semantic_unit || '',
+      semantic_label: v.semantic_label || '', semantic_unit: v.semantic_unit || '',
       semantic_category: v.semantic_category || '',
       data_type: v.data_type || v.winner?.toLowerCase() || v.ai_suggested_type || '',
-      scale: currentScale.toString().replace(',', '.'),
+      scale: s.toString().replace(',', '.'),
     });
     setEditDialogOpen(true);
   };
@@ -353,12 +370,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       semantic_label: editForm.semantic_label.trim() || null,
       semantic_unit: editForm.semantic_unit.trim() || null,
       semantic_category: editForm.semantic_category.trim() || null,
-      scale,
-      learning_state: 'confirmed',
+      scale, learning_state: 'confirmed',
       confidence_score: Math.max(editingVariable.confidence_score || 0, 0.95),
-      confirmed_by: user.id,
-      confirmed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      confirmed_by: user.id, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', editingVariable.id);
     if (error) toast.error('Error saving: ' + error.message);
     else { toast.success('Saved & confirmed!'); setEditDialogOpen(false); onVariableUpdated?.(); }
@@ -366,8 +380,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
   };
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
-  // fixed cols: IP, Port, Protocol, Unit ID, Address, FC, Label, State, Samples, Current Value, Best Type, Actions, HEX = 13 always
-  // + Eng.Unit + Scale in full view = +2
   const visibleColumnCount = isCompactView ? 13 + dataTypeColumns.length : 15 + dataTypeColumns.length;
 
   if (variables.length === 0) {
@@ -385,10 +397,10 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 text-xs flex-wrap">
           <span className="text-muted-foreground">Score (after analysis):</span>
-          {[['#00B050', 'High'], ['#B5E61D', 'Good'], ['#FFC000', 'Med'], ['#FF5722', 'Low'], ['#FF0000', 'Poor']].map(([color, label]) => (
-            <div key={label} className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
-              <span>{label}</span>
+          {[['#00B050','High'],['#B5E61D','Good'],['#FFC000','Med'],['#FF5722','Low'],['#FF0000','Poor']].map(([c,l]) => (
+            <div key={l} className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: c }} />
+              <span>{l}</span>
             </div>
           ))}
           <div className="flex items-center gap-1">
@@ -421,25 +433,23 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows:</span>
-          <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
+          <Select value={pageSize.toString()} onValueChange={v => setPageSize(parseInt(v))}>
             <SelectTrigger className="w-16 h-7 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map(s => <SelectItem key={s} value={s.toString()}>{s}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{PAGE_SIZE_OPTIONS.map(s => <SelectItem key={s} value={s.toString()}>{s}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
             {filteredVariables.length > 0
-              ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredVariables.length)} of ${filteredVariables.length}`
+              ? `${(currentPage-1)*pageSize+1}–${Math.min(currentPage*pageSize, filteredVariables.length)} of ${filteredVariables.length}`
               : '0 results'}
           </span>
           <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-xs px-1">{currentPage}/{totalPages || 1}</span>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(totalPages)} disabled={currentPage >= totalPages}><ChevronsRight className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(1)} disabled={currentPage===1}><ChevronsLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage-1)} disabled={currentPage===1}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-xs px-1">{currentPage}/{totalPages||1}</span>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(currentPage+1)} disabled={currentPage>=totalPages}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => goToPage(totalPages)} disabled={currentPage>=totalPages}><ChevronsRight className="h-4 w-4" /></Button>
           </div>
         </div>
       </div>
@@ -451,7 +461,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
             <thead className="sticky top-0 z-10 bg-slate-100 border-b">
               <tr className="text-xs">
 
-                {/* IP column — dual filter */}
+                {/* IP — dual filter */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
@@ -467,7 +477,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Port column — dual filter */}
+                {/* Port — dual filter */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
@@ -483,7 +493,15 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Protocol — before Address */}
+                {/* Address — BEFORE Protocol */}
+                <th className="px-2 py-2 text-left whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Address</span>
+                    <FilterButton label="Address" value={filters.address} onChange={v => updateFilter('address', v)} options={uniqueValues.addresses} />
+                  </div>
+                </th>
+
+                {/* Protocol — after Address */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Protocol</span>
@@ -501,14 +519,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       <TooltipContent>Slave Unit ID (e.g. 1, 2, 3...)</TooltipContent>
                     </Tooltip>
                     <FilterButton label="Unit ID" value={filters.unitId} onChange={v => updateFilter('unitId', v)} options={uniqueValues.unitIds} />
-                  </div>
-                </th>
-
-                {/* Address */}
-                <th className="px-2 py-2 text-left whitespace-nowrap">
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">Address</span>
-                    <FilterButton label="Address" value={filters.address} onChange={v => updateFilter('address', v)} options={uniqueValues.addresses} />
                   </div>
                 </th>
 
@@ -544,7 +554,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
 
-                {/* Best Type — explanation in tooltip */}
+                {/* Best Type — click opens explanation popover */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Best Type</span>
@@ -573,322 +583,255 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                     No variables match the current filters
                   </td>
                 </tr>
-              ) : (
-                paginatedVariables.map((variable) => {
-                  const suggestedType = getSuggestedType(variable);
-                  const stateConfig = learningStateConfig[variable.learning_state as keyof typeof learningStateConfig] || learningStateConfig.unknown;
-                  const StateIcon = stateConfig.icon;
-                  const canConfirm = suggestedType && variable.learning_state !== 'confirmed' && variable.learning_state !== 'published';
-                  const canUndo = variable.learning_state === 'confirmed' || variable.learning_state === 'published';
-                  const interpretedValue = getInterpretedValue(variable);
-                  const scale = (variable as any).scale || 1;
-                  const varHasAnalysis = hasAnalysis(variable);
-                  const explanation = variable.explanation || variable.ai_reasoning;
+              ) : paginatedVariables.map(variable => {
+                const suggestedType = getSuggestedType(variable);
+                const stateConfig = learningStateConfig[variable.learning_state as keyof typeof learningStateConfig] || learningStateConfig.unknown;
+                const StateIcon = stateConfig.icon;
+                const canConfirm = suggestedType && variable.learning_state !== 'confirmed' && variable.learning_state !== 'published';
+                const canUndo = variable.learning_state === 'confirmed' || variable.learning_state === 'published';
+                const interpretedValue = getInterpretedValue(variable);
+                const scale = (variable as any).scale || 1;
+                const varHasAnalysis = hasAnalysis(variable);
+                const explanation = variable.explanation || variable.ai_reasoning || null;
 
-                  return (
-                    <tr
-                      key={variable.id}
-                      className={cn(
-                        'border-b text-xs',
-                        varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80'
-                      )}
-                    >
-                      {/* IP: src on top, dst below */}
-                      <td className="px-2 py-1.5 font-mono text-xs">
-                        <div className="flex flex-col leading-tight gap-0.5">
-                          <span className="text-slate-800">{variable.source_ip || '—'}</span>
-                          <span className="text-slate-400">{variable.destination_ip || '—'}</span>
-                        </div>
-                      </td>
+                return (
+                  <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80')}>
 
-                      {/* Port: src on top, dst below */}
-                      <td className="px-2 py-1.5 font-mono text-xs">
-                        <div className="flex flex-col leading-tight gap-0.5">
-                          <span className="text-slate-800">{variable.source_port ?? '—'}</span>
-                          <span className="text-slate-400">{variable.destination_port ?? '—'}</span>
-                        </div>
-                      </td>
+                    {/* IP */}
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      <div className="flex flex-col leading-tight gap-0.5">
+                        <span className="text-slate-800">{variable.source_ip || '—'}</span>
+                        <span className="text-slate-400">{variable.destination_ip || '—'}</span>
+                      </div>
+                    </td>
 
-                      {/* Protocol */}
+                    {/* Port */}
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      <div className="flex flex-col leading-tight gap-0.5">
+                        <span className="text-slate-800">{variable.source_port ?? '—'}</span>
+                        <span className="text-slate-400">{variable.destination_port ?? '—'}</span>
+                      </div>
+                    </td>
+
+                    {/* Address — BEFORE Protocol */}
+                    <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
+
+                    {/* Protocol */}
+                    <td className="px-2 py-1.5">
+                      {variable.protocol
+                        ? <Badge variant="secondary" className="text-[10px] px-1 py-0">{variable.protocol}</Badge>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+
+                    {/* Unit ID */}
+                    <td className="px-2 py-1.5 text-center">
+                      {variable.unit_id != null
+                        ? <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.unit_id}</Badge>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+
+                    {/* FC */}
+                    <td className="px-2 py-1.5">
+                      <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
+                    </td>
+
+                    {/* Label */}
+                    <td className="px-2 py-1.5">
+                      {variable.semantic_label
+                        ? <span className="text-xs font-medium">{variable.semantic_label}</span>
+                        : <span className="text-muted-foreground italic text-xs">—</span>}
+                    </td>
+
+                    {!isCompactView && (
                       <td className="px-2 py-1.5">
-                        {variable.protocol
-                          ? <Badge variant="secondary" className="text-[10px] px-1 py-0">{variable.protocol}</Badge>
+                        {variable.semantic_unit
+                          ? <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
                           : <span className="text-muted-foreground">—</span>}
                       </td>
-
-                      {/* Unit ID */}
-                      <td className="px-2 py-1.5 text-center">
-                        {variable.unit_id != null
-                          ? <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.unit_id}</Badge>
-                          : <span className="text-muted-foreground">—</span>}
-                      </td>
-
-                      {/* Address */}
-                      <td className="px-2 py-1.5 font-mono font-medium">{variable.address}</td>
-
-                      {/* FC */}
+                    )}
+                    {!isCompactView && (
                       <td className="px-2 py-1.5">
-                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{variable.function_code}</Badge>
+                        <span className="font-mono text-xs">{formatScale(scale)}</span>
                       </td>
+                    )}
 
-                      {/* Label */}
-                      <td className="px-2 py-1.5">
-                        {variable.semantic_label
-                          ? <span className="text-xs font-medium">{variable.semantic_label}</span>
-                          : <span className="text-muted-foreground italic text-xs">—</span>}
-                      </td>
+                    {/* State */}
+                    <td className="px-2 py-1.5">
+                      <Badge className={stateConfig.color}>
+                        <StateIcon className="h-3 w-3 mr-1" />{stateConfig.label}
+                      </Badge>
+                    </td>
 
-                      {/* Eng. Unit (full view only) */}
-                      {!isCompactView && (
-                        <td className="px-2 py-1.5">
-                          {variable.semantic_unit
-                            ? <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
-                            : <span className="text-muted-foreground">—</span>}
-                        </td>
+                    {/* Samples */}
+                    <td className="px-2 py-1.5 text-center">
+                      <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
+                        {variable.sample_count?.toLocaleString() || 0}
+                      </Badge>
+                    </td>
+
+                    {/* Current Value */}
+                    <td className="px-2 py-1.5">
+                      {variable.winner ? (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono font-bold text-sm">{interpretedValue}</span>
+                          {variable.semantic_unit && (
+                            <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">awaiting analysis</span>
                       )}
+                    </td>
 
-                      {/* Scale (full view only) */}
-                      {!isCompactView && (
-                        <td className="px-2 py-1.5">
-                          <span className="font-mono text-xs">{formatScale(scale)}</span>
-                        </td>
+                    {/* Best Type — Popover with explanation on click */}
+                    <td className="px-2 py-1.5">
+                      {suggestedType ? (
+                        <BestTypeCell
+                          suggestedType={suggestedType}
+                          confidence={getWinnerConfidence(variable)}
+                          explanation={explanation}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">—</span>
                       )}
+                    </td>
 
-                      {/* State */}
-                      <td className="px-2 py-1.5">
-                        <Badge className={stateConfig.color}>
-                          <StateIcon className="h-3 w-3 mr-1" />{stateConfig.label}
-                        </Badge>
-                      </td>
+                    {/* Actions */}
+                    <td className="px-2 py-1.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleOpenHistory(variable)}>
+                              <TrendingUp className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View historical chart</TooltipContent>
+                        </Tooltip>
 
-                      {/* Samples */}
-                      <td className="px-2 py-1.5 text-center">
-                        <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
-                          {variable.sample_count?.toLocaleString() || 0}
-                        </Badge>
-                      </td>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleOpenEdit(variable)}>
+                          <Pencil className="h-3 w-3 mr-1" />Edit
+                        </Button>
 
-                      {/* Current Value */}
-                      <td className="px-2 py-1.5">
-                        {variable.winner ? (
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono font-bold text-sm">{interpretedValue}</span>
-                            {variable.semantic_unit && (
-                              <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">{variable.semantic_unit}</Badge>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs italic">awaiting analysis</span>
-                        )}
-                      </td>
+                        {canConfirm ? (
+                          <Button size="sm" variant="outline" className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300" onClick={() => handleConfirm(variable)} disabled={confirmingId === variable.id}>
+                            {confirmingId === variable.id
+                              ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                              : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
+                          </Button>
+                        ) : canUndo ? (
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => handleUndo(variable)} disabled={undoingId === variable.id}>
+                            {undoingId === variable.id
+                              ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                              : <><Undo className="h-3 w-3 mr-1" />Undo</>}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
 
-                      {/* Best Type — explanation embedded in tooltip */}
-                      <td className="px-2 py-1.5">
-                        {suggestedType ? (
+                    {/* Heatmap columns */}
+                    {dataTypeColumns.map(col => {
+                      const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
+                      const value = variable[col.key as keyof DiscoveredVariable] as number | null;
+                      const isWinner = variable.winner?.toUpperCase() === col.key;
+                      const count     = variable[`stats_${col.key}_count`     as keyof DiscoveredVariable] as number | null;
+                      const avgValue  = variable[`stats_${col.key}_avg_value` as keyof DiscoveredVariable] as number | null;
+                      const std       = variable[`stats_${col.key}_std`       as keyof DiscoveredVariable] as number | null;
+                      const avgJump   = variable[`stats_${col.key}_avg_jump`  as keyof DiscoveredVariable] as number | null;
+                      const maxJump   = variable[`stats_${col.key}_max_jump`  as keyof DiscoveredVariable] as number | null;
+                      const nulls     = variable[`stats_${col.key}_nulls`     as keyof DiscoveredVariable] as number | null;
+                      const zeros     = variable[`stats_${col.key}_zeros`     as keyof DiscoveredVariable] as number | null;
+                      const avgScore  = variable[`stats_${col.key}_avg_score` as keyof DiscoveredVariable] as number | null;
+                      const hasStats  = count !== null;
+
+                      return (
+                        <td key={col.key} className="px-0.5 py-0.5">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge className="bg-purple-100 text-purple-800 font-mono text-[10px] px-1 py-0 cursor-help">
-                                {suggestedType}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-sm p-3 bg-white border-2 border-purple-200 shadow-xl">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
-                                  <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
-                                  {getWinnerConfidence(variable) !== null && (
-                                    <span className="text-xs text-purple-700 font-medium">
-                                      {Math.round((getWinnerConfidence(variable) ?? 0) * 100)}% confidence
-                                    </span>
-                                  )}
-                                </div>
-                                {explanation ? (
-                                  <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground italic">No explanation available.</p>
-                                )}
+                              <div className={cn(
+                                'px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105',
+                                getScoreColor(score),
+                                isWinner && 'ring-2 ring-emerald-500 ring-offset-1'
+                              )}>
+                                <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">{formatValue(value, col.key)}</span>
+                                <span className="text-[9px] mt-0.5 px-1 py-0 rounded bg-black/10">{formatScore(score)}</span>
                               </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
+                              {hasStats ? (
+                                <div className="p-4 space-y-3">
+                                  <div className="flex items-center justify-between pb-2 border-b-2">
+                                    <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">{col.key}</Badge>
+                                    <Badge className={cn('font-bold text-sm px-2 py-1', score && score >= 0.8 ? 'bg-emerald-600 text-white' : score && score >= 0.5 ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')}>{formatScore(score)}</Badge>
+                                  </div>
+                                  {isWinner && (
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
+                                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                      <span className="text-xs font-semibold text-emerald-800">AI Winner</span>
+                                    </div>
+                                  )}
+                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
+                                    <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
+                                    <div className="font-mono font-bold text-2xl text-blue-900">{formatValue(value, col.key)}</div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
+                                      <span>Historical Statistics</span>
+                                      <Badge variant="secondary" className="text-[10px]">{count?.toLocaleString('en-US')} samples</Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      {[
+                                        { label: 'Avg Score',    value: formatScore(avgScore),                                bg: 'bg-purple-50 border-purple-100', text: 'text-purple-700', val: 'text-purple-900' },
+                                        { label: 'Avg Value',    value: avgValue !== null ? formatNumber(avgValue, 3) : '-', bg: 'bg-blue-50 border-blue-100',     text: 'text-blue-700',   val: 'text-blue-900'   },
+                                        { label: 'Std Dev',      value: std     !== null ? formatNumber(std, 3)     : '-', bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
+                                        { label: 'Avg Jump',     value: avgJump !== null ? formatNumber(avgJump, 3) : '-', bg: 'bg-amber-50 border-amber-100',   text: 'text-amber-700',  val: 'text-amber-900'  },
+                                        { label: 'Max Jump',     value: maxJump !== null ? formatNumber(maxJump, 3) : '-', bg: 'bg-red-50 border-red-100',       text: 'text-red-700',    val: 'text-red-900'    },
+                                        { label: 'Nulls',        value: nulls?.toLocaleString('en-US') ?? '-',             bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
+                                        { label: 'Zeros',        value: zeros?.toLocaleString('en-US') ?? '-',             bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
+                                        { label: 'Data Quality', value: count && nulls !== null && zeros !== null ? `${Math.round(((count-nulls-zeros)/count)*100)}%` : '-', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', val: 'text-emerald-900' },
+                                      ].map(item => (
+                                        <div key={item.label} className={`rounded-lg p-2 border ${item.bg}`}>
+                                          <div className={`text-[10px] mb-0.5 font-medium ${item.text}`}>{item.label}</div>
+                                          <div className={`font-mono font-bold truncate ${item.val}`}>{item.value}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-4 space-y-2">
+                                  <div className="flex items-center justify-between pb-2 border-b">
+                                    <Badge className="bg-blue-600 text-white font-mono">{col.key}</Badge>
+                                    <Badge className="bg-gray-200 text-gray-600">No analysis</Badge>
+                                  </div>
+                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
+                                    <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
+                                    <div className="font-mono font-bold text-xl text-blue-900">{formatValue(value, col.key)}</div>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground italic">Run historical analysis to see scores.</p>
+                                </div>
+                              )}
                             </TooltipContent>
                           </Tooltip>
-                        ) : (
-                          <span className="text-muted-foreground text-xs italic">—</span>
-                        )}
-                      </td>
+                        </td>
+                      );
+                    })}
 
-                      {/* Actions */}
-                      <td className="px-2 py-1.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                                onClick={() => handleOpenHistory(variable)}
-                              >
-                                <TrendingUp className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>View historical chart</TooltipContent>
-                          </Tooltip>
-
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleOpenEdit(variable)}>
-                            <Pencil className="h-3 w-3 mr-1" />Edit
-                          </Button>
-
-                          {canConfirm ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300"
-                              onClick={() => handleConfirm(variable)}
-                              disabled={confirmingId === variable.id}
-                            >
-                              {confirmingId === variable.id
-                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-                                : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
-                            </Button>
-                          ) : canUndo ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                              onClick={() => handleUndo(variable)}
-                              disabled={undoingId === variable.id}
-                            >
-                              {undoingId === variable.id
-                                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                                : <><Undo className="h-3 w-3 mr-1" />Undo</>}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
-
-                      {/* Heatmap columns */}
-                      {dataTypeColumns.map(col => {
-                        const score = variable[col.scoreKey as keyof DiscoveredVariable] as number | null;
-                        const value = variable[col.key as keyof DiscoveredVariable] as number | null;
-                        const isWinner = variable.winner?.toUpperCase() === col.key;
-
-                        const countKey = `stats_${col.key}_count` as keyof DiscoveredVariable;
-                        const avgValueKey = `stats_${col.key}_avg_value` as keyof DiscoveredVariable;
-                        const stdKey = `stats_${col.key}_std` as keyof DiscoveredVariable;
-                        const avgJumpKey = `stats_${col.key}_avg_jump` as keyof DiscoveredVariable;
-                        const maxJumpKey = `stats_${col.key}_max_jump` as keyof DiscoveredVariable;
-                        const nullsKey = `stats_${col.key}_nulls` as keyof DiscoveredVariable;
-                        const zerosKey = `stats_${col.key}_zeros` as keyof DiscoveredVariable;
-                        const avgScoreKey = `stats_${col.key}_avg_score` as keyof DiscoveredVariable;
-
-                        const count = variable[countKey] as number | null;
-                        const avgValue = variable[avgValueKey] as number | null;
-                        const std = variable[stdKey] as number | null;
-                        const avgJump = variable[avgJumpKey] as number | null;
-                        const maxJump = variable[maxJumpKey] as number | null;
-                        const nulls = variable[nullsKey] as number | null;
-                        const zeros = variable[zerosKey] as number | null;
-                        const avgScore = variable[avgScoreKey] as number | null;
-                        const hasStats = count !== null;
-
+                    {/* HEX — always last */}
+                    <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
+                      {variable.HEX ? (() => {
+                        const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
+                        const pairs = clean.match(/.{1,2}/g) || [];
                         return (
-                          <td key={col.key} className="px-0.5 py-0.5">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className={cn(
-                                    'px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105',
-                                    getScoreColor(score),
-                                    isWinner && 'ring-2 ring-emerald-500 ring-offset-1'
-                                  )}
-                                >
-                                  <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">
-                                    {formatValue(value, col.key)}
-                                  </span>
-                                  <span className="text-[9px] mt-0.5 px-1 py-0 rounded bg-black/10">
-                                    {formatScore(score)}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
-                                {hasStats ? (
-                                  <div className="p-4 space-y-3">
-                                    <div className="flex items-center justify-between pb-2 border-b-2">
-                                      <Badge className="bg-blue-600 text-white font-mono text-sm px-2 py-1">{col.key}</Badge>
-                                      <Badge className={cn('font-bold text-sm px-2 py-1',
-                                        score && score >= 0.8 ? 'bg-emerald-600 text-white' :
-                                        score && score >= 0.5 ? 'bg-amber-500 text-white' : 'bg-red-600 text-white'
-                                      )}>{formatScore(score)}</Badge>
-                                    </div>
-                                    {isWinner && (
-                                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
-                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                        <span className="text-xs font-semibold text-emerald-800">AI Winner</span>
-                                      </div>
-                                    )}
-                                    <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
-                                      <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                      <div className="font-mono font-bold text-2xl text-blue-900">{formatValue(value, col.key)}</div>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
-                                        <span>Historical Statistics</span>
-                                        <Badge variant="secondary" className="text-[10px]">{count?.toLocaleString('en-US')} samples</Badge>
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2 text-xs">
-                                        {[
-                                          { label: 'Avg Score', value: formatScore(avgScore), bg: 'bg-purple-50 border-purple-100', text: 'text-purple-700', val: 'text-purple-900' },
-                                          { label: 'Avg Value', value: avgValue !== null ? formatNumber(avgValue, 3) : '-', bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700', val: 'text-blue-900' },
-                                          { label: 'Std Dev', value: std !== null ? formatNumber(std, 3) : '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
-                                          { label: 'Avg Jump', value: avgJump !== null ? formatNumber(avgJump, 3) : '-', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-700', val: 'text-amber-900' },
-                                          { label: 'Max Jump', value: maxJump !== null ? formatNumber(maxJump, 3) : '-', bg: 'bg-red-50 border-red-100', text: 'text-red-700', val: 'text-red-900' },
-                                          { label: 'Nulls', value: nulls?.toLocaleString('en-US') ?? '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
-                                          { label: 'Zeros', value: zeros?.toLocaleString('en-US') ?? '-', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', val: 'text-slate-900' },
-                                          { label: 'Data Quality', value: count && nulls !== null && zeros !== null ? `${Math.round(((count - nulls - zeros) / count) * 100)}%` : '-', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', val: 'text-emerald-900' },
-                                        ].map(item => (
-                                          <div key={item.label} className={`rounded-lg p-2 border ${item.bg}`}>
-                                            <div className={`text-[10px] mb-0.5 font-medium ${item.text}`}>{item.label}</div>
-                                            <div className={`font-mono font-bold truncate ${item.val}`}>{item.value}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="p-4 space-y-2">
-                                    <div className="flex items-center justify-between pb-2 border-b">
-                                      <Badge className="bg-blue-600 text-white font-mono">{col.key}</Badge>
-                                      <Badge className="bg-gray-200 text-gray-600">No analysis</Badge>
-                                    </div>
-                                    <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
-                                      <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                      <div className="font-mono font-bold text-xl text-blue-900">{formatValue(value, col.key)}</div>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground italic">Run historical analysis to see scores.</p>
-                                  </div>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          </td>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-700 whitespace-nowrap">{pairs.slice(0, 4).join(' ')}</span>
+                            {pairs.length > 4 && <span className="text-slate-400 whitespace-nowrap">{pairs.slice(4, 8).join(' ')}</span>}
+                          </div>
                         );
-                      })}
-
-                      {/* HEX — always last */}
-                      <td className="px-2 py-1.5 font-mono text-[9px] leading-tight align-middle">
-                        {variable.HEX ? (() => {
-                          const clean = variable.HEX.replace(/\s/g, '').toUpperCase();
-                          const pairs = clean.match(/.{1,2}/g) || [];
-                          const line1 = pairs.slice(0, 4).join(' ');
-                          const line2 = pairs.slice(4, 8).join(' ');
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-slate-700 whitespace-nowrap">{line1}</span>
-                              {line2 && <span className="text-slate-400 whitespace-nowrap">{line2}</span>}
-                            </div>
-                          );
-                        })() : <span className="text-muted-foreground">—</span>}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                      })() : <span className="text-muted-foreground">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -900,11 +843,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
         {isCompactView && ' • Compact view'}
       </div>
 
-      <VariableHistoryDialog
-        open={historyDialogOpen}
-        onOpenChange={setHistoryDialogOpen}
-        variable={historyVariable}
-      />
+      <VariableHistoryDialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen} variable={historyVariable} />
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -938,11 +877,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
               <Select value={editForm.data_type} onValueChange={v => setEditForm(p => ({ ...p, data_type: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select data type..." /></SelectTrigger>
                 <SelectContent>
-                  {dataTypeColumns.map(col => (
-                    <SelectItem key={col.key} value={col.key.toLowerCase()}>
-                      <span className="font-mono">{col.key}</span>
-                    </SelectItem>
-                  ))}
+                  {dataTypeColumns.map(col => <SelectItem key={col.key} value={col.key.toLowerCase()}><span className="font-mono">{col.key}</span></SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
