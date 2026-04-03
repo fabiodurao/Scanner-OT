@@ -214,38 +214,6 @@ const DualFilterButton = ({
   );
 };
 
-// Explanation popup for Best Type cell — uses Popover so it works inside <table>
-const BestTypeCell = ({ suggestedType, confidence, explanation }: {
-  suggestedType: string;
-  confidence: number | null;
-  explanation: string | null;
-}) => (
-  <Popover>
-    <PopoverTrigger asChild>
-      <Badge className="bg-purple-100 text-purple-800 font-mono text-[10px] px-1 py-0 cursor-pointer hover:bg-purple-200 transition-colors">
-        {suggestedType}
-      </Badge>
-    </PopoverTrigger>
-    <PopoverContent className="w-72 p-3 bg-white border-2 border-purple-200 shadow-xl" align="start">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
-          <Badge className="bg-purple-600 text-white font-mono">{suggestedType}</Badge>
-          {confidence !== null && (
-            <span className="text-xs text-purple-700 font-medium">
-              {Math.round(confidence * 100)}% confidence
-            </span>
-          )}
-        </div>
-        {explanation ? (
-          <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">No explanation available.</p>
-        )}
-      </div>
-    </PopoverContent>
-  </Popover>
-);
-
 export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: HistoricalHeatmapTableProps) => {
   const { user } = useAuth();
   const [filters, setFilters] = useState<ColumnFilters>(emptyFilters);
@@ -554,7 +522,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
 
-                {/* Best Type — click opens explanation popover */}
+                {/* Best Type */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Best Type</span>
@@ -593,6 +561,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 const scale = (variable as any).scale || 1;
                 const varHasAnalysis = hasAnalysis(variable);
                 const explanation = variable.explanation || variable.ai_reasoning || null;
+                const winnerConfidence = getWinnerConfidence(variable);
 
                 return (
                   <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80')}>
@@ -683,14 +652,37 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Best Type — Popover with explanation on click */}
+                    {/* Best Type — same Tooltip pattern as heatmap cells */}
                     <td className="px-2 py-1.5">
                       {suggestedType ? (
-                        <BestTypeCell
-                          suggestedType={suggestedType}
-                          confidence={getWinnerConfidence(variable)}
-                          explanation={explanation}
-                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* plain div as trigger — same pattern as heatmap cells */}
+                            <div className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-mono text-[10px] cursor-help hover:bg-purple-200 transition-colors">
+                              {suggestedType}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            className="p-0 bg-white border-2 border-purple-200 shadow-xl max-w-sm"
+                            side="left"
+                          >
+                            <div className="p-3 space-y-2">
+                              <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+                                <span className="bg-purple-600 text-white font-mono text-xs px-2 py-0.5 rounded">{suggestedType}</span>
+                                {winnerConfidence !== null && (
+                                  <span className="text-xs text-purple-700 font-medium">
+                                    {Math.round(winnerConfidence * 100)}% confidence
+                                  </span>
+                                )}
+                              </div>
+                              {explanation ? (
+                                <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No explanation available.</p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       ) : (
                         <span className="text-muted-foreground text-xs italic">—</span>
                       )}
