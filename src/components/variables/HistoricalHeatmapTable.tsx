@@ -123,11 +123,11 @@ const formatScore = (score: number | null): string => {
   return Math.round(score * 100) + '%';
 };
 
-// Format a timestamp as "MM/dd/yyyy HH:mm:ss"
+// Format timestamp as ISO 8601: YYYY-MM-DDTHH:mm:ss
 const formatTimestamp = (ts: string | null | undefined): string => {
   if (!ts) return '—';
   try {
-    return format(new Date(ts), 'MM/dd/yyyy HH:mm:ss');
+    return format(new Date(ts), "yyyy-MM-dd'T'HH:mm:ss");
   } catch {
     return '—';
   }
@@ -359,7 +359,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
   const hasAnalysis = (v: DiscoveredVariable) => v.winner !== null || v.historical_scores_uint16 !== null;
 
-  // Compact hides: Eng. Unit, Scale, Samples, Timestamp, Actions
   const visibleColumnCount = isCompactView
     ? 10 + dataTypeColumns.length
     : 15 + dataTypeColumns.length;
@@ -508,7 +507,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Label</span></th>
 
-                {/* Eng. Unit — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-left whitespace-nowrap">
                     <Tooltip>
@@ -520,7 +518,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </th>
                 )}
 
-                {/* Scale — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Scale</span></th>
                 )}
@@ -532,15 +529,12 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Samples — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Samples</span></th>
                 )}
 
-                {/* Current Value */}
                 <th className="px-2 py-2 text-left whitespace-nowrap"><span className="font-medium">Current Value</span></th>
 
-                {/* Last Update — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-left whitespace-nowrap">
                     <div className="flex items-center gap-1">
@@ -550,7 +544,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </th>
                 )}
 
-                {/* Best Type */}
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="font-medium">Best Type</span>
@@ -558,7 +551,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   </div>
                 </th>
 
-                {/* Actions — hidden in compact */}
                 {!isCompactView && (
                   <th className="px-2 py-2 text-center whitespace-nowrap"><span className="font-medium">Actions</span></th>
                 )}
@@ -593,7 +585,6 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 const varHasAnalysis = hasAnalysis(variable);
                 const explanation = variable.explanation || variable.ai_reasoning || null;
                 const winnerConfidence = getWinnerConfidence(variable);
-                // Use last_reading_at (MAX time from learning_samples) — exact timestamp
                 const lastReadingAt = variable.last_reading_at ?? null;
 
                 return (
@@ -644,7 +635,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         : <span className="text-muted-foreground italic text-xs">—</span>}
                     </td>
 
-                    {/* Eng. Unit — hidden in compact */}
+                    {/* Eng. Unit */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         {variable.semantic_unit
@@ -653,7 +644,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </td>
                     )}
 
-                    {/* Scale — hidden in compact */}
+                    {/* Scale */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5">
                         <span className="font-mono text-xs">{formatScale(scale)}</span>
@@ -667,7 +658,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       </Badge>
                     </td>
 
-                    {/* Samples — hidden in compact */}
+                    {/* Samples */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 text-center">
                         <Badge variant="secondary" className="font-mono text-[10px] px-1 py-0">
@@ -690,7 +681,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Last Update — exact datetime from learning_samples.time — hidden in compact */}
+                    {/* Last Update — ISO 8601: YYYY-MM-DDTHH:mm:ss */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         <span className="font-mono text-[10px] text-slate-600">
@@ -734,7 +725,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       )}
                     </td>
 
-                    {/* Actions — hidden in compact */}
+                    {/* Actions */}
                     {!isCompactView && (
                       <td className="px-2 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1">
