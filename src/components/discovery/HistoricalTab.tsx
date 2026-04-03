@@ -19,7 +19,6 @@ interface SampleMeta {
   lastTime: string | null;
 }
 
-// Merge sample counts and last reading timestamps into variables
 function mergeSampleMeta(
   variables: DiscoveredVariable[],
   meta: Record<string, SampleMeta>
@@ -48,12 +47,11 @@ export const HistoricalTab = ({
   const [sampleMetaLoading, setSampleMetaLoading] = useState(false);
   const sampleMetaRef = useRef<Record<string, SampleMeta>>({});
 
-  // Fetch sample counts AND max(time) from learning_samples — paginating to get ALL rows
   const fetchSampleMeta = useCallback(async () => {
     if (!siteId) return;
     setSampleMetaLoading(true);
 
-    const PAGE = 1000; // Supabase PostgREST max per request
+    const PAGE = 1000;
     const meta: Record<string, SampleMeta> = {};
     let from = 0;
     let hasMore = true;
@@ -77,13 +75,11 @@ export const HistoricalTab = ({
           meta[key] = { count: 0, lastTime: null };
         }
         meta[key].count += 1;
-        // Keep the latest timestamp
         if (row.time && (!meta[key].lastTime || row.time > meta[key].lastTime!)) {
           meta[key].lastTime = row.time;
         }
       }
 
-      // If we got fewer rows than PAGE, we've reached the end
       hasMore = (data?.length ?? 0) === PAGE;
       from += PAGE;
     }
@@ -91,19 +87,16 @@ export const HistoricalTab = ({
     sampleMetaRef.current = meta;
     setEnrichedVariables(prev => mergeSampleMeta(prev, meta));
 
-    // Notify parent with the real total sample count
     const total = Object.values(meta).reduce((sum, m) => sum + m.count, 0);
     onSampleCountLoaded?.(total);
 
     setSampleMetaLoading(false);
   }, [siteId]);
 
-  // When parent updates discoveredVariables, merge with latest meta
   useEffect(() => {
     setEnrichedVariables(mergeSampleMeta(discoveredVariables, sampleMetaRef.current));
   }, [discoveredVariables]);
 
-  // Fetch on mount and every 60 seconds
   useEffect(() => {
     fetchSampleMeta();
     const interval = setInterval(fetchSampleMeta, 60_000);
@@ -117,7 +110,7 @@ export const HistoricalTab = ({
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
-              Variables & Historical Analysis
+              Variables
               {sampleMetaLoading && (
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               )}
