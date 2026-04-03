@@ -13,17 +13,25 @@ interface HistoricalTabProps {
   onVariableUpdated: () => void;
 }
 
-// Merge sample counts into variables
-function mergeSampleCounts(
+interface SampleMeta {
+  count: number;
+  lastTime: string | null;
+}
+
+// Merge sample counts and last reading timestamps into variables
+function mergeSampleMeta(
   variables: DiscoveredVariable[],
-  counts: Record<string, number>
+  meta: Record<string, SampleMeta>
 ): DiscoveredVariable[] {
   return variables.map(v => {
-    // Key matches the 5-field link
     const key = `${v.source_ip}|${v.destination_ip}|${v.address}|${v.function_code}|${v.unit_id}`;
-    const realCount = counts[key];
-    if (realCount !== undefined) {
-      return { ...v, sample_count: realCount };
+    const m = meta[key];
+    if (m !== undefined) {
+      return {
+        ...v,
+        sample_count: m.count,
+        last_reading_at: m.lastTime,
+      };
     }
     return v;
   });
@@ -35,48 +43,55 @@ export const HistoricalTab = ({
   onVariableUpdated,
 }: HistoricalTabProps) => {
   const [enrichedVariables, setEnrichedVariables] = useState<DiscoveredVariable[]>(discoveredVariables);
-  const [sampleCountsLoading, setSampleCountsLoading] = useState(false);
-  const sampleCountsRef = useRef<Record<string, number>>({});
+  const [sampleMetaLoading, setSampleMetaLoading] = useState(false);
+  const sampleMetaRef = useRef<Record<string, SampleMeta>>({});
 
-  // Fetch real sample counts from learning_samples (grouped by the 5-field key)
-  const fetchSampleCounts = useCallback(async () => {
+  // Fetch sample counts AND max(time) from learning_samples in one query
+  const fetchSampleMeta = useCallback(async () => {
     if (!siteId) return;
-    setSampleCountsLoading(true);
+    setSampleMetaLoading(true);
 
     const { data, error } = await supabase
       .from('learning_samples')
-      .select('SourceIp, DestinationIp, Address, FC, unid_Id')
+      .select('SourceIp, DestinationIp, Address, FC, unid_Id, time')
       .eq('Identifier', siteId);
 
     if (error) {
-      console.error('[HistoricalTab] Error fetching sample counts:', error);
-      setSampleCountsLoading(false);
+      console.error('[HistoricalTab] Error fetching sample meta:', error);
+      setSampleMetaLoading(false);
       return;
     }
 
-    // Count per unique variable key
-    const counts: Record<string, number> = {};
+    // Build meta map: count + MAX(time) per variable key
+    const meta: Record<string, SampleMeta> = {};
     for (const row of data || []) {
       const key = `${row.SourceIp}|${row.DestinationIp}|${row.Address}|${row.FC}|${row.unid_Id}`;
-      counts[key] = (counts[key] || 0) + 1;
+      if (!meta[key]) {
+        meta[key] = { count: 0, lastTime: null };
+      }
+      meta[key].count += 1;
+      // Keep the latest timestamp
+      if (row.time && (!meta[key].lastTime || row.time > meta[key].lastTime!)) {
+        meta[key].lastTime = row.time;
+      }
     }
 
-    sampleCountsRef.current = counts;
-    setEnrichedVariables(prev => mergeSampleCounts(prev, counts));
-    setSampleCountsLoading(false);
+    sampleMetaRef.current = meta;
+    setEnrichedVariables(prev => mergeSampleMeta(prev, meta));
+    setSampleMetaLoading(false);
   }, [siteId]);
 
-  // When parent updates discoveredVariables, merge with latest sample counts
+  // When parent updates discoveredVariables, merge with latest meta
   useEffect(() => {
-    setEnrichedVariables(mergeSampleCounts(discoveredVariables, sampleCountsRef.current));
+    setEnrichedVariables(mergeSampleMeta(discoveredVariables, sampleMetaRef.current));
   }, [discoveredVariables]);
 
-  // Fetch sample counts on mount and every 60 seconds
+  // Fetch on mount and every 60 seconds
   useEffect(() => {
-    fetchSampleCounts();
-    const interval = setInterval(fetchSampleCounts, 60_000);
+    fetchSampleMeta();
+    const interval = setInterval(fetchSampleMeta, 60_000);
     return () => clearInterval(interval);
-  }, [fetchSampleCounts]);
+  }, [fetchSampleMeta]);
 
   return (
     <Card>
@@ -86,7 +101,7 @@ export const HistoricalTab = ({
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
               Variables & Historical Analysis
-              {sampleCountsLoading && (
+              {sampleMetaLoading && (
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               )}
             </CardTitle>

@@ -240,6 +240,10 @@ export interface DiscoveredVariable {
   sample_count: number;
   first_seen_at: string;
   last_seen_at: string;
+
+  // Real last reading timestamp from learning_samples.time (MAX per variable key)
+  // Injected by HistoricalTab after fetching learning_samples — NOT from discovered_variables
+  last_reading_at?: string | null;
   
   created_at: string;
   updated_at: string;
