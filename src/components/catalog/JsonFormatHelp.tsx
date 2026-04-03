@@ -15,7 +15,6 @@ export const JsonFormatHelp = () => {
     "scale": 1,
     "unit": "V",
     "function_code": 3,
-    "register_type": "holding",
     "description": "Phase L1 to Neutral voltage"
   },
   {
@@ -61,8 +60,7 @@ export const JsonFormatHelp = () => {
               <li><code>data_type</code> (string) — e.g., float32be, uint16, int32le</li>
               <li><code>scale</code> (number) — Scaling factor (default: 1)</li>
               <li><code>unit</code> (string) — Engineering unit (e.g., V, kW, °C)</li>
-              <li><code>function_code</code> (number, required) — Modbus function code</li>
-              <li><code>register_type</code> (string) — holding, input, coil, discrete</li>
+              <li><code>function_code</code> (number, required) — Modbus function code (e.g., 3 = holding, 4 = input)</li>
               <li><code>description</code> (string) — Optional description</li>
             </ul>
           </div>

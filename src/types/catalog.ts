@@ -6,7 +6,6 @@ export interface CatalogRegister {
   scale: number;
   unit: string;
   function_code: number;
-  register_type?: string;
   description?: string;
 }
 

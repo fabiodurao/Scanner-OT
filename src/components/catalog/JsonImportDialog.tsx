@@ -90,7 +90,6 @@ export const JsonImportDialog = ({
         scale: typeof obj.scale === 'number' ? obj.scale : 1,
         unit: (obj.unit as string || '').trim(),
         function_code: obj.function_code as number,
-        register_type: (obj.register_type as string || '').trim(),
         description: (obj.description as string || '').trim(),
       });
     });
