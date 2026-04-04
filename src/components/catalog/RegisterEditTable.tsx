@@ -15,6 +15,15 @@ interface RegisterEditTableProps {
   saving?: boolean;
 }
 
+const DATA_TYPES = [
+  'boolean',
+  'uint16', 'int16',
+  'uint32be', 'uint32le', 'int32be', 'int32le',
+  'float32be', 'float32le',
+  'uint64be', 'uint64le', 'int64be', 'int64le',
+  'float64be', 'float64le',
+];
+
 const emptyRegister: CatalogRegister = {
   address: 0, name: '', label: '', data_type: '', scale: 1, unit: '', function_code: 3, category: '',
 };
@@ -84,14 +93,14 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
         <Table>
           <TableHeader className="sticky top-0 bg-slate-50 z-10">
             <TableRow>
-              <TableHead className="w-20">Address</TableHead>
-              <TableHead className="w-14">FC</TableHead>
+              <TableHead className="w-28 min-w-[112px]">Address</TableHead>
+              <TableHead className="w-16">FC</TableHead>
               <TableHead className="min-w-[120px]">Name</TableHead>
               <TableHead className="min-w-[120px]">Label</TableHead>
-              <TableHead className="w-44">Category</TableHead>
-              <TableHead className="w-24">Data Type</TableHead>
-              <TableHead className="w-16">Scale</TableHead>
-              <TableHead className="w-16">Unit</TableHead>
+              <TableHead className="w-48 min-w-[192px]">Category</TableHead>
+              <TableHead className="w-36 min-w-[144px]">Data Type</TableHead>
+              <TableHead className="w-20">Scale</TableHead>
+              <TableHead className="w-20">Unit</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
@@ -105,7 +114,7 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
             ) : rows.map((reg, i) => (
               <TableRow key={i}>
                 <TableCell className="p-1">
-                  <Input type="number" value={reg.address} onChange={e => updateRow(i, 'address', parseInt(e.target.value) || 0)} className="h-7 text-xs font-mono w-full" />
+                  <Input type="number" value={reg.address} onChange={e => updateRow(i, 'address', parseInt(e.target.value) || 0)} className="h-7 text-xs font-mono w-full min-w-[90px]" />
                 </TableCell>
                 <TableCell className="p-1">
                   <Input type="number" value={reg.function_code} onChange={e => updateRow(i, 'function_code', parseInt(e.target.value) || 3)} className="h-7 text-xs font-mono w-full" />
@@ -132,7 +141,19 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
                   </Select>
                 </TableCell>
                 <TableCell className="p-1">
-                  <Input value={reg.data_type} onChange={e => updateRow(i, 'data_type', e.target.value)} className="h-7 text-xs font-mono w-full" placeholder="float32be" />
+                  <Select value={reg.data_type || '__none__'} onValueChange={v => updateRow(i, 'data_type', v === '__none__' ? '' : v)}>
+                    <SelectTrigger className="h-7 text-xs font-mono w-full">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__"><span className="text-muted-foreground">None</span></SelectItem>
+                      {DATA_TYPES.map(dt => (
+                        <SelectItem key={dt} value={dt}>
+                          <span className="font-mono text-xs">{dt}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell className="p-1">
                   <Input type="number" step="any" value={reg.scale} onChange={e => updateRow(i, 'scale', parseFloat(e.target.value) || 1)} className="h-7 text-xs font-mono w-full" />

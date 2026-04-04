@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import { CatalogRegister, REGISTER_CATEGORIES } from '@/types/catalog';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Search, X } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RegisterPreviewTableProps {
   registers: CatalogRegister[];
@@ -37,25 +38,69 @@ const getCategoryLabel = (value: string | undefined): { label: string; emoji: st
   return cat ? { label: cat.label, emoji: cat.emoji } : { label: value, emoji: '📋' };
 };
 
+const HeaderFilter = ({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
+}) => {
+  const hasFilter = value.length > 0;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={cn('h-5 w-5 p-0 ml-1', hasFilter && 'text-blue-600')}>
+          <SlidersHorizontal className={cn('h-3 w-3', hasFilter && 'text-blue-600')} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="start">
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground mb-2">{label}</div>
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            {options.map(o => (
+              <Button
+                key={o.value}
+                variant={value === o.value ? 'default' : 'ghost'}
+                size="sm"
+                className="w-full justify-start h-7 text-xs"
+                onClick={() => onChange(value === o.value ? '' : o.value)}
+              >
+                {o.label}
+              </Button>
+            ))}
+          </div>
+          {hasFilter && (
+            <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-red-600 mt-1" onClick={() => onChange('')}>
+              <X className="h-3 w-3 mr-1" />Clear
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) => {
-  const [search, setSearch] = useState('');
-  const [dataTypeFilter, setDataTypeFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [dataTypeFilter, setDataTypeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   const uniqueDataTypes = useMemo(() => [...new Set(registers.map(r => r.data_type).filter(Boolean))].sort(), [registers]);
   const uniqueCategories = useMemo(() => [...new Set(registers.map(r => r.category).filter((c): c is string => Boolean(c)))].sort(), [registers]);
 
+  const dataTypeOptions = useMemo(() => uniqueDataTypes.map(dt => ({ value: dt, label: dt })), [uniqueDataTypes]);
+  const categoryOptions = useMemo(() => uniqueCategories.map(cat => {
+    const info = getCategoryLabel(cat);
+    return { value: cat, label: info ? `${info.emoji} ${info.label}` : cat };
+  }), [uniqueCategories]);
+
   const filtered = useMemo(() => registers.filter(r => {
-    if (dataTypeFilter !== 'all' && r.data_type !== dataTypeFilter) return false;
-    if (categoryFilter !== 'all' && r.category !== categoryFilter) return false;
-    if (search) {
-      const s = search.toLowerCase();
+    if (dataTypeFilter && r.data_type !== dataTypeFilter) return false;
+    if (categoryFilter && r.category !== categoryFilter) return false;
+    if (searchFilter) {
+      const s = searchFilter.toLowerCase();
       if (!r.name.toLowerCase().includes(s) && !(r.label || '').toLowerCase().includes(s) && !r.address.toString().includes(s)) return false;
     }
     return true;
-  }), [registers, search, dataTypeFilter, categoryFilter]);
+  }), [registers, dataTypeFilter, categoryFilter, searchFilter]);
 
-  const hasFilters = search || dataTypeFilter !== 'all' || categoryFilter !== 'all';
+  const hasFilters = dataTypeFilter || categoryFilter || searchFilter;
 
   if (registers.length === 0) {
     return (
@@ -66,58 +111,45 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
   }
 
   return (
-    <div className="space-y-3">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search address, name, label..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-8 text-xs" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Input placeholder="Search address, name, label..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} className="h-7 text-xs w-56" />
+        <div className="flex items-center gap-2">
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setDataTypeFilter(''); setCategoryFilter(''); setSearchFilter(''); }}>
+              <X className="h-3 w-3 mr-1" />Clear filters
+            </Button>
+          )}
+          <span className="text-xs text-muted-foreground">{filtered.length} of {registers.length}</span>
         </div>
-        <Select value={dataTypeFilter} onValueChange={setDataTypeFilter}>
-          <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Data Type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {uniqueDataTypes.map(dt => (
-              <SelectItem key={dt} value={dt}>
-                <span className="font-mono">{dt}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {uniqueCategories.length > 0 && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-48 h-8 text-xs"><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {uniqueCategories.map(cat => {
-                const info = getCategoryLabel(cat);
-                return (
-                  <SelectItem key={cat} value={cat}>
-                    {info ? `${info.emoji} ${info.label}` : cat}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        )}
-        {hasFilters && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setSearch(''); setDataTypeFilter('all'); setCategoryFilter('all'); }}>
-            <X className="h-3 w-3 mr-1" />Clear
-          </Button>
-        )}
-        <span className="text-xs text-muted-foreground ml-auto">{filtered.length} of {registers.length}</span>
       </div>
 
       <div className="rounded-md border max-h-[500px] overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 bg-slate-50 z-10">
             <TableRow>
-              <TableHead className="w-20">Address</TableHead>
+              <TableHead className="w-24">Address</TableHead>
               <TableHead className="w-12">FC</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Label</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="w-24">Data Type</TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  Category
+                  {categoryOptions.length > 0 && (
+                    <HeaderFilter label="Filter by Category" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
+                  )}
+                  {categoryFilter && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 ml-1">{getCategoryLabel(categoryFilter)?.emoji}</Badge>}
+                </div>
+              </TableHead>
+              <TableHead className="w-28">
+                <div className="flex items-center">
+                  Data Type
+                  {dataTypeOptions.length > 0 && (
+                    <HeaderFilter label="Filter by Data Type" value={dataTypeFilter} onChange={setDataTypeFilter} options={dataTypeOptions} />
+                  )}
+                  {dataTypeFilter && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 ml-1 font-mono">{dataTypeFilter}</Badge>}
+                </div>
+              </TableHead>
               <TableHead className="w-16">Scale</TableHead>
               <TableHead className="w-16">Unit</TableHead>
             </TableRow>
