@@ -143,9 +143,9 @@ const Sidebar = () => {
         !isMobile && isCollapsed ? "justify-center px-2" : "justify-between px-4"
       )}>
         {(isMobile || !isCollapsed) && (
-          <img 
-            src="/logo-white.png" 
-            alt="Cyber Energia" 
+          <img
+            src="/logo-white.png"
+            alt="Centrii"
             className="h-8 w-auto object-contain"
           />
         )}

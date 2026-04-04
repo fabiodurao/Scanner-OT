@@ -21,6 +21,7 @@ import { Cpu, Play, Loader2, CheckCircle, XCircle, Clock, FileArchive, Building2
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { logAudit } from '@/utils/auditLog';
 
 interface Site { id: string; name: string; unique_id: string | null; }
 interface UploadSession { id: string; site_id: string; name: string | null; created_at: string; total_files: number; }
@@ -172,7 +173,7 @@ const PcapProcessing = () => {
     if (!selectedFile || !selectedSiteId || !user) return;
     setSubmitting(true);
     const { error } = await supabase.from('processing_jobs').insert({ pcap_file_id: selectedFile.id, site_id: selectedSiteId, n8n_webhook_url: webhookUrl || null, status: 'pending', current_step: 'pending', progress: 0, created_by: user.id, pcap_filename: selectedFile.original_filename, pcap_size_bytes: selectedFile.size_bytes, mbsniffer_interval_batch: parseInt(intervalBatch) || 60, mbsniffer_interval_min: parseInt(intervalMin) || 5, output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job created, waiting for agent...` });
-    if (error) toast.error('Error: ' + error.message); else { toast.success('Job created!'); setDialogOpen(false); setActiveTab('jobs'); }
+    if (error) toast.error('Error: ' + error.message); else { toast.success('Job created!'); setDialogOpen(false); setActiveTab('jobs'); logAudit({ action: 'PROCESSING_JOB_CREATED', target_type: 'processing_job', details: { filename: selectedFile.original_filename, site_id: selectedSiteId } }); }
     setSubmitting(false);
   };
 
@@ -182,12 +183,12 @@ const PcapProcessing = () => {
     const sequenceGroup = generateUUID();
     const jobsToInsert = batchFiles.map((file, index) => ({ pcap_file_id: file.id, site_id: selectedSiteId, n8n_webhook_url: batchWebhookUrl || null, status: 'pending', current_step: 'pending', progress: 0, created_by: user.id, pcap_filename: file.original_filename, pcap_size_bytes: file.size_bytes, mbsniffer_interval_batch: parseInt(batchIntervalBatch) || 60, mbsniffer_interval_min: parseInt(batchIntervalMin) || 5, output_log: `[${new Date().toISOString().split('T')[1].split('.')[0]}] Job ${index + 1}/${batchFiles.length}`, sequence_group: sequenceGroup, sequence_order: index + 1 }));
     const { error } = await supabase.from('processing_jobs').insert(jobsToInsert);
-    if (error) toast.error('Error: ' + error.message); else { toast.success(`${batchFiles.length} jobs created!`); setBatchDialogOpen(false); setActiveTab('jobs'); }
+    if (error) toast.error('Error: ' + error.message); else { toast.success(`${batchFiles.length} jobs created!`); setBatchDialogOpen(false); setActiveTab('jobs'); logAudit({ action: 'PROCESSING_JOB_CREATED', target_type: 'processing_job', details: { batch_size: batchFiles.length, site_id: selectedSiteId, sequence_group: sequenceGroup } }); }
     setBatchSubmitting(false);
   };
 
-  const handleCancelJob = async (jobId: string) => { await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).eq('id', jobId); toast.success('Job cancelled'); };
-  const handleDeleteJob = async (jobId: string) => { await supabase.from('processing_jobs').delete().eq('id', jobId); toast.success('Job deleted'); if (detailJob?.id === jobId) setDetailJob(null); };
+  const handleCancelJob = async (jobId: string) => { await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).eq('id', jobId); toast.success('Job cancelled'); logAudit({ action: 'PROCESSING_JOB_CANCELLED', target_type: 'processing_job', target_identifier: jobId }); };
+  const handleDeleteJob = async (jobId: string) => { await supabase.from('processing_jobs').delete().eq('id', jobId); toast.success('Job deleted'); if (detailJob?.id === jobId) setDetailJob(null); logAudit({ action: 'PROCESSING_JOB_DELETED', target_type: 'processing_job', target_identifier: jobId }); };
   const handleCancelSequence = async (groupId: string) => { const group = jobGroups.find(g => g.id === groupId); if (!group) return; const ids = [...group.pendingJobs.map(j => j.id), ...(group.activeJob ? [group.activeJob.id] : [])]; await supabase.from('processing_jobs').update({ status: 'cancelled', current_step: 'cancelled', completed_at: new Date().toISOString() }).in('id', ids); toast.success(`${ids.length} jobs cancelled`); };
   const toggleGroupExpanded = (groupId: string) => { setExpandedGroups(prev => { const s = new Set(prev); if (s.has(groupId)) s.delete(groupId); else s.add(groupId); return s; }); };
   const formatSessionName = (session: UploadSession) => session.name || format(new Date(session.created_at), "MM/dd/yyyy 'at' HH:mm");

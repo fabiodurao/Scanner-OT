@@ -253,9 +253,9 @@ const Login = () => {
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-6">
-            <img 
-              src="/logo-standard.png" 
-              alt="Cyber Energia" 
+            <img
+              src="/logo-standard.png"
+              alt="Centrii"
               className="h-12 w-auto object-contain"
             />
           </div>

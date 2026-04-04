@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { QueuedFile } from '@/types/upload';
+import { logAudit } from '@/utils/auditLog';
 
 const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
@@ -153,6 +154,9 @@ export const UploadProvider = ({ children }: { children: ReactNode }) => {
               .update({ upload_status: 'completed', completed_at: new Date().toISOString() })
               .eq('id', pcapFile.id);
             updateQueueItem(queueItem.id, { status: 'completed', progress: 100, pcapFileId: pcapFile.id });
+            
+            // Log audit
+            logAudit({ action: 'PCAP_UPLOADED', target_type: 'pcap_file', target_identifier: pcapFile.id, details: { filename: queueItem.file.name, size_bytes: queueItem.file.size, site_id: queueItem.siteId, session_id: queueItem.sessionId } });
             
             // Update session statistics
             await updateSessionStats(queueItem.sessionId);

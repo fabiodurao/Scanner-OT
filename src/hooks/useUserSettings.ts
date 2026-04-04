@@ -22,6 +22,28 @@ export interface AIPrompts {
   categorize_registers: string;
 }
 
+/** Metadata about each prompt function for the UI */
+export interface PromptFunctionMeta {
+  key: keyof AIPrompts;
+  label: string;
+  description: string;
+  defaultPrompt: string;
+  variables: { name: string; description: string }[];
+}
+
+export const PROMPT_FUNCTIONS: PromptFunctionMeta[] = [
+  {
+    key: 'categorize_registers',
+    label: 'Catalog Register Categorization',
+    description: 'Classifies equipment catalog registers into functional categories (e.g., Instantaneous Electrical, Demand, Energy Accumulators). Used in the Equipment Catalog when importing or editing registers.',
+    defaultPrompt: DEFAULT_CATEGORIZE_PROMPT,
+    variables: [
+      { name: '{{categories_json}}', description: 'JSON array of available categories with value and label' },
+      { name: '{{registers_json}}', description: 'JSON array of registers to classify (address, name, label, unit, data_type)' },
+    ],
+  },
+];
+
 export interface UserSettings {
   id?: string;
   user_id?: string;
@@ -52,7 +74,7 @@ const defaultSettings: UserSettings = {
   notifications_enabled: true,
   confidence_threshold: 0.95,
   cross_site_learning: false,
-  saas_endpoint: 'https://api.cyberenergia.com/v1',
+  saas_endpoint: 'https://api.centrii.com/v1',
   analysis_webhook_url: 'https://n8n.otscanner.qzz.io/webhook-test/26d1b1b8-1713-4332-91da-151bebf35d5d',
   sample_threshold_for_analysis: 50,
   auto_confirm_threshold: 0.95,

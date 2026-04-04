@@ -34,6 +34,7 @@ import { format } from 'date-fns';
 import { AIProviderSettings } from '@/components/settings/AIProviderSettings';
 import { AIPromptsSettings } from '@/components/settings/AIPromptsSettings';
 import { DEFAULT_CATEGORIZE_PROMPT } from '@/hooks/useUserSettings';
+import { logAudit } from '@/utils/auditLog';
 
 interface AllDataCounts {
   learning_samples_count: number;
@@ -46,11 +47,7 @@ interface AuditLog {
   action: string;
   target_type: string;
   target_identifier: string | null;
-  details: {
-    learning_samples_deleted?: number;
-    equipment_deleted?: number;
-    variables_deleted?: number;
-  } | null;
+  details: Record<string, unknown> | null;
   performed_by: string;
   performed_at: string;
   user_email?: string;
@@ -78,7 +75,7 @@ const Settings = () => {
     ai_api_key: '',
     ai_model: 'claude-sonnet-4-20250514',
     ai_custom_base_url: '',
-    ai_categorize_prompt: DEFAULT_CATEGORIZE_PROMPT,
+    ai_prompts_categorize_registers: DEFAULT_CATEGORIZE_PROMPT,
   });
 
   const [dataCounts, setDataCounts] = useState<AllDataCounts | null>(null);
@@ -115,7 +112,7 @@ const Settings = () => {
         ai_api_key: settings.ai_api_key || '',
         ai_model: settings.ai_model || 'claude-sonnet-4-20250514',
         ai_custom_base_url: settings.ai_custom_base_url || '',
-        ai_categorize_prompt: settings.ai_prompts?.categorize_registers || DEFAULT_CATEGORIZE_PROMPT,
+        ai_prompts_categorize_registers: settings.ai_prompts?.categorize_registers || DEFAULT_CATEGORIZE_PROMPT,
       });
     }
   }, [loading, settings]);
@@ -222,12 +219,23 @@ const Settings = () => {
       ai_model: formData.ai_model,
       ai_custom_base_url: formData.ai_custom_base_url || null,
       ai_prompts: {
-        categorize_registers: formData.ai_categorize_prompt,
+        categorize_registers: formData.ai_prompts_categorize_registers,
       },
     });
 
     if (success) {
       toast.success('Settings saved successfully!');
+      logAudit({
+        action: 'SETTINGS_UPDATED',
+        target_type: 'settings',
+        details: {
+          ai_provider: formData.ai_provider,
+          ai_model: formData.ai_model,
+          mbsniffer_interval_batch: parseInt(formData.mbsniffer_interval_batch) || 60,
+          mbsniffer_interval_min: parseInt(formData.mbsniffer_interval_min) || 5,
+          sample_threshold_for_analysis: parseInt(formData.sample_threshold_for_analysis) || 50,
+        },
+      });
     } else {
       toast.error('Error saving settings');
     }
@@ -266,31 +274,65 @@ const Settings = () => {
   };
 
   const getActionBadge = (action: string) => {
-    switch (action) {
-      case 'CLEAR_SITE_DATA':
-        return <Badge variant="destructive">Clear Site</Badge>;
-      case 'CLEAR_ALL_DISCOVERY_DATA':
-        return <Badge variant="destructive" className="bg-red-700">Clear All</Badge>;
-      default:
-        return <Badge variant="outline">{action}</Badge>;
-    }
+    const actionConfig: Record<string, { label: string; className: string }> = {
+      SETTINGS_UPDATED: { label: 'Settings Updated', className: 'bg-blue-100 text-blue-700' },
+      SITE_CREATED: { label: 'Site Created', className: 'bg-emerald-100 text-emerald-700' },
+      SITE_UPDATED: { label: 'Site Updated', className: 'bg-blue-100 text-blue-700' },
+      SITE_DELETED: { label: 'Site Deleted', className: 'bg-red-100 text-red-700' },
+      PCAP_UPLOADED: { label: 'PCAP Uploaded', className: 'bg-indigo-100 text-indigo-700' },
+      PCAP_DELETED: { label: 'PCAP Deleted', className: 'bg-red-100 text-red-700' },
+      UPLOAD_SESSION_CREATED: { label: 'Session Created', className: 'bg-blue-100 text-blue-700' },
+      UPLOAD_SESSION_DELETED: { label: 'Session Deleted', className: 'bg-red-100 text-red-700' },
+      PROCESSING_JOB_CREATED: { label: 'Job Created', className: 'bg-amber-100 text-amber-700' },
+      PROCESSING_JOB_CANCELLED: { label: 'Job Cancelled', className: 'bg-orange-100 text-orange-700' },
+      PROCESSING_JOB_DELETED: { label: 'Job Deleted', className: 'bg-red-100 text-red-700' },
+      ANALYSIS_TRIGGERED: { label: 'Analysis Triggered', className: 'bg-purple-100 text-purple-700' },
+      PHOTO_ANALYSIS_TRIGGERED: { label: 'Photo Analysis', className: 'bg-pink-100 text-pink-700' },
+      VARIABLE_CONFIRMED: { label: 'Variable Confirmed', className: 'bg-emerald-100 text-emerald-700' },
+      VARIABLE_EDITED: { label: 'Variable Edited', className: 'bg-blue-100 text-blue-700' },
+      VARIABLE_RESET: { label: 'Variable Reset', className: 'bg-amber-100 text-amber-700' },
+      EQUIPMENT_SYNCED: { label: 'Equipment Synced', className: 'bg-cyan-100 text-cyan-700' },
+      CATALOG_CREATED: { label: 'Catalog Created', className: 'bg-emerald-100 text-emerald-700' },
+      CATALOG_UPDATED: { label: 'Catalog Updated', className: 'bg-blue-100 text-blue-700' },
+      CATALOG_DELETED: { label: 'Catalog Deleted', className: 'bg-red-100 text-red-700' },
+      CATALOG_LINKED: { label: 'Catalog Linked', className: 'bg-violet-100 text-violet-700' },
+      CATALOG_UNLINKED: { label: 'Catalog Unlinked', className: 'bg-orange-100 text-orange-700' },
+      AI_CATEGORIZATION_RUN: { label: 'AI Categorization', className: 'bg-violet-100 text-violet-700' },
+      USER_APPROVED: { label: 'User Approved', className: 'bg-emerald-100 text-emerald-700' },
+      USER_REVOKED: { label: 'User Revoked', className: 'bg-red-100 text-red-700' },
+      USER_ADMIN_TOGGLED: { label: 'Admin Toggled', className: 'bg-purple-100 text-purple-700' },
+      USER_REJECTED: { label: 'User Rejected', className: 'bg-red-100 text-red-700' },
+      CLEAR_SITE_DATA: { label: 'Clear Site Data', className: 'bg-red-600 text-white' },
+      CLEAR_ALL_DISCOVERY_DATA: { label: 'Clear All Data', className: 'bg-red-700 text-white' },
+    };
+    const config = actionConfig[action];
+    if (config) return <Badge className={config.className}>{config.label}</Badge>;
+    return <Badge variant="outline">{action}</Badge>;
   };
 
   const formatDetails = (details: AuditLog['details']) => {
     if (!details) return '-';
     
-    const parts = [];
-    if (details.learning_samples_deleted) {
-      parts.push(`${details.learning_samples_deleted.toLocaleString()} samples`);
-    }
-    if (details.equipment_deleted) {
-      parts.push(`${details.equipment_deleted.toLocaleString()} equipment`);
-    }
-    if (details.variables_deleted) {
-      parts.push(`${details.variables_deleted.toLocaleString()} variables`);
-    }
+    const parts: string[] = [];
     
-    return parts.length > 0 ? parts.join(', ') : '-';
+    // Data deletion details
+    if (details.learning_samples_deleted) parts.push(`${Number(details.learning_samples_deleted).toLocaleString()} samples`);
+    if (details.equipment_deleted) parts.push(`${Number(details.equipment_deleted).toLocaleString()} equipment`);
+    if (details.variables_deleted) parts.push(`${Number(details.variables_deleted).toLocaleString()} variables`);
+    
+    // General details
+    if (details.name) parts.push(`Name: ${details.name}`);
+    if (details.site_name) parts.push(`Site: ${details.site_name}`);
+    if (details.filename) parts.push(`File: ${details.filename}`);
+    if (details.size_bytes) parts.push(`Size: ${(Number(details.size_bytes) / 1048576).toFixed(1)} MB`);
+    if (details.batch_size) parts.push(`Batch: ${details.batch_size} files`);
+    if (details.site_type) parts.push(`Type: ${details.site_type}`);
+    if (details.ai_provider) parts.push(`AI: ${details.ai_provider}`);
+    if (details.ai_model) parts.push(`Model: ${details.ai_model}`);
+    if (details.user_email) parts.push(`User: ${details.user_email}`);
+    if (details.new_admin_status !== undefined) parts.push(`Admin: ${details.new_admin_status ? 'Yes' : 'No'}`);
+    
+    return parts.length > 0 ? parts.join(' · ') : '-';
   };
 
   const totalRecords = dataCounts 
@@ -445,8 +487,10 @@ const Settings = () => {
           />
 
           <AIPromptsSettings
-            prompt={formData.ai_categorize_prompt}
-            onPromptChange={v => setFormData(prev => ({ ...prev, ai_categorize_prompt: v }))}
+            prompts={{
+              categorize_registers: formData.ai_prompts_categorize_registers,
+            }}
+            onPromptChange={(key, value) => setFormData(prev => ({ ...prev, [`ai_prompts_${key}`]: value }))}
           />
 
           <Card>
@@ -554,11 +598,11 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="saas-endpoint">
-                  CyberEnergia SaaS Endpoint
+                  Centrii SaaS Endpoint
                 </Label>
                 <Input
                   id="saas-endpoint"
-                  placeholder="https://api.cyberenergia.com/v1"
+                  placeholder="https://api.centrii.com/v1"
                   value={formData.saas_endpoint}
                   onChange={(e) => setFormData(prev => ({ ...prev, saas_endpoint: e.target.value }))}
                 />

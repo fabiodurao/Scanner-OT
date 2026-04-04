@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Camera, Upload, Loader2, X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { logAudit } from '@/utils/auditLog';
 
 const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 
@@ -202,6 +203,7 @@ export function PhotoAnalysisButton({ siteId }: { siteId: string }) {
       }
 
       toast.success('Photo analysis started! Processing image...');
+      logAudit({ action: 'PHOTO_ANALYSIS_TRIGGERED', target_type: 'photo_analysis_job', target_identifier: siteId });
       
       setTimeout(() => {
         toast.info("You'll be notified when analysis completes", {

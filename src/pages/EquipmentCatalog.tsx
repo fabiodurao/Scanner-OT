@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { BookOpen, Plus, Search, Trash2, Loader2, ExternalLink, Network } from 'lucide-react';
 import { toast } from 'sonner';
+import { logAudit } from '@/utils/auditLog';
 
 interface CatalogRow {
   catalogId: string;
@@ -123,6 +124,7 @@ const EquipmentCatalogPage = () => {
       }
 
       toast.success('Catalog created!');
+      logAudit({ action: 'CATALOG_CREATED', target_type: 'catalog', target_identifier: catalog.id, details: { manufacturer: data.manufacturer, model: data.model } });
       setFormOpen(false);
       navigate(`/equipment-catalog/${catalog.id}`);
     } catch (error: any) {
@@ -133,7 +135,7 @@ const EquipmentCatalogPage = () => {
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    try { await deleteCatalog(id); toast.success('Catalog deleted'); setCatalogs(prev => prev.filter(c => c.id !== id)); }
+    try { await deleteCatalog(id); toast.success('Catalog deleted'); logAudit({ action: 'CATALOG_DELETED', target_type: 'catalog', target_identifier: id }); setCatalogs(prev => prev.filter(c => c.id !== id)); }
     catch { toast.error('Error deleting catalog'); }
     setDeletingId(null);
   };

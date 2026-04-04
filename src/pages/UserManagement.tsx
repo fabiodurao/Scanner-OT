@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { CheckCircle, XCircle, Shield, Clock, UserCheck, UserX, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { logAudit } from '@/utils/auditLog';
 
 interface Profile {
   id: string;
@@ -68,6 +69,7 @@ const UserManagement = () => {
       toast.error('Error approving user');
     } else {
       toast.success('User approved successfully!');
+      logAudit({ action: 'USER_APPROVED', target_type: 'user', target_identifier: userId, details: { user_email: users.find(u => u.id === userId)?.email } });
       fetchUsers();
     }
   };
@@ -101,6 +103,7 @@ const UserManagement = () => {
     // Optimistic update - remove from local state immediately
     setUsers(prev => prev.filter(u => u.id !== userId));
     toast.success('Access request rejected and user removed');
+    logAudit({ action: 'USER_REJECTED', target_type: 'user', target_identifier: userId });
     setRejectingId(null);
   };
 
@@ -114,6 +117,7 @@ const UserManagement = () => {
       toast.error('Error revoking access');
     } else {
       toast.success('Access revoked');
+      logAudit({ action: 'USER_REVOKED', target_type: 'user', target_identifier: userId, details: { user_email: users.find(u => u.id === userId)?.email } });
       fetchUsers();
     }
   };
@@ -128,6 +132,7 @@ const UserManagement = () => {
       toast.error('Error changing permissions');
     } else {
       toast.success(currentStatus ? 'Admin permission removed' : 'User promoted to admin');
+      logAudit({ action: 'USER_ADMIN_TOGGLED', target_type: 'user', target_identifier: userId, details: { new_admin_status: !currentStatus, user_email: users.find(u => u.id === userId)?.email } });
       fetchUsers();
     }
   };

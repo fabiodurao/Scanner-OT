@@ -38,9 +38,9 @@ const PendingApproval = () => {
             Sign Out
           </Button>
           <div className="pt-4 border-t">
-            <img 
-              src="/logo-standard.png" 
-              alt="Cyber Energia" 
+            <img
+              src="/logo-standard.png"
+              alt="Centrii"
               className="h-8 w-auto object-contain mx-auto opacity-50"
             />
           </div>

@@ -31,6 +31,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
+import { logAudit } from '@/utils/auditLog';
 
 // FA_PATHS kept for backward compat with SitesMap (map marker SVGs)
 // Using simple circle pin for all types now
@@ -199,11 +200,13 @@ const SitesManagement = () => {
       const { error } = await supabase.from('sites').update(siteData).eq('id', editingSite.id);
       if (error) { toast.error(error.code === '23505' ? 'This UUID is already in use by another site' : 'Error updating site: ' + error.message); setSaving(false); return; }
       toast.success('Site updated successfully');
+      logAudit({ action: 'SITE_UPDATED', target_type: 'site', target_identifier: editingSite.unique_id || editingSite.id, details: { name: siteData.name, site_type: siteData.site_type } });
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from('sites').insert({ ...siteData, created_by: user?.id });
       if (error) { toast.error(error.code === '23505' ? 'This UUID is already in use' : 'Error creating site: ' + error.message); setSaving(false); return; }
       toast.success('Site created successfully');
+      logAudit({ action: 'SITE_CREATED', target_type: 'site', target_identifier: siteData.unique_id, details: { name: siteData.name, site_type: siteData.site_type } });
     }
     setSaving(false); setDialogOpen(false); setIsUniqueIdLocked(false);
     fetchSites(); refreshAll();
@@ -214,6 +217,7 @@ const SitesManagement = () => {
     const { error } = await supabase.from('sites').delete().eq('id', siteId);
     if (error) { toast.error('Error deleting site: ' + error.message); setDeleting(null); return; }
     toast.success('Site deleted successfully');
+    logAudit({ action: 'SITE_DELETED', target_type: 'site', target_identifier: siteId, details: { site_name: sites.find(s => s.id === siteId)?.name } });
     await fetchSites(); setDeleting(null);
   };
 

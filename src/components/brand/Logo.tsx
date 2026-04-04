@@ -13,9 +13,9 @@ export const Logo = ({ variant = 'standard', className, showSubtitle = true }: L
 
   return (
     <div className={cn('flex flex-col items-center', className)}>
-      <img 
-        src={logoSrc} 
-        alt="Cyber Energia" 
+      <img
+        src={logoSrc}
+        alt="Centrii"
         className="h-10 w-auto object-contain"
       />
       {showSubtitle && (

@@ -2,17 +2,12 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { MessageSquare, RotateCcw, ChevronDown, Eye } from 'lucide-react';
-import { DEFAULT_CATEGORIZE_PROMPT } from '@/hooks/useUserSettings';
+import { MessageSquare, RotateCcw, ChevronDown, Eye, Bot, Sparkles } from 'lucide-react';
+import { PROMPT_FUNCTIONS, AIPrompts } from '@/hooks/useUserSettings';
 import { REGISTER_CATEGORIES } from '@/types/catalog';
-
-const AVAILABLE_VARIABLES = [
-  { name: '{{categories_json}}', description: 'JSON array of available categories' },
-  { name: '{{registers_json}}', description: 'JSON array of registers to classify' },
-];
 
 const EXAMPLE_REGISTERS = [
   { address: 40001, name: 'V_L1_N', label: 'Voltage L1-N', unit: 'V', data_type: 'float32be' },
@@ -21,29 +16,28 @@ const EXAMPLE_REGISTERS = [
 ];
 
 interface AIPromptsSettingsProps {
-  prompt: string;
-  onPromptChange: (value: string) => void;
+  prompts: AIPrompts;
+  onPromptChange: (key: keyof AIPrompts, value: string) => void;
 }
 
-export const AIPromptsSettings = ({ prompt, onPromptChange }: AIPromptsSettingsProps) => {
-  const [previewOpen, setPreviewOpen] = useState(false);
+export const AIPromptsSettings = ({ prompts, onPromptChange }: AIPromptsSettingsProps) => {
+  const [previewOpen, setPreviewOpen] = useState<Record<string, boolean>>({});
 
-  const handleReset = () => {
-    onPromptChange(DEFAULT_CATEGORIZE_PROMPT);
+  const togglePreview = (key: string) => {
+    setPreviewOpen(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const isDefault = prompt === DEFAULT_CATEGORIZE_PROMPT;
-
-  // Build preview
-  const categoriesJson = JSON.stringify(
-    REGISTER_CATEGORIES.map(c => ({ value: c.value, label: c.label })),
-    null,
-    2
-  );
-  const registersJson = JSON.stringify(EXAMPLE_REGISTERS, null, 2);
-  const previewText = prompt
-    .replace('{{categories_json}}', categoriesJson)
-    .replace('{{registers_json}}', registersJson);
+  const buildPreview = (prompt: string) => {
+    const categoriesJson = JSON.stringify(
+      REGISTER_CATEGORIES.map(c => ({ value: c.value, label: c.label })),
+      null,
+      2
+    );
+    const registersJson = JSON.stringify(EXAMPLE_REGISTERS, null, 2);
+    return prompt
+      .replace('{{categories_json}}', categoriesJson)
+      .replace('{{registers_json}}', registersJson);
+  };
 
   return (
     <Card>
@@ -53,71 +47,111 @@ export const AIPromptsSettings = ({ prompt, onPromptChange }: AIPromptsSettingsP
           AI Prompts
         </CardTitle>
         <CardDescription>
-          Customize the prompts used for AI-powered features. Use variables to inject dynamic data.
+          Customize the prompts used for AI-powered features across the system. Each function has its own editable prompt template.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Register Categorization Prompt</Label>
-            <div className="flex items-center gap-2">
-              {!isDefault && (
-                <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
-                  Modified
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                disabled={isDefault}
-                className="h-7 text-xs"
-              >
-                <RotateCcw className="h-3 w-3 mr-1" />
-                Reset to Default
-              </Button>
-            </div>
-          </div>
-          <Textarea
-            value={prompt}
-            onChange={e => onPromptChange(e.target.value)}
-            className="font-mono text-xs min-h-[200px] resize-y"
-            placeholder="Enter your categorization prompt..."
-          />
-        </div>
+      <CardContent>
+        <Accordion type="single" collapsible className="w-full">
+          {PROMPT_FUNCTIONS.map((fn) => {
+            const currentPrompt = prompts[fn.key] || fn.defaultPrompt;
+            const isDefault = currentPrompt === fn.defaultPrompt;
+            const isPreviewOpen = previewOpen[fn.key] || false;
 
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Available Variables</Label>
-          <div className="flex flex-wrap gap-2">
-            {AVAILABLE_VARIABLES.map(v => (
-              <div key={v.name} className="flex items-center gap-1.5">
-                <Badge variant="secondary" className="font-mono text-[10px] cursor-help" title={v.description}>
-                  {v.name}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">{v.description}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+            return (
+              <AccordionItem key={fn.key} value={fn.key} className="border rounded-lg mb-2 last:mb-0">
+                <AccordionTrigger className="px-4 hover:no-underline">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-1.5 rounded-lg bg-violet-100 flex-shrink-0">
+                      <Bot className="h-4 w-4 text-violet-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{fn.label}</span>
+                        {!isDefault && (
+                          <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50 px-1.5 py-0 h-4">
+                            Modified
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{fn.description}</p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-4">
+                    {/* Description */}
+                    <p className="text-sm text-muted-foreground">{fn.description}</p>
 
-        <Collapsible open={previewOpen} onOpenChange={setPreviewOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 text-xs w-full justify-between">
-              <span className="flex items-center gap-1">
-                <Eye className="h-3 w-3" />
-                Preview with example data
-              </span>
-              <ChevronDown className={`h-3 w-3 transition-transform ${previewOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2 p-3 bg-slate-50 rounded-md border max-h-[300px] overflow-auto">
-              <pre className="text-[10px] font-mono whitespace-pre-wrap text-slate-700">
-                {previewText}
-              </pre>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+                    {/* Prompt editor */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Prompt Template</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onPromptChange(fn.key, fn.defaultPrompt)}
+                          disabled={isDefault}
+                          className="h-7 text-xs"
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Reset to Default
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={currentPrompt}
+                        onChange={e => onPromptChange(fn.key, e.target.value)}
+                        className="font-mono text-xs min-h-[180px] resize-y"
+                        placeholder="Enter your prompt template..."
+                      />
+                    </div>
+
+                    {/* Variables */}
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-muted-foreground">Available Variables</span>
+                      <div className="flex flex-wrap gap-2">
+                        {fn.variables.map(v => (
+                          <div key={v.name} className="flex items-center gap-1.5">
+                            <Badge variant="secondary" className="font-mono text-[10px] cursor-help" title={v.description}>
+                              {v.name}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">{v.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    <Collapsible open={isPreviewOpen} onOpenChange={() => togglePreview(fn.key)}>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs w-full justify-between">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            Preview with example data
+                          </span>
+                          <ChevronDown className={`h-3 w-3 transition-transform ${isPreviewOpen ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="mt-2 p-3 bg-slate-50 rounded-md border max-h-[300px] overflow-auto">
+                          <pre className="text-[10px] font-mono whitespace-pre-wrap text-slate-700">
+                            {buildPreview(currentPrompt)}
+                          </pre>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+
+        {PROMPT_FUNCTIONS.length === 1 && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5" />
+            More AI prompt functions will be added as new features are developed.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

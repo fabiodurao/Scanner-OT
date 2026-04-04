@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { logAudit } from "@/utils/auditLog";
 
 const SUPABASE_PROJECT_ID = "jgclhfwigmxmqyhqngcm";
 
@@ -110,6 +111,7 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
         toast.success(
           `Historical analysis started! Processing ${variablesCount} variables...`
         );
+        logAudit({ action: 'ANALYSIS_TRIGGERED', target_type: 'analysis_job', target_identifier: siteId, details: { variables_count: variablesCount } });
         
         setTimeout(() => {
           toast.info("You'll be notified when analysis completes", {

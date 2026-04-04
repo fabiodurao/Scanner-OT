@@ -214,7 +214,7 @@ const Index = () => {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">CyberEnergia OT Scanner Overview</p>
+            <p className="text-muted-foreground mt-1">Centrii OT Scanner Overview</p>
           </div>
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />Refresh
