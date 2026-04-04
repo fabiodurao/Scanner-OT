@@ -13,41 +13,124 @@ Available categories:
 
 ## Classification Guidelines
 
-1. **instantaneous_electrical** — Real-time electrical measurements: voltage (V), current (A), active/reactive/apparent power (W, VAR, VA), frequency (Hz), power factor.
-2. **demand** — Demand values: maximum demand, average demand, demand intervals, peak demand registers.
-3. **energy_accumulators** — Accumulated energy counters: kWh, kVARh, kVAh (import, export, total, partial, per phase).
-4. **power_quality** — Harmonics (THD), voltage/current distortion, unbalance, crest factor, K-factor.
-5. **operational_state** — Operating status: on/off, run/stop, mode (auto/manual), relay status, switch position.
-6. **control_commands** — Writable registers for control: setpoints, reset commands, relay control, configuration writes.
-7. **internal_sensors** — Physical sensors inside equipment: temperature (°C), humidity (%), pressure, vibration.
-8. **alarms_faults** — Alarm flags, fault codes, error counters, protection trip status, warning registers.
-9. **grid** — Grid-related: grid voltage, grid frequency, anti-islanding, grid connection status, import/export.
-10. **generation** — Generation-specific: DC voltage/current (PV), string power, irradiance, wind speed, rotor RPM.
-11. **inverter_conversion** — Inverter internals: DC bus voltage, IGBT temperature, modulation index, efficiency, AC output.
-12. **statistics_metrics** — Statistical/calculated: min/max/average values, running hours, counters, timestamps.
-13. **identification_metadata** — Device info: serial number, firmware version, model ID, communication address, baud rate.
-14. **communication** — Communication-specific: Modbus address, baud rate, parity, protocol version, timeout settings.
-15. **diagnostics** — Diagnostic registers: self-test results, memory status, watchdog, CRC errors, communication errors.
+Use ALL available information to classify:
+- register name
+- label/description
+- unit
+- data type
+- address (sometimes indicative)
+- context (energy, inverter, meter, PLC, etc.)
 
 ---
 
-## Rules
+## Category Definitions (IMPORTANT)
 
-- Analyze the register **name**, **label**, **unit**, **data_type**, and **address range** to determine the best category.
-- If a register could fit multiple categories, choose the **most specific** one.
-- Energy registers (kWh, kVARh) → always **energy_accumulators**, never instantaneous_electrical.
-- Temperature inside equipment → **internal_sensors**; ambient temperature → **internal_sensors**.
-- Status/state registers → **operational_state**; alarm/fault registers → **alarms_faults**.
-- DC-side measurements (PV strings, DC bus) → **generation** or **inverter_conversion** depending on context.
+Use these definitions as the primary reference:
+
+1. Instantaneous Electrical
+Real-time electrical measurements:
+Voltage (V), Current (A), Power (kW/kVA/kVAr), Frequency (Hz), Power Factor
+
+2. Demand
+Interval-based or peak measurements:
+Demand, Peak Demand, Predicted Demand, Sliding/Block demand
+
+3. Energy (Accumulators)
+Cumulative energy values:
+kWh, kVArh, import/export, totalized energy
+
+4. Power Quality
+Electrical quality metrics:
+THD, harmonics, flicker, phase imbalance, voltage dips/swells
+
+5. Operational Status
+Equipment state:
+On/Off, Run/Stop, mode (auto/manual), breaker status
+
+6. Control / Commands
+Writable registers used to control equipment:
+Start/Stop commands, setpoints, resets, mode selection, limits
+
+7. Internal Sensors
+Device health and internal measurements:
+Temperature, fan speed, internal sensors, cooling, angles, vibration
+
+8. Alarms and Faults
+Error and alert information:
+Fault codes, active alarms, warnings, trip events
+
+9. Grid / Network
+Interaction with the electrical grid:
+Grid voltage, grid frequency, synchronization, import/export state, islanding
+
+10. Generation
+Power generation metrics:
+Generated power, production, efficiency, irradiance
+
+11. Conversion / Inverter
+DC/AC conversion and inverter-specific data:
+DC voltage/current, AC output, MPPT, string values
+
+12. Statistics / Derived
+Calculated or aggregated values:
+Average, min/max, derived indicators
+
+13. Identification / Metadata
+Device information:
+Model, firmware, serial number, version
+
+14. Communication
+Communication health:
+Timeouts, communication status, error counters
+
+15. Advanced Diagnostics
+Low-level or debug information:
+Internal flags, debug registers, intermediate states
 
 ---
+
+## Decision Rules (VERY IMPORTANT)
+
+1. ALWAYS choose the MOST specific category possible (avoid generic ones like "Statistics" unless necessary)
+
+2. Priority order when ambiguous:
+- If it's cumulative → Energy
+- If it's real-time electrical → Instantaneous Electrical
+- If it's time-window based → Demand
+- If it's writable → Control / Commands
+- If it's alarm/error → Alarms and Faults
+- If it's device health → Internal Sensors
+
+3. Units are STRONG indicators:
+- V, A, Hz → Instantaneous Electrical
+- kWh → Energy
+- % THD → Power Quality
+- °C → Internal Sensors
+
+4. Keywords help:
+- "total", "accumulated" → Energy
+- "peak", "max demand" → Demand
+- "status", "mode" → Operational Status
+- "alarm", "fault", "error" → Alarms
+- "setpoint", "command" → Control
+
+5. If still uncertain:
+- Choose the closest functional meaning
+- NEVER return null or undefined
+
+---
+
+## Output Format (STRICT)
 
 Respond ONLY with a JSON array where each element has:
-- "address": the register address (number)
-- "category": the category value (string, must be one of the available categories)
-- "confidence": your confidence level (number, 0.0 to 1.0)
 
-Registers to classify:
+- "address": number
+- "category": string (must be exactly one of the available categories)
+- "confidence": number (0.0 to 1.0)
+
+---
+
+## Registers to classify:
 {{registers_json}}`;
 
 export interface AIPrompts {
