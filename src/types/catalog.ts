@@ -1,3 +1,28 @@
+export interface Manufacturer {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface EquipmentModel {
+  id: string;
+  manufacturer_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  created_by: string | null;
+  manufacturer?: Manufacturer;
+}
+
+export interface SupportedProtocol {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
 export interface CatalogRegister {
   address: number;
   name: string;
@@ -13,6 +38,7 @@ export interface CatalogProtocol {
   id: string;
   catalog_id: string;
   protocol: string;
+  protocol_id: string | null;
   registers: CatalogRegister[];
   register_count: number;
   created_at: string;
@@ -23,6 +49,8 @@ export interface EquipmentCatalog {
   id: string;
   manufacturer: string;
   model: string;
+  manufacturer_id: string | null;
+  model_id: string | null;
   description: string | null;
   created_by: string | null;
   created_at: string;
