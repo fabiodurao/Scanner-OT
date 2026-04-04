@@ -2,13 +2,45 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-export const DEFAULT_CATEGORIZE_PROMPT = `You are an expert in OT (Operational Technology) and energy systems.
-Given a list of Modbus/protocol registers from industrial equipment, classify each register into exactly one category.
+export const DEFAULT_CATEGORIZE_PROMPT = `You are an expert in OT (Operational Technology), industrial automation, and electrical energy systems.
+
+Your task is to classify each Modbus (or industrial protocol) register into exactly ONE category, based on its meaning and usage in energy systems (generation, distribution, or industrial environments).
 
 Available categories:
 {{categories_json}}
 
-For each register, analyze the name, label, unit, data type, and address to determine the most appropriate category.
+---
+
+## Classification Guidelines
+
+1. **instantaneous_electrical** — Real-time electrical measurements: voltage (V), current (A), active/reactive/apparent power (W, VAR, VA), frequency (Hz), power factor.
+2. **demand** — Demand values: maximum demand, average demand, demand intervals, peak demand registers.
+3. **energy_accumulators** — Accumulated energy counters: kWh, kVARh, kVAh (import, export, total, partial, per phase).
+4. **power_quality** — Harmonics (THD), voltage/current distortion, unbalance, crest factor, K-factor.
+5. **operational_state** — Operating status: on/off, run/stop, mode (auto/manual), relay status, switch position.
+6. **control_commands** — Writable registers for control: setpoints, reset commands, relay control, configuration writes.
+7. **internal_sensors** — Physical sensors inside equipment: temperature (°C), humidity (%), pressure, vibration.
+8. **alarms_faults** — Alarm flags, fault codes, error counters, protection trip status, warning registers.
+9. **grid** — Grid-related: grid voltage, grid frequency, anti-islanding, grid connection status, import/export.
+10. **generation** — Generation-specific: DC voltage/current (PV), string power, irradiance, wind speed, rotor RPM.
+11. **inverter_conversion** — Inverter internals: DC bus voltage, IGBT temperature, modulation index, efficiency, AC output.
+12. **statistics_metrics** — Statistical/calculated: min/max/average values, running hours, counters, timestamps.
+13. **identification_metadata** — Device info: serial number, firmware version, model ID, communication address, baud rate.
+14. **communication** — Communication-specific: Modbus address, baud rate, parity, protocol version, timeout settings.
+15. **diagnostics** — Diagnostic registers: self-test results, memory status, watchdog, CRC errors, communication errors.
+
+---
+
+## Rules
+
+- Analyze the register **name**, **label**, **unit**, **data_type**, and **address range** to determine the best category.
+- If a register could fit multiple categories, choose the **most specific** one.
+- Energy registers (kWh, kVARh) → always **energy_accumulators**, never instantaneous_electrical.
+- Temperature inside equipment → **internal_sensors**; ambient temperature → **internal_sensors**.
+- Status/state registers → **operational_state**; alarm/fault registers → **alarms_faults**.
+- DC-side measurements (PV strings, DC bus) → **generation** or **inverter_conversion** depending on context.
+
+---
 
 Respond ONLY with a JSON array where each element has:
 - "address": the register address (number)
