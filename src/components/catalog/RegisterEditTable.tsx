@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { CatalogRegister } from '@/types/catalog';
+import { CatalogRegister, REGISTER_CATEGORIES } from '@/types/catalog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -15,7 +16,7 @@ interface RegisterEditTableProps {
 }
 
 const emptyRegister: CatalogRegister = {
-  address: 0, name: '', label: '', data_type: '', scale: 1, unit: '', function_code: 3,
+  address: 0, name: '', label: '', data_type: '', scale: 1, unit: '', function_code: 3, category: '',
 };
 
 export const RegisterEditTable = ({ registers, onSave, saving = false }: RegisterEditTableProps) => {
@@ -34,7 +35,8 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
   const addRow = () => {
     const lastAddr = rows.length > 0 ? rows[rows.length - 1].address + 1 : 40001;
     const lastFc = rows.length > 0 ? rows[rows.length - 1].function_code : 3;
-    setRows(prev => [...prev, { ...emptyRegister, address: lastAddr, function_code: lastFc }]);
+    const lastCat = rows.length > 0 ? rows[rows.length - 1].category || '' : '';
+    setRows(prev => [...prev, { ...emptyRegister, address: lastAddr, function_code: lastFc, category: lastCat }]);
     setHasChanges(true);
   };
 
@@ -83,9 +85,10 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
           <TableHeader className="sticky top-0 bg-slate-50 z-10">
             <TableRow>
               <TableHead className="w-20">Address</TableHead>
-              <TableHead className="w-16">FC</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Label</TableHead>
+              <TableHead className="w-14">FC</TableHead>
+              <TableHead className="min-w-[120px]">Name</TableHead>
+              <TableHead className="min-w-[120px]">Label</TableHead>
+              <TableHead className="w-44">Category</TableHead>
               <TableHead className="w-24">Data Type</TableHead>
               <TableHead className="w-16">Scale</TableHead>
               <TableHead className="w-16">Unit</TableHead>
@@ -95,7 +98,7 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground text-sm">
                   No registers. Click "Add Row" or import via JSON.
                 </TableCell>
               </TableRow>
@@ -112,6 +115,21 @@ export const RegisterEditTable = ({ registers, onSave, saving = false }: Registe
                 </TableCell>
                 <TableCell className="p-1">
                   <Input value={reg.label} onChange={e => updateRow(i, 'label', e.target.value)} className="h-7 text-xs w-full" placeholder="Human label" />
+                </TableCell>
+                <TableCell className="p-1">
+                  <Select value={reg.category || '__none__'} onValueChange={v => updateRow(i, 'category', v === '__none__' ? '' : v)}>
+                    <SelectTrigger className="h-7 text-[10px] w-full">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__"><span className="text-muted-foreground">None</span></SelectItem>
+                      {REGISTER_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          <span className="text-xs">{cat.emoji} {cat.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell className="p-1">
                   <Input value={reg.data_type} onChange={e => updateRow(i, 'data_type', e.target.value)} className="h-7 text-xs font-mono w-full" placeholder="float32be" />

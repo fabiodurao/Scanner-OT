@@ -36,6 +36,12 @@ export const useCatalogEntities = () => {
     return data;
   }, []);
 
+  const updateManufacturer = useCallback(async (id: string, name: string): Promise<void> => {
+    const { error } = await supabase.from('manufacturers').update({ name: name.trim() }).eq('id', id);
+    if (error) throw error;
+    setManufacturers(prev => prev.map(m => m.id === id ? { ...m, name: name.trim() } : m).sort((a, b) => a.name.localeCompare(b.name)));
+  }, []);
+
   const deleteManufacturer = useCallback(async (id: string) => {
     const { error } = await supabase.from('manufacturers').delete().eq('id', id);
     if (error) throw error;
@@ -48,9 +54,7 @@ export const useCatalogEntities = () => {
     const unique = [...new Set(names.map(n => n.trim()).filter(Boolean))];
     let count = 0;
     for (const name of unique) {
-      const { error } = await supabase
-        .from('manufacturers')
-        .insert({ name, created_by: user?.id });
+      const { error } = await supabase.from('manufacturers').insert({ name, created_by: user?.id });
       if (!error) count++;
     }
     await fetchAll();
@@ -70,6 +74,12 @@ export const useCatalogEntities = () => {
     return data;
   }, []);
 
+  const updateModel = useCallback(async (id: string, name: string, description?: string): Promise<void> => {
+    const { error } = await supabase.from('equipment_models').update({ name: name.trim(), description: description?.trim() || null }).eq('id', id);
+    if (error) throw error;
+    setModels(prev => prev.map(m => m.id === id ? { ...m, name: name.trim(), description: description?.trim() || null } : m).sort((a, b) => a.name.localeCompare(b.name)));
+  }, []);
+
   const deleteModel = useCallback(async (id: string) => {
     const { error } = await supabase.from('equipment_models').delete().eq('id', id);
     if (error) throw error;
@@ -80,20 +90,13 @@ export const useCatalogEntities = () => {
     const { data: { user } } = await supabase.auth.getUser();
     let count = 0;
     for (const item of items) {
-      // Find or create manufacturer
       let mfg = manufacturers.find(m => m.name.toLowerCase() === item.manufacturer.trim().toLowerCase());
       if (!mfg) {
-        const { data, error } = await supabase
-          .from('manufacturers')
-          .insert({ name: item.manufacturer.trim(), created_by: user?.id })
-          .select()
-          .single();
+        const { data, error } = await supabase.from('manufacturers').insert({ name: item.manufacturer.trim(), created_by: user?.id }).select().single();
         if (error) continue;
         mfg = data;
       }
-      const { error } = await supabase
-        .from('equipment_models')
-        .insert({ manufacturer_id: mfg.id, name: item.model.trim(), description: item.description?.trim() || null, created_by: user?.id });
+      const { error } = await supabase.from('equipment_models').insert({ manufacturer_id: mfg.id, name: item.model.trim(), description: item.description?.trim() || null, created_by: user?.id });
       if (!error) count++;
     }
     await fetchAll();
@@ -113,6 +116,12 @@ export const useCatalogEntities = () => {
     return data;
   }, []);
 
+  const updateProtocol = useCallback(async (id: string, name: string, description?: string): Promise<void> => {
+    const { error } = await supabase.from('supported_protocols').update({ name: name.trim(), description: description?.trim() || null }).eq('id', id);
+    if (error) throw error;
+    setProtocols(prev => prev.map(p => p.id === id ? { ...p, name: name.trim(), description: description?.trim() || null } : p).sort((a, b) => a.name.localeCompare(b.name)));
+  }, []);
+
   const deleteProtocol = useCallback(async (id: string) => {
     const { error } = await supabase.from('supported_protocols').delete().eq('id', id);
     if (error) throw error;
@@ -123,9 +132,7 @@ export const useCatalogEntities = () => {
     const { data: { user } } = await supabase.auth.getUser();
     let count = 0;
     for (const item of items) {
-      const { error } = await supabase
-        .from('supported_protocols')
-        .insert({ name: item.name.trim(), description: item.description?.trim() || null, created_by: user?.id });
+      const { error } = await supabase.from('supported_protocols').insert({ name: item.name.trim(), description: item.description?.trim() || null, created_by: user?.id });
       if (!error) count++;
     }
     await fetchAll();
@@ -139,9 +146,9 @@ export const useCatalogEntities = () => {
   return {
     manufacturers, models, protocols, loading,
     fetchAll,
-    createManufacturer, deleteManufacturer, importManufacturers,
-    createModel, deleteModel, importModels,
-    createProtocol, deleteProtocol, importProtocols,
+    createManufacturer, updateManufacturer, deleteManufacturer, importManufacturers,
+    createModel, updateModel, deleteModel, importModels,
+    createProtocol, updateProtocol as updateSupportedProtocol, deleteProtocol, importProtocols,
     getModelsForManufacturer,
   };
 };

@@ -23,6 +23,26 @@ export interface SupportedProtocol {
   created_by: string | null;
 }
 
+export const REGISTER_CATEGORIES = [
+  { value: 'instantaneous_electrical', label: 'Instantaneous Electrical', emoji: '⚡' },
+  { value: 'demand', label: 'Demand', emoji: '📈' },
+  { value: 'energy_accumulators', label: 'Energy (Accumulators)', emoji: '🔋' },
+  { value: 'power_quality', label: 'Power Quality', emoji: '🌐' },
+  { value: 'operational_state', label: 'Operational State', emoji: '🔄' },
+  { value: 'control_commands', label: 'Control / Commands', emoji: '⚙️' },
+  { value: 'internal_sensors', label: 'Internal Sensors', emoji: '🌡️' },
+  { value: 'alarms_faults', label: 'Alarms & Faults', emoji: '⚠️' },
+  { value: 'grid', label: 'Grid', emoji: '🔌' },
+  { value: 'generation', label: 'Generation', emoji: '☀️' },
+  { value: 'inverter_conversion', label: 'Inverter / Conversion', emoji: '🔄' },
+  { value: 'statistics_metrics', label: 'Statistics / Metrics', emoji: '🧮' },
+  { value: 'identification_metadata', label: 'Identification / Metadata', emoji: '🧾' },
+  { value: 'communication', label: 'Communication', emoji: '🔐' },
+  { value: 'diagnostics', label: 'Diagnostics', emoji: '🧪' },
+] as const;
+
+export type RegisterCategory = typeof REGISTER_CATEGORIES[number]['value'];
+
 export interface CatalogRegister {
   address: number;
   name: string;
@@ -31,6 +51,7 @@ export interface CatalogRegister {
   scale: number;
   unit: string;
   function_code: number;
+  category?: string;
   description?: string;
 }
 

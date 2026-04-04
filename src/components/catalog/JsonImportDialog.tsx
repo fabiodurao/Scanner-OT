@@ -80,7 +80,7 @@ export const JsonImportDialog = ({
         errors.push(`Item [${index}]: "function_code" must be a number.`);
       }
 
-      if (errors.length > 5) return; // Stop after 5 errors
+      if (errors.length > 5) return;
 
       registers.push({
         address: obj.address as number,
@@ -90,6 +90,7 @@ export const JsonImportDialog = ({
         scale: typeof obj.scale === 'number' ? obj.scale : 1,
         unit: (obj.unit as string || '').trim(),
         function_code: obj.function_code as number,
+        category: (obj.category as string || '').trim() || undefined,
         description: (obj.description as string || '').trim(),
       });
     });
@@ -128,7 +129,7 @@ export const JsonImportDialog = ({
           <JsonFormatHelp />
 
           <Textarea
-            placeholder='[\n  {\n    "address": 40001,\n    "name": "V_L1_N",\n    "label": "Voltage L1-N",\n    "data_type": "float32be",\n    "scale": 1,\n    "unit": "V",\n    "function_code": 3\n  }\n]'
+            placeholder='[\n  {\n    "address": 40001,\n    "name": "V_L1_N",\n    "label": "Voltage L1-N",\n    "data_type": "float32be",\n    "scale": 1,\n    "unit": "V",\n    "function_code": 3,\n    "category": "instantaneous_electrical"\n  }\n]'
             value={jsonText}
             onChange={(e) => {
               setJsonText(e.target.value);
