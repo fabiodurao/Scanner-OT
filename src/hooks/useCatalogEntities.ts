@@ -44,7 +44,12 @@ export const useCatalogEntities = () => {
 
   const deleteManufacturer = useCallback(async (id: string) => {
     const { error } = await supabase.from('manufacturers').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('This manufacturer is still referenced by other records. Remove those references first.');
+      }
+      throw error;
+    }
     setManufacturers(prev => prev.filter(m => m.id !== id));
     setModels(prev => prev.filter(m => m.manufacturer_id !== id));
   }, []);
@@ -82,7 +87,12 @@ export const useCatalogEntities = () => {
 
   const deleteModel = useCallback(async (id: string) => {
     const { error } = await supabase.from('equipment_models').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('This model is still referenced by other records. Remove those references first.');
+      }
+      throw error;
+    }
     setModels(prev => prev.filter(m => m.id !== id));
   }, []);
 
@@ -124,7 +134,12 @@ export const useCatalogEntities = () => {
 
   const deleteProtocol = useCallback(async (id: string) => {
     const { error } = await supabase.from('supported_protocols').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('This protocol is still referenced by other records. Remove those references first.');
+      }
+      throw error;
+    }
     setProtocols(prev => prev.filter(p => p.id !== id));
   }, []);
 

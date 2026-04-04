@@ -84,7 +84,7 @@ export const EntityManagement = () => {
   };
   const handleDeleteMfg = async (id: string) => {
     setDeletingId(id);
-    try { await deleteManufacturer(id); toast.success('Deleted'); } catch { toast.error('Error'); }
+    try { await deleteManufacturer(id); toast.success('Deleted'); } catch (e: any) { toast.error(e?.message || 'Error deleting manufacturer'); }
     setDeletingId(null);
   };
   const handleSaveMfgEdit = async () => {
@@ -116,7 +116,7 @@ export const EntityManagement = () => {
   };
   const handleDeleteModel = async (id: string) => {
     setDeletingId(id);
-    try { await deleteModel(id); toast.success('Deleted'); } catch { toast.error('Error'); }
+    try { await deleteModel(id); toast.success('Deleted'); } catch (e: any) { toast.error(e?.message || 'Error deleting model'); }
     setDeletingId(null);
   };
   const handleSaveModelEdit = async () => {
@@ -149,7 +149,7 @@ export const EntityManagement = () => {
   };
   const handleDeleteProto = async (id: string) => {
     setDeletingId(id);
-    try { await deleteProtocol(id); toast.success('Deleted'); } catch { toast.error('Error'); }
+    try { await deleteProtocol(id); toast.success('Deleted'); } catch (e: any) { toast.error(e?.message || 'Error deleting protocol'); }
     setDeletingId(null);
   };
   const handleSaveProtoEdit = async () => {
