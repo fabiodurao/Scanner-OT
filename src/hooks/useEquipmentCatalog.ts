@@ -158,10 +158,7 @@ export const useEquipmentCatalog = () => {
       .eq('id', catalogProtocolId)
       .single();
 
-    if (protoError || !protocol) {
-      console.error('[linkCatalogToEquipment] Protocol not found', protoError);
-      throw new Error('Protocol not found');
-    }
+    if (protoError || !protocol) throw new Error('Protocol not found');
 
     const catalog = (protocol as any).equipment_catalogs;
     if (!catalog) throw new Error('Catalog not found for this protocol');
@@ -175,57 +172,32 @@ export const useEquipmentCatalog = () => {
       .eq('id', equipmentId)
       .single();
 
-    if (eqError || !equipment) {
-      console.error('[linkCatalogToEquipment] Equipment not found', eqError);
-      throw new Error('Equipment not found');
-    }
+    if (eqError || !equipment) throw new Error('Equipment not found');
 
     const { data: { user } } = await supabase.auth.getUser();
 
     // Check if this exact link already exists
-    console.log('[linkCatalogToEquipment] Checking for existing link...');
-    const { data: existingLinks, error: existingError } = await supabase
+    const { data: existingLinks } = await supabase
       .from('equipment_catalog_links')
       .select('id')
       .eq('equipment_id', equipmentId)
       .eq('catalog_protocol_id', catalogProtocolId);
-
-    console.log('[linkCatalogToEquipment] Existing links check:', { existingLinks, existingError });
-
-    if (existingError) {
-      console.error('[linkCatalogToEquipment] Error checking existing links:', existingError);
-    }
 
     if (existingLinks && existingLinks.length > 0) {
       throw new Error('This catalog protocol is already linked to this equipment');
     }
 
     // Insert new link
-    console.log('[linkCatalogToEquipment] Inserting new link...');
-    const insertPayload = {
-      equipment_id: equipmentId,
-      catalog_id: protocol.catalog_id,
-      catalog_protocol_id: catalogProtocolId,
-      linked_by: user?.id,
-    };
-    console.log('[linkCatalogToEquipment] Insert payload:', insertPayload);
-
-    const { data: insertedLink, error: linkError } = await supabase
+    const { error: linkError } = await supabase
       .from('equipment_catalog_links')
-      .insert(insertPayload)
-      .select();
-
-    console.log('[linkCatalogToEquipment] Insert result:', { insertedLink, linkError });
-
-    if (linkError) {
-      console.error('[linkCatalogToEquipment] INSERT ERROR:', {
-        message: linkError.message,
-        code: linkError.code,
-        details: linkError.details,
-        hint: linkError.hint,
+      .insert({
+        equipment_id: equipmentId,
+        catalog_id: protocol.catalog_id,
+        catalog_protocol_id: catalogProtocolId,
+        linked_by: user?.id,
       });
-      throw new Error('Failed to create link: ' + linkError.message);
-    }
+
+    if (linkError) throw new Error('Failed to create link: ' + linkError.message);
 
     // Update equipment manufacturer/model
     await supabase
@@ -237,13 +209,62 @@ export const useEquipmentCatalog = () => {
       return { matched: 0, total: 0 };
     }
 
-    // Apply semantic data from catalog registers to discovered variables
-    let matchedCount = 0;
+    // The table has DUAL columns: lowercase (source_ip, address, function_code, site_identifier)
+    // AND PascalCase ("SourceIp", "Address", "FC", "SiteIdentifier").
+    // The scanner writes to PascalCase; a trigger syncs to lowercase but may not cover all rows.
+    // Strategy: fetch all variables for this equipment using BOTH column variants, then match in JS.
+    const { data: allVars, error: varsError } = await supabase
+      .from('discovered_variables')
+      .select('id, site_identifier, "SiteIdentifier", source_ip, "SourceIp", address, "Address", function_code, "FC"');
+
+    if (varsError) {
+      console.error('[linkCatalogToEquipment] Error fetching variables:', varsError);
+      return { matched: 0, total: registers.length };
+    }
+
+    // Filter in JS to handle both column variants
+    const equipmentVars = (allVars || []).filter(v => {
+      const vSite = v.site_identifier || (v as any).SiteIdentifier;
+      const vIp = v.source_ip || (v as any).SourceIp;
+      return vSite === siteIdentifier && vIp === equipment.ip_address;
+    });
+
+    console.log('[linkCatalogToEquipment] Found', equipmentVars.length, 'variables for equipment', equipment.ip_address);
+
+    if (equipmentVars.length === 0) {
+      console.warn('[linkCatalogToEquipment] No variables found. siteIdentifier:', siteIdentifier, 'ip:', equipment.ip_address);
+      return { matched: 0, total: registers.length };
+    }
+
+    // Build lookup map: "address:fc" -> variable id
+    const varMap = new Map<string, string>();
+    for (const v of equipmentVars) {
+      const addr = v.address ?? (v as any).Address;
+      const fc = v.function_code ?? (v as any).FC;
+      if (addr !== null && addr !== undefined && fc !== null && fc !== undefined) {
+        varMap.set(`${addr}:${fc}`, v.id);
+      }
+    }
+
+    console.log('[linkCatalogToEquipment] Variable map size:', varMap.size);
+    console.log('[linkCatalogToEquipment] Sample keys:', Array.from(varMap.keys()).slice(0, 5));
+    console.log('[linkCatalogToEquipment] Catalog registers sample:', registers.slice(0, 5).map(r => `${r.address}:${r.function_code}`));
+
+    // Match and update
     const nowIso = new Date().toISOString();
+    let matchedCount = 0;
 
     for (const register of registers) {
       if (register.address === undefined || register.address === null) continue;
       if (register.function_code === undefined || register.function_code === null) continue;
+
+      const key = `${register.address}:${register.function_code}`;
+      const varId = varMap.get(key);
+
+      if (!varId) {
+        console.log('[linkCatalogToEquipment] No match for register addr:', register.address, 'FC:', register.function_code);
+        continue;
+      }
 
       const { data: updated, error: updateError } = await supabase
         .from('discovered_variables')
@@ -258,15 +279,18 @@ export const useEquipmentCatalog = () => {
           confirmed_at: nowIso,
           updated_at: nowIso,
         })
-        .eq('site_identifier', siteIdentifier)
-        .eq('source_ip', equipment.ip_address)
-        .eq('address', register.address)
-        .eq('function_code', register.function_code)
+        .eq('id', varId)
         .select('id');
 
-      if (!updateError && updated && updated.length > 0) matchedCount += updated.length;
+      if (!updateError && updated && updated.length > 0) {
+        matchedCount++;
+        console.log('[linkCatalogToEquipment] ✓ Matched addr:', register.address, '→', register.label || register.name);
+      } else if (updateError) {
+        console.error('[linkCatalogToEquipment] Update error for addr:', register.address, updateError);
+      }
     }
 
+    console.log('[linkCatalogToEquipment] DONE. Matched:', matchedCount, '/', registers.length);
     return { matched: matchedCount, total: registers.length };
   }, []);
 
