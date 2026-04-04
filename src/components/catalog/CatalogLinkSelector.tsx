@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, Link2, Unlink, Loader2, CheckCircle, Search, X } from 'lucide-react';
+import { BookOpen, Link2, Unlink, Loader2, CheckCircle, Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +17,7 @@ interface CatalogLinkSelectorProps {
   equipmentIp: string;
   siteIdentifier: string;
   existingLink: EquipmentCatalogLink | null;
+  existingLinks?: EquipmentCatalogLink[];
   onLinkChanged: () => void;
 }
 
@@ -27,20 +28,21 @@ interface CatalogOption {
   model: string;
   protocol: string;
   registerCount: number;
-  searchText: string; // pre-computed lowercase search string
+  searchText: string;
 }
 
 export const CatalogLinkSelector = ({
-  equipmentId, equipmentIp, siteIdentifier, existingLink, onLinkChanged,
+  equipmentId, equipmentIp, siteIdentifier, existingLink, existingLinks, onLinkChanged,
 }: CatalogLinkSelectorProps) => {
-  const { fetchCatalogs, fetchCatalogDetail, linkCatalogToEquipment, unlinkCatalogFromEquipment } = useEquipmentCatalog();
+  const { fetchCatalogs, fetchCatalogDetail, linkCatalogToEquipment, unlinkSingleCatalogLink } = useEquipmentCatalog();
 
   const [options, setOptions] = useState<CatalogOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
-  const [unlinking, setUnlinking] = useState(false);
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<CatalogOption | null>(null);
+  const [showAddSearch, setShowAddSearch] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,6 +51,16 @@ export const CatalogLinkSelector = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use existingLinks array if provided, otherwise fall back to single existingLink
+  const allLinks = existingLinks && existingLinks.length > 0
+    ? existingLinks
+    : existingLink
+      ? [existingLink]
+      : [];
+
+  // Get IDs of already-linked catalog protocols to exclude from search
+  const linkedProtocolIds = new Set(allLinks.map(l => l.catalog_protocol_id));
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -82,22 +94,24 @@ export const CatalogLinkSelector = ({
     loadOptions();
   }, [fetchCatalogs, fetchCatalogDetail]);
 
-  // Filter options based on search query
+  // Filter options: exclude already linked + apply search
   const filteredOptions = useCallback(() => {
-    if (!searchQuery.trim()) return options;
+    let filtered = options.filter(o => !linkedProtocolIds.has(o.protocolId));
 
-    const terms = searchQuery.toLowerCase().split(/[\s\/]+/).filter(Boolean);
-    return options.filter(option =>
-      terms.every(term => option.searchText.includes(term))
-    );
-  }, [options, searchQuery])();
+    if (searchQuery.trim()) {
+      const terms = searchQuery.toLowerCase().split(/[\s\/]+/).filter(Boolean);
+      filtered = filtered.filter(option =>
+        terms.every(term => option.searchText.includes(term))
+      );
+    }
 
-  // Reset highlight when filtered options change
+    return filtered;
+  }, [options, searchQuery, linkedProtocolIds])();
+
   useEffect(() => {
     setHighlightedIndex(0);
   }, [searchQuery]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -108,7 +122,6 @@ export const CatalogLinkSelector = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (isOpen && listRef.current) {
       const highlighted = listRef.current.children[highlightedIndex] as HTMLElement;
@@ -146,6 +159,7 @@ export const CatalogLinkSelector = ({
       case 'Escape':
         setIsOpen(false);
         setSearchQuery('');
+        setShowAddSearch(false);
         inputRef.current?.blur();
         break;
     }
@@ -167,6 +181,7 @@ export const CatalogLinkSelector = ({
       const result = await linkCatalogToEquipment(equipmentId, pendingSelection.protocolId, siteIdentifier);
       toast.success(`Catalog linked! ${result.matched}/${result.total} registers matched.`);
       onLinkChanged();
+      setShowAddSearch(false);
     } catch (error) {
       toast.error('Error linking catalog: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -180,16 +195,16 @@ export const CatalogLinkSelector = ({
     setSearchQuery('');
   };
 
-  const handleUnlink = async () => {
-    setUnlinking(true);
+  const handleUnlinkSingle = async (linkId: string) => {
+    setUnlinkingId(linkId);
     try {
-      await unlinkCatalogFromEquipment(equipmentId);
+      await unlinkSingleCatalogLink(linkId);
       toast.success('Catalog unlinked. Applied semantics are preserved.');
       onLinkChanged();
     } catch (error) {
       toast.error('Error unlinking: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
-    setUnlinking(false);
+    setUnlinkingId(null);
   };
 
   const handleClearSearch = () => {
@@ -198,12 +213,23 @@ export const CatalogLinkSelector = ({
     inputRef.current?.focus();
   };
 
+  const handleShowAddSearch = () => {
+    setShowAddSearch(true);
+    setSearchQuery('');
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const handleCancelAdd = () => {
+    setShowAddSearch(false);
+    setSearchQuery('');
+    setIsOpen(false);
+  };
+
   // Highlight matching text segments
   const highlightMatch = (text: string) => {
     if (!searchQuery.trim()) return text;
     const terms = searchQuery.toLowerCase().split(/[\s\/]+/).filter(Boolean);
     let result = text;
-    // Simple highlight: wrap matched terms
     for (const term of terms) {
       const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
       result = result.replace(regex, '§$1§');
@@ -223,6 +249,10 @@ export const CatalogLinkSelector = ({
     );
   };
 
+  // Check if there are more catalogs available to link
+  const availableToLink = options.filter(o => !linkedProtocolIds.has(o.protocolId));
+  const canAddMore = availableToLink.length > 0;
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -232,135 +262,216 @@ export const CatalogLinkSelector = ({
     );
   }
 
-  if (existingLink) {
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Catalog Confirmed
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookOpen className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <div className="text-sm font-medium truncate">
-                {existingLink.catalog?.manufacturer} / {existingLink.catalog?.model}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {existingLink.protocol?.protocol} • {existingLink.protocol?.register_count} registers
-              </div>
-            </div>
-          </div>
+  // Render the search input (used both for initial and "add more")
+  const renderSearchInput = () => (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          ref={inputRef}
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Search manufacturer / model / protocol..."
+          className="h-8 text-xs pl-8 pr-8"
+          disabled={linking}
+        />
+        {searchQuery && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleUnlink}
-            disabled={unlinking}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0"
+            onClick={handleClearSearch}
           >
-            {unlinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
+            <X className="h-3 w-3" />
           </Button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div
+          ref={listRef}
+          className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-52 overflow-y-auto"
+        >
+          {filteredOptions.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {searchQuery ? 'No catalogs match your search' : 'No more catalogs available'}
+            </div>
+          ) : (
+            filteredOptions.map((option, index) => (
+              <button
+                key={`${option.catalogId}-${option.protocolId}`}
+                type="button"
+                className={cn(
+                  'w-full px-3 py-2 text-left flex items-center gap-2 text-xs transition-colors border-b last:border-b-0',
+                  index === highlightedIndex
+                    ? 'bg-blue-50 text-blue-900'
+                    : 'hover:bg-slate-50'
+                )}
+                onClick={() => handleSelectOption(option)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+              >
+                <BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="font-medium truncate">
+                    {highlightMatch(option.manufacturer)}
+                  </span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className="truncate">
+                    {highlightMatch(option.model)}
+                  </span>
+                  <span className="text-muted-foreground">/</span>
+                  <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-4 flex-shrink-0">
+                    {highlightMatch(option.protocol)}
+                  </Badge>
+                </div>
+                <span className="text-muted-foreground flex-shrink-0 ml-1">
+                  ({option.registerCount} regs)
+                </span>
+              </button>
+            ))
+          )}
         </div>
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 
-  if (options.length === 0) {
+  // No links yet — show search
+  if (allLinks.length === 0) {
     return (
-      <div className="text-xs text-muted-foreground flex items-center gap-1">
-        <BookOpen className="h-3 w-3" />
-        No catalogs available
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px] gap-1">
+            <BookOpen className="h-2.5 w-2.5" />
+            No Catalog
+          </Badge>
+        </div>
+
+        {options.length === 0 ? (
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            <BookOpen className="h-3 w-3" />
+            No catalogs available
+          </div>
+        ) : (
+          renderSearchInput()
+        )}
+
+        {linking && (
+          <div className="flex items-center gap-2 text-xs text-blue-600">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Applying catalog...
+          </div>
+        )}
+
+        {/* Confirm dialog */}
+        <AlertDialog open={confirmDialogOpen} onOpenChange={(open) => { if (!open) handleCancelConfirm(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apply Catalog?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    This will apply semantic labels, units, data types, and scales from the catalog to matching variables for equipment <span className="font-mono font-medium">{equipmentIp}</span>.
+                  </p>
+                  {pendingSelection && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <div className="font-medium text-sm text-blue-900">
+                            {pendingSelection.manufacturer} / {pendingSelection.model}
+                          </div>
+                          <div className="text-xs text-blue-700">
+                            {pendingSelection.protocol} • {pendingSelection.registerCount} registers
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm text-amber-700">
+                    Existing semantics on matched variables will be overwritten.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelConfirm}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmLink} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+                <Link2 className="h-4 w-4 mr-2" />Apply Catalog
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
 
+  // Has links — show them + optional add more
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-[10px] gap-1">
-          <BookOpen className="h-2.5 w-2.5" />
-          No Catalog
+        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+          <CheckCircle className="h-3 w-3" />
+          {allLinks.length === 1 ? 'Catalog Confirmed' : `${allLinks.length} Catalogs Confirmed`}
         </Badge>
       </div>
 
-      {/* Searchable selector */}
-      <div ref={containerRef} className="relative">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            ref={inputRef}
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search manufacturer / model / protocol..."
-            className="h-8 text-xs pl-8 pr-8"
-            disabled={linking}
-          />
-          {searchQuery && (
+      {/* List of linked catalogs */}
+      <div className="space-y-1.5">
+        {allLinks.map((link) => (
+          <div key={link.id} className="flex items-center justify-between p-2 bg-emerald-50 rounded-lg border border-emerald-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <BookOpen className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">
+                  {link.catalog?.manufacturer} / {link.catalog?.model}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {link.protocol?.protocol} • {link.protocol?.register_count} registers
+                </div>
+              </div>
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0"
-              onClick={handleClearSearch}
+              onClick={() => handleUnlinkSingle(link.id)}
+              disabled={unlinkingId === link.id}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
             >
-              <X className="h-3 w-3" />
+              {unlinkingId === link.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
             </Button>
-          )}
-        </div>
-
-        {/* Dropdown list */}
-        {isOpen && (
-          <div
-            ref={listRef}
-            className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-52 overflow-y-auto"
-          >
-            {filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                {searchQuery ? 'No catalogs match your search' : 'No catalogs available'}
-              </div>
-            ) : (
-              filteredOptions.map((option, index) => (
-                <button
-                  key={`${option.catalogId}-${option.protocolId}`}
-                  type="button"
-                  className={cn(
-                    'w-full px-3 py-2 text-left flex items-center gap-2 text-xs transition-colors border-b last:border-b-0',
-                    index === highlightedIndex
-                      ? 'bg-blue-50 text-blue-900'
-                      : 'hover:bg-slate-50'
-                  )}
-                  onClick={() => handleSelectOption(option)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  <BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className="font-medium truncate">
-                      {highlightMatch(option.manufacturer)}
-                    </span>
-                    <span className="text-muted-foreground">/</span>
-                    <span className="truncate">
-                      {highlightMatch(option.model)}
-                    </span>
-                    <span className="text-muted-foreground">/</span>
-                    <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-4 flex-shrink-0">
-                      {highlightMatch(option.protocol)}
-                    </Badge>
-                  </div>
-                  <span className="text-muted-foreground flex-shrink-0 ml-1">
-                    ({option.registerCount} regs)
-                  </span>
-                </button>
-              ))
-            )}
           </div>
-        )}
+        ))}
       </div>
+
+      {/* Add more catalog button / search */}
+      {canAddMore && !showAddSearch && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleShowAddSearch}
+          className="w-full h-7 text-xs text-[#2563EB] hover:text-[#1d4ed8] hover:bg-blue-50 border border-dashed border-blue-200"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Add another catalog
+        </Button>
+      )}
+
+      {showAddSearch && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Add catalog:</span>
+            <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1.5" onClick={handleCancelAdd}>
+              <X className="h-3 w-3 mr-0.5" />Cancel
+            </Button>
+          </div>
+          {renderSearchInput()}
+        </div>
+      )}
 
       {linking && (
         <div className="flex items-center gap-2 text-xs text-blue-600">
@@ -395,7 +506,7 @@ export const CatalogLinkSelector = ({
                   </div>
                 )}
                 <p className="text-sm text-amber-700">
-                  Existing semantics on matched variables will be overwritten.
+                  Existing semantics on matched variables will be overwritten for matching registers.
                 </p>
               </div>
             </AlertDialogDescription>

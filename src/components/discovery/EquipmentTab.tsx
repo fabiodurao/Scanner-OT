@@ -27,9 +27,9 @@ export const EquipmentTab = ({
   siteIdentifier,
   onDataChanged,
 }: EquipmentTabProps) => {
-  const { fetchAllCatalogLinks } = useEquipmentCatalog();
+  const { fetchAllCatalogLinksGrouped } = useEquipmentCatalog();
   const [equipmentIds, setEquipmentIds] = useState<Map<string, string>>(new Map());
-  const [catalogLinks, setCatalogLinks] = useState<Map<string, EquipmentCatalogLink>>(new Map());
+  const [catalogLinksGrouped, setCatalogLinksGrouped] = useState<Map<string, EquipmentCatalogLink[]>>(new Map());
 
   const loadEquipmentIds = useCallback(async () => {
     if (!siteIdentifier) return;
@@ -47,9 +47,9 @@ export const EquipmentTab = ({
 
   const loadCatalogLinks = useCallback(async () => {
     if (!siteIdentifier) return;
-    const links = await fetchAllCatalogLinks(siteIdentifier);
-    setCatalogLinks(links);
-  }, [siteIdentifier, fetchAllCatalogLinks]);
+    const links = await fetchAllCatalogLinksGrouped(siteIdentifier);
+    setCatalogLinksGrouped(links);
+  }, [siteIdentifier, fetchAllCatalogLinksGrouped]);
 
   useEffect(() => {
     loadEquipmentIds();
@@ -104,7 +104,7 @@ export const EquipmentTab = ({
             equipment={equipment}
             siteIdentifier={siteIdentifier}
             equipmentIds={equipmentIds}
-            catalogLinks={catalogLinks}
+            catalogLinksGrouped={catalogLinksGrouped}
             onCatalogLinkChanged={handleCatalogLinkChanged}
           />
         )}

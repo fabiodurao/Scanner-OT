@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
 import { DiscoveredEquipment } from '@/types/discovery';
 import { EquipmentCatalogLink } from '@/types/catalog';
-import { useEquipmentCatalog } from '@/hooks/useEquipmentCatalog';
 import { CatalogLinkSelector } from '@/components/catalog/CatalogLinkSelector';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +11,7 @@ interface EquipmentListProps {
   equipment: DiscoveredEquipment[];
   siteIdentifier?: string;
   equipmentIds?: Map<string, string>; // ip -> equipment id
-  catalogLinks?: Map<string, EquipmentCatalogLink>;
+  catalogLinksGrouped?: Map<string, EquipmentCatalogLink[]>;
   onCatalogLinkChanged?: () => void;
 }
 
@@ -38,7 +36,7 @@ const roleConfig = {
   },
 };
 
-export const EquipmentList = ({ equipment, siteIdentifier, equipmentIds, catalogLinks, onCatalogLinkChanged }: EquipmentListProps) => {
+export const EquipmentList = ({ equipment, siteIdentifier, equipmentIds, catalogLinksGrouped, onCatalogLinkChanged }: EquipmentListProps) => {
   // Separate by role
   const slaves = equipment.filter(e => e.role === 'slave');
   const masters = equipment.filter(e => e.role === 'master');
@@ -48,7 +46,8 @@ export const EquipmentList = ({ equipment, siteIdentifier, equipmentIds, catalog
     const config = roleConfig[eq.role];
     const Icon = config.icon;
     const eqId = equipmentIds?.get(eq.ip);
-    const catalogLink = eqId ? catalogLinks?.get(eqId) || null : null;
+    const eqLinks = eqId ? catalogLinksGrouped?.get(eqId) || [] : [];
+    const firstLink = eqLinks.length > 0 ? eqLinks[0] : null;
     
     return (
       <Card key={eq.ip} className="hover:shadow-md transition-shadow">
@@ -89,7 +88,8 @@ export const EquipmentList = ({ equipment, siteIdentifier, equipmentIds, catalog
                 equipmentId={eqId}
                 equipmentIp={eq.ip}
                 siteIdentifier={siteIdentifier}
-                existingLink={catalogLink}
+                existingLink={firstLink}
+                existingLinks={eqLinks}
                 onLinkChanged={onCatalogLinkChanged || (() => {})}
               />
             </div>
