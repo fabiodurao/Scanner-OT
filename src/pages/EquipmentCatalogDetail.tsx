@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 const EquipmentCatalogDetail = () => {
   const { catalogId } = useParams<{ catalogId: string }>();
   const navigate = useNavigate();
-  const { fetchCatalogDetail, updateCatalog, deleteCatalog, updateProtocol } = useEquipmentCatalog();
+  const { fetchCatalogDetail, updateCatalog, deleteCatalog, updateProtocol, addProtocol } = useEquipmentCatalog();
 
   const [catalog, setCatalog] = useState<EquipmentCatalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +56,22 @@ const EquipmentCatalogDetail = () => {
       await updateCatalog(catalogId, { manufacturer: data.manufacturer, model: data.model, description: data.description });
       const { supabase } = await import('@/integrations/supabase/client');
       await supabase.from('equipment_catalogs').update({ manufacturer_id: data.manufacturer_id, model_id: data.model_id }).eq('id', catalogId);
+
+      // Update protocol if changed
+      if (protocol && data.protocol_name && data.protocol_id) {
+        await supabase.from('catalog_protocols')
+          .update({ protocol: data.protocol_name, protocol_id: data.protocol_id })
+          .eq('id', protocol.id);
+      } else if (!protocol && data.protocol_name && data.protocol_id) {
+        // Create protocol entry if none exists
+        await addProtocol(catalogId, data.protocol_name, []);
+        const { data: protos } = await supabase.from('catalog_protocols')
+          .select('id').eq('catalog_id', catalogId).eq('protocol', data.protocol_name).single();
+        if (protos) {
+          await supabase.from('catalog_protocols').update({ protocol_id: data.protocol_id }).eq('id', protos.id);
+        }
+      }
+
       toast.success('Catalog updated!');
       setEditOpen(false);
       await loadCatalog();

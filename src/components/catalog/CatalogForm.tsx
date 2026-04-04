@@ -8,7 +8,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Factory, Box, Network } from 'lucide-react';
@@ -30,7 +29,7 @@ interface CatalogFormProps {
 }
 
 export const CatalogForm = ({ open, onOpenChange, catalog, onSave, saving = false }: CatalogFormProps) => {
-  const { manufacturers, models, protocols, loading, getModelsForManufacturer } = useCatalogEntities();
+  const { manufacturers, models, protocols, loading, getModelsForManufacturer, fetchAll } = useCatalogEntities();
 
   const [manufacturerId, setManufacturerId] = useState('');
   const [modelId, setModelId] = useState('');
@@ -39,17 +38,28 @@ export const CatalogForm = ({ open, onOpenChange, catalog, onSave, saving = fals
 
   const availableModels = manufacturerId ? getModelsForManufacturer(manufacturerId) : [];
 
+  // Refresh entity data every time the dialog opens
   useEffect(() => {
-    if (catalog) {
-      setManufacturerId(catalog.manufacturer_id || '');
-      setModelId(catalog.model_id || '');
-      setDescription(catalog.description || '');
-      setProtocolId('');
-    } else {
-      setManufacturerId('');
-      setModelId('');
-      setProtocolId('');
-      setDescription('');
+    if (open) {
+      fetchAll();
+    }
+  }, [open, fetchAll]);
+
+  useEffect(() => {
+    if (open) {
+      if (catalog) {
+        setManufacturerId(catalog.manufacturer_id || '');
+        setModelId(catalog.model_id || '');
+        setDescription(catalog.description || '');
+        // Set protocol from existing catalog protocol
+        const existingProto = catalog.protocols?.[0];
+        setProtocolId(existingProto?.protocol_id || '');
+      } else {
+        setManufacturerId('');
+        setModelId('');
+        setProtocolId('');
+        setDescription('');
+      }
     }
   }, [catalog, open]);
 
@@ -142,35 +152,33 @@ export const CatalogForm = ({ open, onOpenChange, catalog, onSave, saving = fals
               </Select>
             </div>
 
-            {/* Protocol (only for new catalogs) */}
-            {!isEditing && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <Network className="h-4 w-4 text-muted-foreground" />
-                  Protocol *
-                </Label>
-                <Select value={protocolId} onValueChange={setProtocolId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select protocol..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {protocols.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div>
-                          <span className="font-mono">{p.name}</span>
-                          {p.description && <span className="text-muted-foreground ml-2 text-xs">— {p.description}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {protocols.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">
-                        No protocols registered. Add them in Reference Data.
+            {/* Protocol */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Network className="h-4 w-4 text-muted-foreground" />
+                Protocol {!isEditing && '*'}
+              </Label>
+              <Select value={protocolId} onValueChange={setProtocolId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select protocol..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {protocols.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div>
+                        <span className="font-mono">{p.name}</span>
+                        {p.description && <span className="text-muted-foreground ml-2 text-xs">— {p.description}</span>}
                       </div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                    </SelectItem>
+                  ))}
+                  {protocols.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      No protocols registered. Add them in Reference Data.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Description */}
             <div className="space-y-2">
