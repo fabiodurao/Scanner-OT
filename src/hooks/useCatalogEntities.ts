@@ -148,7 +148,7 @@ export const useCatalogEntities = () => {
     fetchAll,
     createManufacturer, updateManufacturer, deleteManufacturer, importManufacturers,
     createModel, updateModel, deleteModel, importModels,
-    createProtocol, updateProtocol as updateSupportedProtocol, deleteProtocol, importProtocols,
+    createProtocol, updateProtocol, deleteProtocol, importProtocols,
     getModelsForManufacturer,
   };
 };
