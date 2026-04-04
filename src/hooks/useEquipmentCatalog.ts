@@ -144,6 +144,73 @@ export const useEquipmentCatalog = () => {
     if (error) throw error;
   }, []);
 
+  /**
+   * Reset semantic fields on variables that were applied by a specific catalog protocol.
+   * Called when unlinking a catalog from equipment.
+   */
+  const resetVariablesFromCatalog = useCallback(async (
+    equipmentIp: string,
+    siteIdentifier: string,
+    registers: CatalogRegister[]
+  ): Promise<void> => {
+    if (registers.length === 0) return;
+
+    // Fetch all variables for this equipment
+    const { data: allVars, error: varsError } = await supabase
+      .from('discovered_variables')
+      .select('id, site_identifier, "SiteIdentifier", source_ip, "SourceIp", address, "Address", function_code, "FC"')
+      .limit(5000);
+
+    if (varsError || !allVars) return;
+
+    // Filter to this equipment
+    const equipmentVars = allVars.filter(v => {
+      const vSite = v.site_identifier || (v as any).SiteIdentifier;
+      const vIp = v.source_ip || (v as any).SourceIp;
+      return vSite === siteIdentifier && vIp === equipmentIp;
+    });
+
+    if (equipmentVars.length === 0) return;
+
+    // Build lookup map
+    const varMap = new Map<string, string>();
+    for (const v of equipmentVars) {
+      const addr = v.address ?? (v as any).Address;
+      const fc = v.function_code ?? (v as any).FC;
+      if (addr !== null && addr !== undefined && fc !== null && fc !== undefined) {
+        varMap.set(`${addr}:${fc}`, v.id);
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Reset each matched variable
+    for (const register of registers) {
+      if (register.address === undefined || register.address === null) continue;
+      if (register.function_code === undefined || register.function_code === null) continue;
+
+      const key = `${register.address}:${register.function_code}`;
+      const varId = varMap.get(key);
+      if (!varId) continue;
+
+      await supabase
+        .from('discovered_variables')
+        .update({
+          semantic_label: null,
+          semantic_unit: null,
+          semantic_category: null,
+          data_type: null,
+          scale: 1,
+          learning_state: 'unknown',
+          confidence_score: 0,
+          confirmed_by: null,
+          confirmed_at: null,
+          updated_at: nowIso,
+        })
+        .eq('id', varId);
+    }
+  }, []);
+
   const linkCatalogToEquipment = useCallback(async (
     equipmentId: string,
     catalogProtocolId: string,
@@ -225,9 +292,6 @@ export const useEquipmentCatalog = () => {
       return vSite === siteIdentifier && vIp === equipment.ip_address;
     });
 
-    console.log('[linkCatalog] Variables found for equipment:', equipmentVars.length);
-    console.log('[linkCatalog] Equipment IP:', equipment.ip_address, '| Site:', siteIdentifier);
-
     if (equipmentVars.length === 0) {
       return { matched: 0, total: registers.length };
     }
@@ -242,9 +306,6 @@ export const useEquipmentCatalog = () => {
       }
     }
 
-    console.log('[linkCatalog] Variable keys (addr:fc):', Array.from(varMap.keys()).slice(0, 10));
-    console.log('[linkCatalog] Catalog register keys (addr:fc):', registers.slice(0, 10).map(r => `${r.address}:${r.function_code}`));
-
     // Match and update
     const nowIso = new Date().toISOString();
     let matchedCount = 0;
@@ -257,7 +318,6 @@ export const useEquipmentCatalog = () => {
       const varId = varMap.get(key);
       if (!varId) continue;
 
-      // Only update semantic fields — avoid triggering column sync issues
       const { data: updated, error: updateError } = await supabase
         .from('discovered_variables')
         .update({
@@ -274,14 +334,11 @@ export const useEquipmentCatalog = () => {
         .eq('id', varId)
         .select('id');
 
-      if (updateError) {
-        console.error('[linkCatalog] Update error for addr', register.address, ':', updateError.message, updateError.details, updateError.hint);
-      } else if (updated && updated.length > 0) {
+      if (!updateError && updated && updated.length > 0) {
         matchedCount++;
       }
     }
 
-    console.log('[linkCatalog] Matched:', matchedCount, '/', registers.length);
     return { matched: matchedCount, total: registers.length };
   }, []);
 
@@ -291,9 +348,43 @@ export const useEquipmentCatalog = () => {
   }, []);
 
   const unlinkSingleCatalogLink = useCallback(async (linkId: string): Promise<void> => {
+    // First, fetch the link details to know which protocol and equipment
+    const { data: link, error: linkFetchError } = await supabase
+      .from('equipment_catalog_links')
+      .select('equipment_id, catalog_protocol_id')
+      .eq('id', linkId)
+      .single();
+
+    if (linkFetchError || !link) {
+      const { error } = await supabase.from('equipment_catalog_links').delete().eq('id', linkId);
+      if (error) throw error;
+      return;
+    }
+
+    // Fetch equipment IP and site
+    const { data: equipment } = await supabase
+      .from('discovered_equipment')
+      .select('ip_address, site_identifier')
+      .eq('id', link.equipment_id)
+      .single();
+
+    // Fetch protocol registers
+    const { data: protocol } = await supabase
+      .from('catalog_protocols')
+      .select('registers')
+      .eq('id', link.catalog_protocol_id)
+      .single();
+
+    // Delete the link
     const { error } = await supabase.from('equipment_catalog_links').delete().eq('id', linkId);
     if (error) throw error;
-  }, []);
+
+    // Reset variables if we have the data
+    if (equipment && protocol) {
+      const registers: CatalogRegister[] = Array.isArray(protocol.registers) ? protocol.registers : [];
+      await resetVariablesFromCatalog(equipment.ip_address, equipment.site_identifier, registers);
+    }
+  }, [resetVariablesFromCatalog]);
 
   const getEquipmentCatalogLink = useCallback(async (equipmentId: string): Promise<EquipmentCatalogLink | null> => {
     const { data, error } = await supabase
