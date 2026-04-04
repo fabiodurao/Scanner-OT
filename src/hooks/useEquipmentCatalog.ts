@@ -149,11 +149,6 @@ export const useEquipmentCatalog = () => {
     catalogProtocolId: string,
     siteIdentifier: string
   ): Promise<{ matched: number; total: number }> => {
-    console.log('=== [CATALOG MATCH DEBUG] ===');
-    console.log('equipmentId:', equipmentId);
-    console.log('catalogProtocolId:', catalogProtocolId);
-    console.log('siteIdentifier:', siteIdentifier);
-
     // Fetch protocol with its parent catalog
     const { data: protocol, error: protoError } = await supabase
       .from('catalog_protocols')
@@ -167,8 +162,6 @@ export const useEquipmentCatalog = () => {
     if (!catalog) throw new Error('Catalog not found for this protocol');
 
     const registers: CatalogRegister[] = Array.isArray(protocol.registers) ? protocol.registers : [];
-    console.log('Catalog registers count:', registers.length);
-    console.log('First 3 catalog registers:', registers.slice(0, 3).map(r => ({ addr: r.address, fc: r.function_code, name: r.name })));
 
     // Fetch equipment details
     const { data: equipment, error: eqError } = await supabase
@@ -178,8 +171,6 @@ export const useEquipmentCatalog = () => {
       .single();
 
     if (eqError || !equipment) throw new Error('Equipment not found');
-    console.log('Equipment IP:', equipment.ip_address);
-    console.log('Equipment site_identifier:', equipment.site_identifier);
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -216,39 +207,15 @@ export const useEquipmentCatalog = () => {
       return { matched: 0, total: 0 };
     }
 
-    // Fetch ALL variables from the table (no filter) to diagnose what's there
+    // Fetch all variables — no filter, handle both lowercase and PascalCase columns in JS
     const { data: allVars, error: varsError } = await supabase
       .from('discovered_variables')
       .select('id, site_identifier, "SiteIdentifier", source_ip, "SourceIp", address, "Address", function_code, "FC"')
-      .limit(2000);
+      .limit(5000);
 
     if (varsError) {
-      console.error('[CATALOG MATCH] Error fetching variables:', varsError);
+      console.error('[linkCatalog] Error fetching variables:', varsError);
       return { matched: 0, total: registers.length };
-    }
-
-    console.log('Total variables in DB (up to 2000):', allVars?.length ?? 0);
-
-    // Show what unique site identifiers and IPs exist
-    const uniqueSites = new Set((allVars || []).map(v => v.site_identifier || (v as any).SiteIdentifier).filter(Boolean));
-    const uniqueIps = new Set((allVars || []).map(v => v.source_ip || (v as any).SourceIp).filter(Boolean));
-    console.log('Unique site_identifiers in DB:', Array.from(uniqueSites));
-    console.log('Unique source_ips in DB:', Array.from(uniqueIps));
-    console.log('Looking for site:', siteIdentifier, '| ip:', equipment.ip_address);
-
-    // Show raw values of first variable to understand column state
-    if (allVars && allVars.length > 0) {
-      const sample = allVars[0];
-      console.log('Sample variable raw:', {
-        site_identifier: sample.site_identifier,
-        SiteIdentifier: (sample as any).SiteIdentifier,
-        source_ip: sample.source_ip,
-        SourceIp: (sample as any).SourceIp,
-        address: sample.address,
-        Address: (sample as any).Address,
-        function_code: sample.function_code,
-        FC: (sample as any).FC,
-      });
     }
 
     // Filter in JS to handle both column variants
@@ -258,20 +225,10 @@ export const useEquipmentCatalog = () => {
       return vSite === siteIdentifier && vIp === equipment.ip_address;
     });
 
-    console.log('Variables matching site+ip:', equipmentVars.length);
+    console.log('[linkCatalog] Variables found for equipment:', equipmentVars.length);
+    console.log('[linkCatalog] Equipment IP:', equipment.ip_address, '| Site:', siteIdentifier);
 
     if (equipmentVars.length === 0) {
-      // Try partial match to help diagnose
-      const siteMatch = (allVars || []).filter(v => {
-        const vSite = v.site_identifier || (v as any).SiteIdentifier;
-        return vSite === siteIdentifier;
-      });
-      console.log('Variables matching ONLY site (any IP):', siteMatch.length);
-      if (siteMatch.length > 0) {
-        const ipsForSite = new Set(siteMatch.map(v => v.source_ip || (v as any).SourceIp));
-        console.log('IPs found for this site:', Array.from(ipsForSite));
-        console.log('Equipment IP we are looking for:', equipment.ip_address);
-      }
       return { matched: 0, total: registers.length };
     }
 
@@ -285,9 +242,8 @@ export const useEquipmentCatalog = () => {
       }
     }
 
-    console.log('Variable map size:', varMap.size);
-    console.log('First 5 variable keys (addr:fc):', Array.from(varMap.keys()).slice(0, 5));
-    console.log('First 5 catalog register keys (addr:fc):', registers.slice(0, 5).map(r => `${r.address}:${r.function_code}`));
+    console.log('[linkCatalog] Variable keys (addr:fc):', Array.from(varMap.keys()).slice(0, 10));
+    console.log('[linkCatalog] Catalog register keys (addr:fc):', registers.slice(0, 10).map(r => `${r.address}:${r.function_code}`));
 
     // Match and update
     const nowIso = new Date().toISOString();
@@ -299,18 +255,18 @@ export const useEquipmentCatalog = () => {
 
       const key = `${register.address}:${register.function_code}`;
       const varId = varMap.get(key);
-
       if (!varId) continue;
 
+      // Only update semantic fields — avoid triggering column sync issues
       const { data: updated, error: updateError } = await supabase
         .from('discovered_variables')
         .update({
           semantic_label: register.label || register.name || null,
           semantic_unit: register.unit || null,
+          semantic_category: register.category || null,
           data_type: register.data_type?.toLowerCase() || null,
-          scale: register.scale || 1,
+          scale: register.scale ?? 1,
           learning_state: 'confirmed',
-          modification_source: 'catalog',
           confirmed_by: user?.id,
           confirmed_at: nowIso,
           updated_at: nowIso,
@@ -318,12 +274,14 @@ export const useEquipmentCatalog = () => {
         .eq('id', varId)
         .select('id');
 
-      if (!updateError && updated && updated.length > 0) {
+      if (updateError) {
+        console.error('[linkCatalog] Update error for addr', register.address, ':', updateError.message, updateError.details, updateError.hint);
+      } else if (updated && updated.length > 0) {
         matchedCount++;
       }
     }
 
-    console.log('=== RESULT: matched', matchedCount, '/', registers.length, '===');
+    console.log('[linkCatalog] Matched:', matchedCount, '/', registers.length);
     return { matched: matchedCount, total: registers.length };
   }, []);
 
