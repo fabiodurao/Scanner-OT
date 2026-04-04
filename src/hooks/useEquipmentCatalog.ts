@@ -12,24 +12,28 @@ export const useEquipmentCatalog = () => {
 
     if (error) throw error;
 
+    // Fetch ALL protocols to build per-catalog data
     const { data: protocols } = await supabase
       .from('catalog_protocols')
-      .select('catalog_id, protocol, register_count');
+      .select('*');
 
-    const protocolMap = new Map<string, { count: number; protocols: string[]; totalRegisters: number }>();
-    (protocols || []).forEach((p: { catalog_id: string; protocol: string; register_count: number }) => {
-      const existing = protocolMap.get(p.catalog_id) || { count: 0, protocols: [], totalRegisters: 0 };
-      existing.count += 1;
-      existing.protocols.push(p.protocol);
-      existing.totalRegisters += p.register_count || 0;
-      protocolMap.set(p.catalog_id, existing);
+    // Group protocols by catalog_id
+    const protocolsByCatalog = new Map<string, CatalogProtocol[]>();
+    (protocols || []).forEach((p: CatalogProtocol) => {
+      const existing = protocolsByCatalog.get(p.catalog_id) || [];
+      existing.push(p);
+      protocolsByCatalog.set(p.catalog_id, existing);
     });
 
-    return (catalogs || []).map((c: EquipmentCatalog) => ({
-      ...c,
-      protocol_count: protocolMap.get(c.id)?.count || 0,
-      total_registers: protocolMap.get(c.id)?.totalRegisters || 0,
-    }));
+    return (catalogs || []).map((c: EquipmentCatalog) => {
+      const catalogProtocols = protocolsByCatalog.get(c.id) || [];
+      return {
+        ...c,
+        protocols: catalogProtocols,
+        protocol_count: catalogProtocols.length,
+        total_registers: catalogProtocols.reduce((sum, p) => sum + (p.register_count || 0), 0),
+      };
+    });
   }, []);
 
   const fetchCatalogDetail = useCallback(async (id: string): Promise<EquipmentCatalog | null> => {
@@ -95,17 +99,8 @@ export const useEquipmentCatalog = () => {
   }, []);
 
   const deleteCatalog = useCallback(async (id: string): Promise<void> => {
-    // First delete any links referencing this catalog
-    await supabase
-      .from('equipment_catalog_links')
-      .delete()
-      .eq('catalog_id', id);
-
-    const { error } = await supabase
-      .from('equipment_catalogs')
-      .delete()
-      .eq('id', id);
-
+    await supabase.from('equipment_catalog_links').delete().eq('catalog_id', id);
+    const { error } = await supabase.from('equipment_catalogs').delete().eq('id', id);
     if (error) throw error;
   }, []);
 
@@ -146,17 +141,8 @@ export const useEquipmentCatalog = () => {
   }, []);
 
   const deleteProtocol = useCallback(async (protocolId: string): Promise<void> => {
-    // Delete any links referencing this protocol
-    await supabase
-      .from('equipment_catalog_links')
-      .delete()
-      .eq('catalog_protocol_id', protocolId);
-
-    const { error } = await supabase
-      .from('catalog_protocols')
-      .delete()
-      .eq('id', protocolId);
-
+    await supabase.from('equipment_catalog_links').delete().eq('catalog_protocol_id', protocolId);
+    const { error } = await supabase.from('catalog_protocols').delete().eq('id', protocolId);
     if (error) throw error;
   }, []);
 
@@ -165,7 +151,6 @@ export const useEquipmentCatalog = () => {
     catalogProtocolId: string,
     siteIdentifier: string
   ): Promise<{ matched: number; total: number }> => {
-    // Get the protocol with its registers and catalog info
     const { data: protocol, error: protoError } = await supabase
       .from('catalog_protocols')
       .select('*, equipment_catalogs(*)')
@@ -177,7 +162,6 @@ export const useEquipmentCatalog = () => {
     const catalog = (protocol as any).equipment_catalogs;
     const registers = protocol.registers as CatalogRegister[];
 
-    // Get the equipment to find its IP
     const { data: equipment, error: eqError } = await supabase
       .from('discovered_equipment')
       .select('ip_address, site_identifier')
@@ -188,13 +172,8 @@ export const useEquipmentCatalog = () => {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Remove existing link if any
-    await supabase
-      .from('equipment_catalog_links')
-      .delete()
-      .eq('equipment_id', equipmentId);
+    await supabase.from('equipment_catalog_links').delete().eq('equipment_id', equipmentId);
 
-    // Create the link
     const { error: linkError } = await supabase
       .from('equipment_catalog_links')
       .insert({
@@ -206,17 +185,11 @@ export const useEquipmentCatalog = () => {
 
     if (linkError) throw linkError;
 
-    // Update equipment manufacturer/model
     await supabase
       .from('discovered_equipment')
-      .update({
-        manufacturer: catalog.manufacturer,
-        model: catalog.model,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ manufacturer: catalog.manufacturer, model: catalog.model, updated_at: new Date().toISOString() })
       .eq('id', equipmentId);
 
-    // Apply semantics to discovered variables
     let matchedCount = 0;
     const nowIso = new Date().toISOString();
 
@@ -240,20 +213,14 @@ export const useEquipmentCatalog = () => {
         .eq('function_code', register.function_code)
         .select('id');
 
-      if (!updateError && updated && updated.length > 0) {
-        matchedCount += updated.length;
-      }
+      if (!updateError && updated && updated.length > 0) matchedCount += updated.length;
     }
 
     return { matched: matchedCount, total: registers.length };
   }, []);
 
   const unlinkCatalogFromEquipment = useCallback(async (equipmentId: string): Promise<void> => {
-    const { error } = await supabase
-      .from('equipment_catalog_links')
-      .delete()
-      .eq('equipment_id', equipmentId);
-
+    const { error } = await supabase.from('equipment_catalog_links').delete().eq('equipment_id', equipmentId);
     if (error) throw error;
   }, []);
 
@@ -266,57 +233,24 @@ export const useEquipmentCatalog = () => {
 
     if (error || !data) return null;
 
-    // Fetch catalog and protocol details
-    const { data: catalog } = await supabase
-      .from('equipment_catalogs')
-      .select('*')
-      .eq('id', data.catalog_id)
-      .single();
+    const { data: catalog } = await supabase.from('equipment_catalogs').select('*').eq('id', data.catalog_id).single();
+    const { data: protocol } = await supabase.from('catalog_protocols').select('*').eq('id', data.catalog_protocol_id).single();
 
-    const { data: protocol } = await supabase
-      .from('catalog_protocols')
-      .select('*')
-      .eq('id', data.catalog_protocol_id)
-      .single();
-
-    return {
-      ...data,
-      catalog: catalog || undefined,
-      protocol: (protocol as CatalogProtocol) || undefined,
-    } as EquipmentCatalogLink;
+    return { ...data, catalog: catalog || undefined, protocol: (protocol as CatalogProtocol) || undefined } as EquipmentCatalogLink;
   }, []);
 
   const fetchAllCatalogLinks = useCallback(async (siteIdentifier: string): Promise<Map<string, EquipmentCatalogLink>> => {
-    // Get all equipment for this site
-    const { data: equipment } = await supabase
-      .from('discovered_equipment')
-      .select('id')
-      .eq('site_identifier', siteIdentifier);
-
+    const { data: equipment } = await supabase.from('discovered_equipment').select('id').eq('site_identifier', siteIdentifier);
     if (!equipment || equipment.length === 0) return new Map();
 
-    const equipmentIds = equipment.map(e => e.id);
-
-    const { data: links } = await supabase
-      .from('equipment_catalog_links')
-      .select('*')
-      .in('equipment_id', equipmentIds);
-
+    const { data: links } = await supabase.from('equipment_catalog_links').select('*').in('equipment_id', equipment.map(e => e.id));
     if (!links || links.length === 0) return new Map();
 
-    // Fetch catalogs and protocols
     const catalogIds = [...new Set(links.map(l => l.catalog_id))];
     const protocolIds = [...new Set(links.map(l => l.catalog_protocol_id))];
 
-    const { data: catalogs } = await supabase
-      .from('equipment_catalogs')
-      .select('*')
-      .in('id', catalogIds);
-
-    const { data: protocols } = await supabase
-      .from('catalog_protocols')
-      .select('*')
-      .in('id', protocolIds);
+    const { data: catalogs } = await supabase.from('equipment_catalogs').select('*').in('id', catalogIds);
+    const { data: protocols } = await supabase.from('catalog_protocols').select('*').in('id', protocolIds);
 
     const catalogMap = new Map((catalogs || []).map(c => [c.id, c]));
     const protocolMap = new Map((protocols || []).map(p => [p.id, p]));

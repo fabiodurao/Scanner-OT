@@ -12,29 +12,30 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
   if (registers.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg border-dashed">
-        No registers imported yet.
+        No registers imported yet. Click "Edit Registers" to add them.
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border max-h-[400px] overflow-auto">
+    <div className="rounded-md border max-h-[500px] overflow-auto">
       <Table>
         <TableHeader className="sticky top-0 bg-slate-50 z-10">
           <TableRow>
             <TableHead className="w-20">Address</TableHead>
+            <TableHead className="w-12">FC</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Label</TableHead>
             <TableHead className="w-24">Data Type</TableHead>
             <TableHead className="w-16">Scale</TableHead>
             <TableHead className="w-16">Unit</TableHead>
-            <TableHead className="w-12">FC</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {registers.map((reg, index) => (
             <TableRow key={`${reg.address}-${reg.function_code}-${index}`}>
               <TableCell className="font-mono font-medium">{reg.address}</TableCell>
+              <TableCell className="font-mono">{reg.function_code}</TableCell>
               <TableCell className="font-mono text-xs">{reg.name}</TableCell>
               <TableCell className="text-sm">{reg.label || '—'}</TableCell>
               <TableCell>
@@ -48,7 +49,6 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
                   <Badge variant="outline" className="text-[10px]">{reg.unit}</Badge>
                 ) : '—'}
               </TableCell>
-              <TableCell className="font-mono">{reg.function_code}</TableCell>
             </TableRow>
           ))}
         </TableBody>

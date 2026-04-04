@@ -5,6 +5,7 @@ import { useEquipmentCatalog } from '@/hooks/useEquipmentCatalog';
 import { EquipmentCatalog, CatalogRegister } from '@/types/catalog';
 import { CatalogForm } from '@/components/catalog/CatalogForm';
 import { RegisterEditTable } from '@/components/catalog/RegisterEditTable';
+import { RegisterPreviewTable } from '@/components/catalog/RegisterPreviewTable';
 import { JsonImportDialog } from '@/components/catalog/JsonImportDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,16 +14,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ChevronLeft, Pencil, Trash2, BookOpen, Network, Variable, Loader2, FileJson } from 'lucide-react';
+import { ChevronLeft, Pencil, Trash2, BookOpen, Network, Variable, Loader2, FileJson, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EquipmentCatalogDetail = () => {
   const { catalogId } = useParams<{ catalogId: string }>();
   const navigate = useNavigate();
-  const {
-    fetchCatalogDetail, updateCatalog, deleteCatalog,
-    updateProtocol,
-  } = useEquipmentCatalog();
+  const { fetchCatalogDetail, updateCatalog, deleteCatalog, updateProtocol } = useEquipmentCatalog();
 
   const [catalog, setCatalog] = useState<EquipmentCatalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +31,7 @@ const EquipmentCatalogDetail = () => {
   const [deleting, setDeleting] = useState(false);
   const [jsonImportOpen, setJsonImportOpen] = useState(false);
   const [jsonImporting, setJsonImporting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const loadCatalog = async () => {
     if (!catalogId) return;
@@ -44,7 +43,6 @@ const EquipmentCatalogDetail = () => {
 
   useEffect(() => { loadCatalog(); }, [catalogId]);
 
-  // Get the first (and typically only) protocol
   const protocol = catalog?.protocols?.[0] || null;
 
   const handleUpdate = async (data: {
@@ -55,16 +53,9 @@ const EquipmentCatalogDetail = () => {
     if (!catalogId) return;
     setSaving(true);
     try {
-      await updateCatalog(catalogId, {
-        manufacturer: data.manufacturer,
-        model: data.model,
-        description: data.description,
-      });
+      await updateCatalog(catalogId, { manufacturer: data.manufacturer, model: data.model, description: data.description });
       const { supabase } = await import('@/integrations/supabase/client');
-      await supabase.from('equipment_catalogs').update({
-        manufacturer_id: data.manufacturer_id,
-        model_id: data.model_id,
-      }).eq('id', catalogId);
+      await supabase.from('equipment_catalogs').update({ manufacturer_id: data.manufacturer_id, model_id: data.model_id }).eq('id', catalogId);
       toast.success('Catalog updated!');
       setEditOpen(false);
       await loadCatalog();
@@ -77,13 +68,8 @@ const EquipmentCatalogDetail = () => {
   const handleDelete = async () => {
     if (!catalogId) return;
     setDeleting(true);
-    try {
-      await deleteCatalog(catalogId);
-      toast.success('Catalog deleted');
-      navigate('/equipment-catalog');
-    } catch {
-      toast.error('Error deleting catalog');
-    }
+    try { await deleteCatalog(catalogId); toast.success('Catalog deleted'); navigate('/equipment-catalog'); }
+    catch { toast.error('Error deleting catalog'); }
     setDeleting(false);
   };
 
@@ -93,10 +79,9 @@ const EquipmentCatalogDetail = () => {
     try {
       await updateProtocol(protocol.id, registers);
       toast.success(`Saved ${registers.length} registers`);
+      setIsEditing(false);
       await loadCatalog();
-    } catch {
-      toast.error('Error saving registers');
-    }
+    } catch { toast.error('Error saving registers'); }
     setSavingRegisters(false);
   };
 
@@ -108,9 +93,7 @@ const EquipmentCatalogDetail = () => {
       toast.success(`Imported ${registers.length} registers`);
       setJsonImportOpen(false);
       await loadCatalog();
-    } catch {
-      toast.error('Error importing registers');
-    }
+    } catch { toast.error('Error importing registers'); }
     setJsonImporting(false);
   };
 
@@ -162,7 +145,7 @@ const EquipmentCatalogDetail = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-4 w-4 mr-2" />Edit
+              <Pencil className="h-4 w-4 mr-2" />Edit Info
             </Button>
             <Button variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteDialogOpen(true)}>
               <Trash2 className="h-4 w-4 mr-2" />Delete
@@ -177,18 +160,14 @@ const EquipmentCatalogDetail = () => {
               <CardTitle className="text-sm font-medium">Protocol</CardTitle>
               <Network className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-lg font-mono font-medium">{protocol?.protocol || '—'}</div>
-            </CardContent>
+            <CardContent><div className="text-lg font-mono font-medium">{protocol?.protocol || '—'}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Registers</CardTitle>
               <Variable className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{protocol?.register_count || 0}</div>
-            </CardContent>
+            <CardContent><div className="text-2xl font-bold">{protocol?.register_count || 0}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -202,26 +181,43 @@ const EquipmentCatalogDetail = () => {
           </Card>
         </div>
 
-        {/* Register Definitions — flat, inline editable */}
+        {/* Register Definitions */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Register Definitions</CardTitle>
-                <CardDescription>Edit registers directly or import via JSON</CardDescription>
+                <CardDescription>{isEditing ? 'Edit registers or import via JSON' : 'View register map for this catalog'}</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setJsonImportOpen(true)}>
-                <FileJson className="h-4 w-4 mr-2" />Import JSON
-              </Button>
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                    <Pencil className="h-4 w-4 mr-2" />Edit Registers
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setJsonImportOpen(true)}>
+                      <FileJson className="h-4 w-4 mr-2" />Import JSON
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                      <X className="h-4 w-4 mr-2" />Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             {protocol ? (
-              <RegisterEditTable
-                registers={protocol.registers || []}
-                onSave={handleSaveRegisters}
-                saving={savingRegisters}
-              />
+              isEditing ? (
+                <RegisterEditTable
+                  registers={protocol.registers || []}
+                  onSave={handleSaveRegisters}
+                  saving={savingRegisters}
+                />
+              ) : (
+                <RegisterPreviewTable registers={protocol.registers || []} />
+              )
             ) : (
               <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
                 No protocol defined for this catalog.
@@ -230,19 +226,9 @@ const EquipmentCatalogDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Edit Dialog */}
         <CatalogForm open={editOpen} onOpenChange={setEditOpen} catalog={catalog} onSave={handleUpdate} saving={saving} />
+        <JsonImportDialog open={jsonImportOpen} onOpenChange={setJsonImportOpen} onImport={handleJsonImport} isImporting={jsonImporting} title="Import Register Definitions" />
 
-        {/* JSON Import Dialog */}
-        <JsonImportDialog
-          open={jsonImportOpen}
-          onOpenChange={setJsonImportOpen}
-          onImport={handleJsonImport}
-          isImporting={jsonImporting}
-          title="Import Register Definitions"
-        />
-
-        {/* Delete Dialog */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
