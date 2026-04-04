@@ -5,7 +5,6 @@ import { useEquipmentCatalog } from '@/hooks/useEquipmentCatalog';
 import { EquipmentCatalog as EquipmentCatalogType } from '@/types/catalog';
 import { CatalogForm } from '@/components/catalog/CatalogForm';
 import { EntityManagement } from '@/components/catalog/EntityManagement';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +12,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, Plus, Search, Trash2, Loader2, ExternalLink, Network } from 'lucide-react';
+import { BookOpen, Plus, Search, Trash2, Loader2, ExternalLink, Network, Factory, Box, Database, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { logAudit } from '@/utils/auditLog';
 
@@ -142,125 +138,237 @@ const EquipmentCatalogPage = () => {
 
   const hasActiveFilters = search || mfgFilter !== 'all' || protoFilter !== 'all';
 
+  // Summary stats
+  const totalManufacturers = new Set(rows.map(r => r.manufacturer)).size;
+  const totalModels = new Set(rows.map(r => `${r.manufacturer}/${r.model}`)).size;
+  const totalRegisters = rows.reduce((sum, r) => sum + r.registerCount, 0);
+
   return (
     <MainLayout>
-      <div className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[#1a2744]">Equipment Catalog</h1>
-            <p className="text-muted-foreground mt-1">Manage register maps for industrial equipment</p>
+      <div className="flex flex-col h-full">
+        {/* Page header */}
+        <div className="px-8 pt-8 pb-6 border-b bg-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-[#1a2744]">Equipment Catalog</h1>
+              <p className="text-sm text-muted-foreground mt-1">Register maps for industrial equipment</p>
+            </div>
+            <Button onClick={() => setFormOpen(true)} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+              <Plus className="h-4 w-4 mr-2" />New Catalog
+            </Button>
           </div>
-          <Button onClick={() => setFormOpen(true)} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
-            <Plus className="h-4 w-4 mr-2" />New Catalog
-          </Button>
+
+          {/* Summary stats */}
+          <div className="flex items-center gap-6 mt-5">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-blue-100">
+                <Factory className="h-4 w-4 text-blue-600" />
+              </div>
+              <span className="font-semibold text-[#1a2744]">{totalManufacturers}</span>
+              <span className="text-muted-foreground">manufacturers</span>
+            </div>
+            <div className="w-px h-4 bg-slate-200" />
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-purple-100">
+                <Box className="h-4 w-4 text-purple-600" />
+              </div>
+              <span className="font-semibold text-[#1a2744]">{totalModels}</span>
+              <span className="text-muted-foreground">models</span>
+            </div>
+            <div className="w-px h-4 bg-slate-200" />
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-emerald-100">
+                <Database className="h-4 w-4 text-emerald-600" />
+              </div>
+              <span className="font-semibold text-[#1a2744]">{totalRegisters.toLocaleString()}</span>
+              <span className="text-muted-foreground">registers</span>
+            </div>
+            <div className="w-px h-4 bg-slate-200" />
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-amber-100">
+                <BookOpen className="h-4 w-4 text-amber-600" />
+              </div>
+              <span className="font-semibold text-[#1a2744]">{catalogs.length}</span>
+              <span className="text-muted-foreground">catalogs</span>
+            </div>
+          </div>
         </div>
 
-        <EntityManagement />
+        {/* Main content — two-column layout */}
+        <div className="flex flex-1 overflow-hidden">
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />Catalogs ({filteredRows.length})
-              </CardTitle>
+          {/* Left panel — Reference Data (fixed width) */}
+          <div className="w-80 flex-shrink-0 border-r bg-slate-50 overflow-y-auto">
+            <div className="p-4">
+              <EntityManagement />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search manufacturer, model, protocol..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-9" />
-              </div>
-              <Select value={mfgFilter} onValueChange={setMfgFilter}>
-                <SelectTrigger className="w-48 h-9"><SelectValue placeholder="Manufacturer" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Manufacturers</SelectItem>
-                  {uniqueManufacturers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={protoFilter} onValueChange={setProtoFilter}>
-                <SelectTrigger className="w-48 h-9"><SelectValue placeholder="Protocol" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Protocols</SelectItem>
-                  {uniqueProtocols.map(p => <SelectItem key={p} value={p}><span className="font-mono">{p}</span></SelectItem>)}
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(''); setMfgFilter('all'); setProtoFilter('all'); }}>
-                  Clear filters
-                </Button>
-              )}
-            </div>
+          </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-            ) : filteredRows.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">{hasActiveFilters ? 'No catalogs match your filters' : 'No catalogs yet'}</p>
-                <p className="text-sm mt-1">Create a catalog to define register maps for your equipment.</p>
+          {/* Right panel — Catalogs table */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              {/* Filters bar */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search manufacturer, model, protocol..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-10 h-9 bg-white"
+                  />
+                </div>
+                <Select value={mfgFilter} onValueChange={setMfgFilter}>
+                  <SelectTrigger className="w-44 h-9 bg-white"><SelectValue placeholder="Manufacturer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Manufacturers</SelectItem>
+                    {uniqueManufacturers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={protoFilter} onValueChange={setProtoFilter}>
+                  <SelectTrigger className="w-40 h-9 bg-white"><SelectValue placeholder="Protocol" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Protocols</SelectItem>
+                    {uniqueProtocols.map(p => <SelectItem key={p} value={p}><span className="font-mono">{p}</span></SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="h-9 text-muted-foreground" onClick={() => { setSearch(''); setMfgFilter('all'); setProtoFilter('all'); }}>
+                    Clear
+                  </Button>
+                )}
               </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Manufacturer</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Protocol</TableHead>
-                      <TableHead className="text-center">Registers</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right w-24">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+
+              {/* Results count */}
+              <div className="text-xs text-muted-foreground mb-3">
+                {filteredRows.length} catalog{filteredRows.length !== 1 ? 's' : ''}
+                {hasActiveFilters && ` (filtered from ${rows.length})`}
+              </div>
+
+              {/* Table */}
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredRows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center border rounded-xl border-dashed bg-white">
+                  <BookOpen className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
+                  <p className="font-medium text-slate-700">
+                    {hasActiveFilters ? 'No catalogs match your filters' : 'No catalogs yet'}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1 mb-4">
+                    {hasActiveFilters ? 'Try adjusting your search or filters' : 'Create a catalog to define register maps for your equipment'}
+                  </p>
+                  {!hasActiveFilters && (
+                    <Button onClick={() => setFormOpen(true)} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+                      <Plus className="h-4 w-4 mr-2" />New Catalog
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border overflow-hidden">
+                  {/* Table header */}
+                  <div className="grid grid-cols-[1fr_1fr_160px_80px_1fr_80px] gap-4 px-4 py-2.5 bg-slate-50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <div>Manufacturer</div>
+                    <div>Model</div>
+                    <div>Protocol</div>
+                    <div className="text-center">Registers</div>
+                    <div>Description</div>
+                    <div className="text-right">Actions</div>
+                  </div>
+
+                  {/* Table rows */}
+                  <div className="divide-y">
                     {filteredRows.map((row, idx) => (
-                      <TableRow key={`${row.catalogId}-${row.protocolId}-${idx}`} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/equipment-catalog/${row.catalogId}`)}>
-                        <TableCell className="font-medium">{row.manufacturer}</TableCell>
-                        <TableCell>{row.model}</TableCell>
-                        <TableCell>
+                      <div
+                        key={`${row.catalogId}-${row.protocolId}-${idx}`}
+                        className="grid grid-cols-[1fr_1fr_160px_80px_1fr_80px] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-slate-50 group transition-colors"
+                        onClick={() => navigate(`/equipment-catalog/${row.catalogId}`)}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-1.5 rounded-md bg-blue-50 flex-shrink-0">
+                            <Factory className="h-3.5 w-3.5 text-blue-600" />
+                          </div>
+                          <span className="font-medium text-sm truncate">{row.manufacturer}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-1.5 rounded-md bg-purple-50 flex-shrink-0">
+                            <Box className="h-3.5 w-3.5 text-purple-600" />
+                          </div>
+                          <span className="text-sm truncate">{row.model}</span>
+                        </div>
+
+                        <div>
                           {row.protocol !== '—' ? (
-                            <Badge variant="secondary" className="font-mono text-xs">
-                              <Network className="h-3 w-3 mr-1" />{row.protocol}
+                            <Badge variant="secondary" className="font-mono text-xs gap-1">
+                              <Network className="h-3 w-3" />{row.protocol}
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
+                            <span className="text-muted-foreground text-xs italic">No protocol</span>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline">{row.registerCount}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{row.description || '—'}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/equipment-catalog/${row.catalogId}`)}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" disabled={deletingId === row.catalogId}>
-                                  {deletingId === row.catalogId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Delete catalog?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{row.manufacturer} / {row.model}" and all its protocols.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(row.catalogId)} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        </div>
 
-        <CatalogForm open={formOpen} onOpenChange={setFormOpen} onSave={handleCreate} saving={saving} />
+                        <div className="text-center">
+                          <span className={`text-sm font-semibold ${row.registerCount > 0 ? 'text-[#1a2744]' : 'text-slate-400'}`}>
+                            {row.registerCount > 0 ? row.registerCount.toLocaleString() : '—'}
+                          </span>
+                        </div>
+
+                        <div className="text-sm text-muted-foreground truncate">
+                          {row.description || <span className="italic opacity-50">—</span>}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => navigate(`/equipment-catalog/${row.catalogId}`)}
+                            title="Open catalog"
+                          >
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 hover:bg-red-50"
+                                disabled={deletingId === row.catalogId}
+                                title="Delete catalog"
+                              >
+                                {deletingId === row.catalogId
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Trash2 className="h-3.5 w-3.5" />
+                                }
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete catalog?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete "{row.manufacturer} / {row.model}" and all its protocols.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(row.catalogId)} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+
+      <CatalogForm open={formOpen} onOpenChange={setFormOpen} onSave={handleCreate} saving={saving} />
     </MainLayout>
   );
 };
