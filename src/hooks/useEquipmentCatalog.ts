@@ -12,12 +12,10 @@ export const useEquipmentCatalog = () => {
 
     if (error) throw error;
 
-    // Fetch ALL protocols to build per-catalog data
     const { data: protocols } = await supabase
       .from('catalog_protocols')
       .select('*');
 
-    // Group protocols by catalog_id
     const protocolsByCatalog = new Map<string, CatalogProtocol[]>();
     (protocols || []).forEach((p: CatalogProtocol) => {
       const existing = protocolsByCatalog.get(p.catalog_id) || [];
@@ -146,17 +144,13 @@ export const useEquipmentCatalog = () => {
     if (error) throw error;
   }, []);
 
-  /**
-   * Link a catalog protocol to equipment.
-   * Does NOT remove existing links — supports multiple catalogs per equipment.
-   * Checks for duplicate before inserting.
-   * Works even if the catalog has no registers (0 matched).
-   */
   const linkCatalogToEquipment = useCallback(async (
     equipmentId: string,
     catalogProtocolId: string,
     siteIdentifier: string
   ): Promise<{ matched: number; total: number }> => {
+    console.log('[linkCatalogToEquipment] START', { equipmentId, catalogProtocolId, siteIdentifier });
+
     // Fetch protocol with its parent catalog
     const { data: protocol, error: protoError } = await supabase
       .from('catalog_protocols')
@@ -164,12 +158,14 @@ export const useEquipmentCatalog = () => {
       .eq('id', catalogProtocolId)
       .single();
 
-    if (protoError || !protocol) throw new Error('Protocol not found');
+    if (protoError || !protocol) {
+      console.error('[linkCatalogToEquipment] Protocol not found', protoError);
+      throw new Error('Protocol not found');
+    }
 
     const catalog = (protocol as any).equipment_catalogs;
     if (!catalog) throw new Error('Catalog not found for this protocol');
 
-    // Safely get registers array (may be null, undefined, or empty)
     const registers: CatalogRegister[] = Array.isArray(protocol.registers) ? protocol.registers : [];
 
     // Fetch equipment details
@@ -179,44 +175,64 @@ export const useEquipmentCatalog = () => {
       .eq('id', equipmentId)
       .single();
 
-    if (eqError || !equipment) throw new Error('Equipment not found');
+    if (eqError || !equipment) {
+      console.error('[linkCatalogToEquipment] Equipment not found', eqError);
+      throw new Error('Equipment not found');
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
 
     // Check if this exact link already exists
+    console.log('[linkCatalogToEquipment] Checking for existing link...');
     const { data: existingLinks, error: existingError } = await supabase
       .from('equipment_catalog_links')
       .select('id')
       .eq('equipment_id', equipmentId)
       .eq('catalog_protocol_id', catalogProtocolId);
 
+    console.log('[linkCatalogToEquipment] Existing links check:', { existingLinks, existingError });
+
     if (existingError) {
-      console.error('Error checking existing links:', existingError);
+      console.error('[linkCatalogToEquipment] Error checking existing links:', existingError);
     }
 
     if (existingLinks && existingLinks.length > 0) {
       throw new Error('This catalog protocol is already linked to this equipment');
     }
 
-    // Insert new link (don't delete existing ones)
-    const { error: linkError } = await supabase
+    // Insert new link
+    console.log('[linkCatalogToEquipment] Inserting new link...');
+    const insertPayload = {
+      equipment_id: equipmentId,
+      catalog_id: protocol.catalog_id,
+      catalog_protocol_id: catalogProtocolId,
+      linked_by: user?.id,
+    };
+    console.log('[linkCatalogToEquipment] Insert payload:', insertPayload);
+
+    const { data: insertedLink, error: linkError } = await supabase
       .from('equipment_catalog_links')
-      .insert({
-        equipment_id: equipmentId,
-        catalog_id: protocol.catalog_id,
-        catalog_protocol_id: catalogProtocolId,
-        linked_by: user?.id,
+      .insert(insertPayload)
+      .select();
+
+    console.log('[linkCatalogToEquipment] Insert result:', { insertedLink, linkError });
+
+    if (linkError) {
+      console.error('[linkCatalogToEquipment] INSERT ERROR:', {
+        message: linkError.message,
+        code: linkError.code,
+        details: linkError.details,
+        hint: linkError.hint,
       });
+      throw new Error('Failed to create link: ' + linkError.message);
+    }
 
-    if (linkError) throw new Error('Failed to create link: ' + linkError.message);
-
-    // Update equipment manufacturer/model with the latest linked catalog
+    // Update equipment manufacturer/model
     await supabase
       .from('discovered_equipment')
       .update({ manufacturer: catalog.manufacturer, model: catalog.model, updated_at: new Date().toISOString() })
       .eq('id', equipmentId);
 
-    // If no registers, just return 0 matched
     if (registers.length === 0) {
       return { matched: 0, total: 0 };
     }
@@ -226,7 +242,6 @@ export const useEquipmentCatalog = () => {
     const nowIso = new Date().toISOString();
 
     for (const register of registers) {
-      // Skip registers without a valid address
       if (register.address === undefined || register.address === null) continue;
       if (register.function_code === undefined || register.function_code === null) continue;
 
@@ -255,17 +270,11 @@ export const useEquipmentCatalog = () => {
     return { matched: matchedCount, total: registers.length };
   }, []);
 
-  /**
-   * Remove ALL catalog links for an equipment (legacy behavior).
-   */
   const unlinkCatalogFromEquipment = useCallback(async (equipmentId: string): Promise<void> => {
     const { error } = await supabase.from('equipment_catalog_links').delete().eq('equipment_id', equipmentId);
     if (error) throw error;
   }, []);
 
-  /**
-   * Remove a single catalog link by its link ID.
-   */
   const unlinkSingleCatalogLink = useCallback(async (linkId: string): Promise<void> => {
     const { error } = await supabase.from('equipment_catalog_links').delete().eq('id', linkId);
     if (error) throw error;
@@ -286,10 +295,6 @@ export const useEquipmentCatalog = () => {
     return { ...data, catalog: catalog || undefined, protocol: (protocol as CatalogProtocol) || undefined } as EquipmentCatalogLink;
   }, []);
 
-  /**
-   * Fetch ALL catalog links for all equipment in a site.
-   * Returns a Map of equipmentId -> first EquipmentCatalogLink (backward compat).
-   */
   const fetchAllCatalogLinks = useCallback(async (siteIdentifier: string): Promise<Map<string, EquipmentCatalogLink>> => {
     const { data: equipment } = await supabase.from('discovered_equipment').select('id').eq('site_identifier', siteIdentifier);
     if (!equipment || equipment.length === 0) return new Map();
@@ -320,10 +325,6 @@ export const useEquipmentCatalog = () => {
     return result;
   }, []);
 
-  /**
-   * Fetch ALL catalog links for all equipment in a site, grouped by equipment.
-   * Returns a Map of equipmentId -> EquipmentCatalogLink[].
-   */
   const fetchAllCatalogLinksGrouped = useCallback(async (siteIdentifier: string): Promise<Map<string, EquipmentCatalogLink[]>> => {
     const { data: equipment } = await supabase.from('discovered_equipment').select('id').eq('site_identifier', siteIdentifier);
     if (!equipment || equipment.length === 0) return new Map();
