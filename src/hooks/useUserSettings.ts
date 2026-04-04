@@ -2,6 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+export const DEFAULT_CATEGORIZE_PROMPT = `You are an expert in OT (Operational Technology) and energy systems.
+Given a list of Modbus/protocol registers from industrial equipment, classify each register into exactly one category.
+
+Available categories:
+{{categories_json}}
+
+For each register, analyze the name, label, unit, data type, and address to determine the most appropriate category.
+
+Respond ONLY with a JSON array where each element has:
+- "address": the register address (number)
+- "category": the category value (string, must be one of the available categories)
+- "confidence": your confidence level (number, 0.0 to 1.0)
+
+Registers to classify:
+{{registers_json}}`;
+
+export interface AIPrompts {
+  categorize_registers: string;
+}
+
 export interface UserSettings {
   id?: string;
   user_id?: string;
@@ -17,6 +37,11 @@ export interface UserSettings {
   sample_threshold_for_analysis: number;
   auto_confirm_threshold: number;
   photo_webhook_url: string | null;
+  ai_provider: string;
+  ai_api_key: string | null;
+  ai_model: string;
+  ai_custom_base_url: string | null;
+  ai_prompts: AIPrompts;
 }
 
 const defaultSettings: UserSettings = {
@@ -32,6 +57,13 @@ const defaultSettings: UserSettings = {
   sample_threshold_for_analysis: 50,
   auto_confirm_threshold: 0.95,
   photo_webhook_url: 'https://n8n.otscanner.qzz.io/webhook/9118e601-ae51-446f-8f44-fdbc7037f2ad',
+  ai_provider: 'anthropic',
+  ai_api_key: null,
+  ai_model: 'claude-sonnet-4-20250514',
+  ai_custom_base_url: null,
+  ai_prompts: {
+    categorize_registers: DEFAULT_CATEGORIZE_PROMPT,
+  },
 };
 
 export const useUserSettings = () => {
@@ -62,6 +94,10 @@ export const useUserSettings = () => {
       setSettings({
         ...defaultSettings,
         ...data,
+        ai_prompts: {
+          ...defaultSettings.ai_prompts,
+          ...(data.ai_prompts as AIPrompts || {}),
+        },
       });
     } else {
       setSettings(defaultSettings);

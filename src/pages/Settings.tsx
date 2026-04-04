@@ -31,6 +31,9 @@ import {
 import { Loader2, Save, Cpu, Link as LinkIcon, AlertTriangle, Trash2, Database, Server, Variable, History, RefreshCw, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { AIProviderSettings } from '@/components/settings/AIProviderSettings';
+import { AIPromptsSettings } from '@/components/settings/AIPromptsSettings';
+import { DEFAULT_CATEGORIZE_PROMPT } from '@/hooks/useUserSettings';
 
 interface AllDataCounts {
   learning_samples_count: number;
@@ -71,6 +74,11 @@ const Settings = () => {
     sample_threshold_for_analysis: '50',
     auto_confirm_threshold: '0.95',
     photo_webhook_url: '',
+    ai_provider: 'anthropic',
+    ai_api_key: '',
+    ai_model: 'claude-sonnet-4-20250514',
+    ai_custom_base_url: '',
+    ai_categorize_prompt: DEFAULT_CATEGORIZE_PROMPT,
   });
 
   const [dataCounts, setDataCounts] = useState<AllDataCounts | null>(null);
@@ -103,6 +111,11 @@ const Settings = () => {
         sample_threshold_for_analysis: ((settings as any).sample_threshold_for_analysis || 50).toString(),
         auto_confirm_threshold: ((settings as any).auto_confirm_threshold || 0.95).toString(),
         photo_webhook_url: settings.photo_webhook_url || '',
+        ai_provider: settings.ai_provider || 'anthropic',
+        ai_api_key: settings.ai_api_key || '',
+        ai_model: settings.ai_model || 'claude-sonnet-4-20250514',
+        ai_custom_base_url: settings.ai_custom_base_url || '',
+        ai_categorize_prompt: settings.ai_prompts?.categorize_registers || DEFAULT_CATEGORIZE_PROMPT,
       });
     }
   }, [loading, settings]);
@@ -204,7 +217,14 @@ const Settings = () => {
       sample_threshold_for_analysis: parseInt(formData.sample_threshold_for_analysis) || 50,
       auto_confirm_threshold: parseFloat(formData.auto_confirm_threshold) || 0.95,
       photo_webhook_url: formData.photo_webhook_url || null,
-    } as any);
+      ai_provider: formData.ai_provider,
+      ai_api_key: formData.ai_api_key || null,
+      ai_model: formData.ai_model,
+      ai_custom_base_url: formData.ai_custom_base_url || null,
+      ai_prompts: {
+        categorize_registers: formData.ai_categorize_prompt,
+      },
+    });
 
     if (success) {
       toast.success('Settings saved successfully!');
@@ -412,6 +432,22 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+
+          <AIProviderSettings
+            provider={formData.ai_provider}
+            apiKey={formData.ai_api_key}
+            model={formData.ai_model}
+            customBaseUrl={formData.ai_custom_base_url}
+            onProviderChange={v => setFormData(prev => ({ ...prev, ai_provider: v }))}
+            onApiKeyChange={v => setFormData(prev => ({ ...prev, ai_api_key: v }))}
+            onModelChange={v => setFormData(prev => ({ ...prev, ai_model: v }))}
+            onCustomBaseUrlChange={v => setFormData(prev => ({ ...prev, ai_custom_base_url: v }))}
+          />
+
+          <AIPromptsSettings
+            prompt={formData.ai_categorize_prompt}
+            onPromptChange={v => setFormData(prev => ({ ...prev, ai_categorize_prompt: v }))}
+          />
 
           <Card>
             <CardHeader>

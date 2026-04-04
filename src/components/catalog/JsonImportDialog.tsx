@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CatalogRegister } from '@/types/catalog';
 import { JsonFormatHelp } from './JsonFormatHelp';
 import {
@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertCircle, Loader2, FileJson } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { CheckCircle, AlertCircle, Loader2, FileJson, Bot } from 'lucide-react';
+import { useAIService } from '@/hooks/useAIService';
+import { useUserSettings } from '@/hooks/useUserSettings';
 
 interface JsonImportDialogProps {
   open: boolean;
@@ -27,10 +31,29 @@ export const JsonImportDialog = ({
     registers?: CatalogRegister[];
     error?: string;
   } | null>(null);
+  const [autoCategorize, setAutoCategorize] = useState(false);
+  const [categorizing, setCategorizing] = useState(false);
+  const [categorizedRegisters, setCategorizedRegisters] = useState<CatalogRegister[] | null>(null);
+  const [categorizedCount, setCategorizedCount] = useState(0);
+
+  const { categorizeRegisters, progress: aiProgress } = useAIService();
+  const { settings } = useUserSettings();
+
+  const hasApiKey = Boolean(settings.ai_api_key);
+
+  // Reset auto-categorize default when dialog opens
+  useEffect(() => {
+    if (open) {
+      setAutoCategorize(hasApiKey);
+    }
+  }, [open, hasApiKey]);
 
   const handleClose = () => {
     setJsonText('');
     setValidationResult(null);
+    setCategorizedRegisters(null);
+    setCategorizedCount(0);
+    setCategorizing(false);
     onOpenChange(false);
   };
 
@@ -104,13 +127,44 @@ export const JsonImportDialog = ({
     }
 
     setValidationResult({ valid: true, registers });
+    setCategorizedRegisters(null);
+    setCategorizedCount(0);
+  };
+
+  const handleRunAICategorize = async () => {
+    if (!validationResult?.registers) return;
+
+    setCategorizing(true);
+    try {
+      const uncategorized = validationResult.registers.filter(r => !r.category);
+      const toProcess = uncategorized.length > 0 ? uncategorized : validationResult.registers;
+
+      const results = await categorizeRegisters(toProcess);
+      const resultMap = new Map(results.map(r => [r.address, r.category]));
+
+      const updated = validationResult.registers.map(reg => {
+        const newCategory = resultMap.get(reg.address);
+        if (newCategory) return { ...reg, category: newCategory };
+        return reg;
+      });
+
+      setCategorizedRegisters(updated);
+      setCategorizedCount(results.length);
+    } catch (err) {
+      console.error('AI categorization failed:', err);
+    }
+    setCategorizing(false);
   };
 
   const handleImport = () => {
-    if (validationResult?.valid && validationResult.registers) {
-      onImport(validationResult.registers);
+    const registersToImport = categorizedRegisters || validationResult?.registers;
+    if (registersToImport) {
+      onImport(registersToImport);
     }
   };
+
+  const registersToShow = categorizedRegisters || validationResult?.registers;
+  const uncategorizedCount = registersToShow?.filter(r => !r.category).length || 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -134,20 +188,73 @@ export const JsonImportDialog = ({
             onChange={(e) => {
               setJsonText(e.target.value);
               setValidationResult(null);
+              setCategorizedRegisters(null);
+              setCategorizedCount(0);
             }}
             className="font-mono text-xs min-h-[250px] resize-y"
           />
 
           {validationResult && (
             validationResult.valid ? (
-              <Alert className="border-emerald-200 bg-emerald-50">
-                <CheckCircle className="h-4 w-4 text-emerald-600" />
-                <AlertDescription className="text-emerald-800">
-                  <span className="font-medium">Valid!</span> Found{' '}
-                  <Badge variant="secondary" className="mx-1">{validationResult.registers?.length}</Badge>
-                  registers ready to import.
-                </AlertDescription>
-              </Alert>
+              <div className="space-y-3">
+                <Alert className="border-emerald-200 bg-emerald-50">
+                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                  <AlertDescription className="text-emerald-800">
+                    <span className="font-medium">Valid!</span> Found{' '}
+                    <Badge variant="secondary" className="mx-1">{validationResult.registers?.length}</Badge>
+                    registers ready to import.
+                    {uncategorizedCount > 0 && (
+                      <span className="text-emerald-600 ml-1">
+                        ({uncategorizedCount} without category)
+                      </span>
+                    )}
+                  </AlertDescription>
+                </Alert>
+
+                {hasApiKey && uncategorizedCount > 0 && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-violet-200 bg-violet-50/50">
+                    <div className="flex items-center gap-2 flex-1">
+                      <Checkbox
+                        id="auto-categorize"
+                        checked={autoCategorize}
+                        onCheckedChange={(checked) => setAutoCategorize(checked === true)}
+                      />
+                      <Label htmlFor="auto-categorize" className="text-sm flex items-center gap-1.5 cursor-pointer">
+                        <Bot className="h-4 w-4 text-violet-600" />
+                        Auto-categorize with AI before importing
+                      </Label>
+                    </div>
+                    {autoCategorize && !categorizedRegisters && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRunAICategorize}
+                        disabled={categorizing}
+                        className="text-violet-600 border-violet-200 hover:bg-violet-100"
+                      >
+                        {categorizing ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            {aiProgress ? `${aiProgress.current}/${aiProgress.total}` : 'Processing...'}
+                          </>
+                        ) : (
+                          <><Bot className="h-3.5 w-3.5 mr-1" />Run AI</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {categorizedRegisters && categorizedCount > 0 && (
+                  <Alert className="border-violet-200 bg-violet-50">
+                    <Bot className="h-4 w-4 text-violet-600" />
+                    <AlertDescription className="text-violet-800">
+                      AI categorized <Badge variant="secondary" className="mx-1">{categorizedCount}</Badge> registers.
+                      {uncategorizedCount > 0 && ` ${uncategorizedCount} still uncategorized.`}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             ) : (
               <Alert className="border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4 text-red-600" />
@@ -168,13 +275,13 @@ export const JsonImportDialog = ({
           )}
           <Button
             onClick={handleImport}
-            disabled={!validationResult?.valid || isImporting}
+            disabled={!validationResult?.valid || isImporting || categorizing}
             className="bg-[#2563EB] hover:bg-[#1d4ed8]"
           >
             {isImporting ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importing...</>
             ) : (
-              <>Import {validationResult?.registers?.length || 0} Registers</>
+              <>Import {registersToShow?.length || 0} Registers</>
             )}
           </Button>
         </DialogFooter>

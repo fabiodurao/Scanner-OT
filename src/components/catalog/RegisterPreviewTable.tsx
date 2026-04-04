@@ -7,11 +7,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X, Bot, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAIService } from '@/hooks/useAIService';
+import { toast } from 'sonner';
 
 interface RegisterPreviewTableProps {
   registers: CatalogRegister[];
+  onAICategorize?: (updatedRegisters: CatalogRegister[]) => void;
 }
 
 const DATA_TYPE_COLORS: Record<string, string> = {
@@ -76,10 +79,13 @@ const HeaderFilter = ({ label, value, onChange, options }: {
   );
 };
 
-export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) => {
+export const RegisterPreviewTable = ({ registers, onAICategorize }: RegisterPreviewTableProps) => {
   const [dataTypeFilter, setDataTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
+  const [aiChangedAddresses, setAiChangedAddresses] = useState<Set<number>>(new Set());
+
+  const { categorizeRegisters, loading: aiLoading, progress: aiProgress } = useAIService();
 
   const uniqueDataTypes = useMemo(() => [...new Set(registers.map(r => r.data_type).filter(Boolean))].sort(), [registers]);
   const uniqueCategories = useMemo(() => [...new Set(registers.map(r => r.category).filter((c): c is string => Boolean(c)))].sort(), [registers]);
@@ -102,6 +108,46 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
 
   const hasFilters = dataTypeFilter || categoryFilter || searchFilter;
 
+  const handleAICategorize = async () => {
+    const uncategorized = registers.filter(r => !r.category && r.name.trim());
+    const toProcess = uncategorized.length > 0 ? uncategorized : registers.filter(r => r.name.trim());
+
+    if (toProcess.length === 0) {
+      toast.info('No registers to categorize');
+      return;
+    }
+
+    try {
+      const results = await categorizeRegisters(toProcess);
+
+      if (results.length === 0) {
+        toast.warning('AI returned no categorizations. Check your API key and prompt in Settings.');
+        return;
+      }
+
+      const resultMap = new Map(results.map(r => [r.address, r.category]));
+      const changedAddresses = new Set<number>();
+      const updatedRegisters = registers.map(reg => {
+        const newCategory = resultMap.get(reg.address);
+        if (newCategory) {
+          changedAddresses.add(reg.address);
+          return { ...reg, category: newCategory };
+        }
+        return reg;
+      });
+
+      setAiChangedAddresses(changedAddresses);
+
+      if (onAICategorize) {
+        onAICategorize(updatedRegisters);
+      }
+
+      toast.success(`AI categorized ${results.length} of ${toProcess.length} registers`);
+    } catch (err) {
+      toast.error('AI categorization failed: ' + (err as Error).message);
+    }
+  };
+
   if (registers.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg border-dashed">
@@ -115,6 +161,27 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
       <div className="flex items-center justify-between">
         <Input placeholder="Search address, name, label..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} className="h-7 text-xs w-56" />
         <div className="flex items-center gap-2">
+          {aiLoading && aiProgress && (
+            <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 text-xs animate-pulse">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Categorizing {aiProgress.current}/{aiProgress.total}...
+            </Badge>
+          )}
+          {onAICategorize && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-violet-600 border-violet-200 hover:bg-violet-50"
+              onClick={handleAICategorize}
+              disabled={aiLoading}
+            >
+              {aiLoading ? (
+                <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Categorizing...</>
+              ) : (
+                <><Bot className="h-3 w-3 mr-1" />Categorize with AI</>
+              )}
+            </Button>
+          )}
           {hasFilters && (
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setDataTypeFilter(''); setCategoryFilter(''); setSearchFilter(''); }}>
               <X className="h-3 w-3 mr-1" />Clear filters
@@ -164,15 +231,16 @@ export const RegisterPreviewTable = ({ registers }: RegisterPreviewTableProps) =
             ) : filtered.map((reg, index) => {
               const dtColor = DATA_TYPE_COLORS[reg.data_type?.toLowerCase()] || 'bg-gray-100 text-gray-700 border-gray-300';
               const catInfo = getCategoryLabel(reg.category);
+              const isAiChanged = aiChangedAddresses.has(reg.address);
               return (
-                <TableRow key={`${reg.address}-${reg.function_code}-${index}`}>
+                <TableRow key={`${reg.address}-${reg.function_code}-${index}`} className={isAiChanged ? 'bg-violet-50/50' : undefined}>
                   <TableCell className="font-mono font-medium">{reg.address}</TableCell>
                   <TableCell className="font-mono">{reg.function_code}</TableCell>
                   <TableCell className="font-mono text-xs">{reg.name}</TableCell>
                   <TableCell className="text-sm">{reg.label || '—'}</TableCell>
                   <TableCell>
                     {catInfo ? (
-                      <Badge variant="outline" className="text-[10px] gap-1">
+                      <Badge variant="outline" className={cn("text-[10px] gap-1", isAiChanged && "border-violet-300 bg-violet-50 text-violet-700")}>
                         <span>{catInfo.emoji}</span>
                         <span className="truncate max-w-[100px]">{catInfo.label}</span>
                       </Badge>

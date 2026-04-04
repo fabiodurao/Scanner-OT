@@ -232,7 +232,18 @@ const EquipmentCatalogDetail = () => {
                   saving={savingRegisters}
                 />
               ) : (
-                <RegisterPreviewTable registers={protocol.registers || []} />
+                <RegisterPreviewTable
+                  registers={protocol.registers || []}
+                  onAICategorize={async (updatedRegisters) => {
+                    try {
+                      await updateProtocol(protocol.id, updatedRegisters);
+                      toast.success('AI categories saved!');
+                      await loadCatalog();
+                    } catch {
+                      toast.error('Error saving AI categories');
+                    }
+                  }}
+                />
               )
             ) : (
               <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
