@@ -26,17 +26,19 @@ export function RunAnalysisButton({ siteId }: { siteId: string }) {
     const fetchSampleCount = async () => {
       setLoading(true);
       
-      // Use the new RPC function to get sample count efficiently
-      const { data: sampleCountData, error: countError } = await supabase
-        .rpc('get_site_sample_count', { p_site_identifier: siteId });
+      // Use get_site_data_counts which exists in the schema
+      const { data: countsData, error: countError } = await supabase
+        .rpc('get_site_data_counts', { p_site_identifier: siteId });
 
       if (countError) {
         console.error('[RunAnalysisButton] Error fetching sample count:', countError);
         setSampleCount(0);
-      } else {
-        const count = sampleCountData || 0;
+      } else if (countsData && countsData.length > 0) {
+        const count = countsData[0].learning_samples_count || 0;
         setSampleCount(count);
-        console.log('[RunAnalysisButton] Sample count for all variables:', count);
+        console.log('[RunAnalysisButton] Sample count:', count);
+      } else {
+        setSampleCount(0);
       }
       
       // Get count of unique variables ready for analysis
