@@ -6,6 +6,7 @@ import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
 import { ActiveAnalysisIndicator } from './ActiveAnalysisIndicator';
 import { ActivePhotoJobsIndicator } from './ActivePhotoJobsIndicator';
+import { ThemeToggle } from './ThemeToggle';
 import {
   LayoutDashboard,
   Upload,
@@ -277,6 +278,11 @@ const Sidebar = () => {
         )}
         {(isMobile || !isCollapsed) && <Separator className="bg-[hsl(var(--sidebar-border))] mb-3" />}
         
+        {/* Theme Toggle */}
+        <ThemeToggle isCollapsed={!isMobile && isCollapsed} isMobile={isMobile} />
+        
+        <div className="mt-1" />
+        
         {!isMobile && isCollapsed ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
@@ -323,7 +329,7 @@ const Sidebar = () => {
             <Button
               variant="outline"
               size="sm"
-              className="h-10 w-10 p-0 bg-white shadow-lg"
+              className="h-10 w-10 p-0 bg-white dark:bg-slate-800 shadow-lg"
             >
               {mobileOpen ? (
                 <X className="h-5 w-5" />

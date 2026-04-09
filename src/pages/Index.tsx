@@ -213,7 +213,7 @@ const Index = () => {
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1a2744]">Dashboard</h1>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
             <p className="text-muted-foreground mt-1">Centrii OT Scanner Overview</p>
           </div>
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
@@ -222,17 +222,17 @@ const Index = () => {
         </div>
 
         {!unknownSitesLoading && unknownSites.length > 0 && (
-          <Card className="mb-6 border-amber-300 bg-amber-50">
+          <Card className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-amber-100 rounded-lg">
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
                   <AlertTriangle className="h-6 w-6 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-amber-900">
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-200">
                     {unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected
                   </h3>
-                  <p className="text-sm text-amber-700 mt-1">
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                     Data is being received from site identifiers that are not registered in the system. Register them to enable full monitoring and analysis.
                   </p>
                 </div>
@@ -242,47 +242,47 @@ const Index = () => {
         )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Sites</CardTitle>
-              <div className="p-2 rounded-lg bg-blue-100"><Building2 className="h-4 w-4 text-[#2563EB]" /></div>
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/50"><Building2 className="h-4 w-4 text-[#2563EB]" /></div>
             </CardHeader>
             <CardContent>
               {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
                 <>
-                  <div className="text-3xl font-bold text-[#1a2744]">{sites.length + unknownSites.length}</div>
+                  <div className="text-3xl font-bold text-foreground">{sites.length + unknownSites.length}</div>
                   {unknownSites.length > 0 && <p className="text-xs text-amber-600 mt-1">{unknownSites.length} pending registration</p>}
                 </>
               )}
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Equipment</CardTitle>
-              <div className="p-2 rounded-lg bg-purple-100"><Server className="h-4 w-4 text-purple-600" /></div>
+              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/50"><Server className="h-4 w-4 text-purple-600" /></div>
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <div className="text-3xl font-bold text-[#1a2744]">{totalEquipment}</div>}
+              {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <div className="text-3xl font-bold text-foreground">{totalEquipment}</div>}
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Variables</CardTitle>
-              <div className="p-2 rounded-lg bg-slate-100"><Variable className="h-4 w-4 text-slate-600" /></div>
+              <div className="p-2 rounded-lg bg-secondary"><Variable className="h-4 w-4 text-muted-foreground" /></div>
             </CardHeader>
             <CardContent>
               {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
                 <>
-                  <div className="text-3xl font-bold text-[#1a2744]">{totalVariables}</div>
+                  <div className="text-3xl font-bold text-foreground">{totalVariables}</div>
                   {hypothesisVariables > 0 && <p className="text-xs text-amber-600 mt-1">{hypothesisVariables} with hypotheses</p>}
                 </>
               )}
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
-              <div className="p-2 rounded-lg bg-emerald-100"><CheckCircle className="h-4 w-4 text-emerald-600" /></div>
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50"><CheckCircle className="h-4 w-4 text-emerald-600" /></div>
             </CardHeader>
             <CardContent>
               {loadingStats ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : (
@@ -298,7 +298,7 @@ const Index = () => {
         <div>
           {/* Sites header row */}
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-            <h2 className="text-xl font-semibold text-[#1a2744] flex-shrink-0">Sites</h2>
+            <h2 className="text-xl font-semibold text-foreground flex-shrink-0">Sites</h2>
 
             {/* Type filter island */}
             {!isLoading && allSiteCards.length > 0 && (
@@ -314,7 +314,7 @@ const Index = () => {
               <div className="flex items-center border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setSitesView('cards')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'cards' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${sitesView === 'cards' ? 'bg-[#2563EB] text-white' : 'bg-card text-muted-foreground hover:bg-accent'}`}
                   title="Card view"
                 >
                   <LayoutGrid className="h-4 w-4" />
@@ -322,7 +322,7 @@ const Index = () => {
                 </button>
                 <button
                   onClick={() => setSitesView('list')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'list' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'list' ? 'bg-[#2563EB] text-white' : 'bg-card text-muted-foreground hover:bg-accent'}`}
                   title="List view"
                 >
                   <List className="h-4 w-4" />
@@ -330,7 +330,7 @@ const Index = () => {
                 </button>
                 <button
                   onClick={() => setSitesView('map')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'map' ? 'bg-[#2563EB] text-white' : 'bg-white text-muted-foreground hover:bg-slate-50'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors border-l ${sitesView === 'map' ? 'bg-[#2563EB] text-white' : 'bg-card text-muted-foreground hover:bg-accent'}`}
                   title="Map view"
                 >
                   <MapIcon className="h-4 w-4" />
@@ -388,7 +388,7 @@ const Index = () => {
                 return (
                   <Card
                     key={siteCard.id}
-                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${isUnregistered ? 'border-amber-300 bg-amber-50/30 hover:border-amber-400' : 'border-slate-200 hover:shadow-blue-500/10 hover:border-[#2563EB]/30'}`}
+                    className={`hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col ${isUnregistered ? 'border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-950/20 hover:border-amber-400' : 'border-border hover:shadow-blue-500/10 hover:border-[#2563EB]/30'}`}
                     onClick={() => handleCardClick(siteCard.identifier, siteCard.id)}
                   >
                     <CardHeader className="pb-2">
@@ -401,15 +401,15 @@ const Index = () => {
                           )}
                           {isUnregistered && <Activity className="h-5 w-5 text-amber-500 flex-shrink-0" />}
                           {isUnregistered ? (
-                            <CardTitle className="text-lg text-[#1a2744] truncate">
+                            <CardTitle className="text-lg text-foreground truncate">
                               <code className="text-sm font-mono">{siteCard.identifier?.slice(0, 8)}...</code>
                             </CardTitle>
                           ) : (
-                            <CardTitle className="text-lg text-[#1a2744] truncate">{siteCard.name}</CardTitle>
+                            <CardTitle className="text-lg text-foreground truncate">{siteCard.name}</CardTitle>
                           )}
                         </div>
                         {isUnregistered ? (
-                          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 flex-shrink-0">Unregistered</Badge>
+                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 flex-shrink-0">Unregistered</Badge>
                         ) : typeConfig && IconComponent ? (
                           <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
                             <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
@@ -422,7 +422,7 @@ const Index = () => {
                           <MapPin className="h-4 w-4" />{[siteCard.city, siteCard.state].filter(Boolean).join(', ')}
                         </div>
                       )}
-                      {isUnregistered && <p className="text-xs text-amber-700 mt-1">Unregistered site identifier</p>}
+                      {isUnregistered && <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">Unregistered site identifier</p>}
                     </CardHeader>
 
                     <CardContent className="flex flex-col flex-1 pb-0">
@@ -432,16 +432,16 @@ const Index = () => {
                         <div className="flex flex-col flex-1">
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center gap-2">
-                              <div className="p-2 rounded-lg bg-slate-100"><Server className="h-4 w-4 text-slate-600" /></div>
+                              <div className="p-2 rounded-lg bg-secondary"><Server className="h-4 w-4 text-muted-foreground" /></div>
                               <div>
-                                <div className="text-2xl font-bold text-[#1a2744]">{stats.totalEquipment}</div>
+                                <div className="text-2xl font-bold text-foreground">{stats.totalEquipment}</div>
                                 <div className="text-xs text-muted-foreground">Equipment</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="p-2 rounded-lg bg-slate-100"><Variable className="h-4 w-4 text-slate-600" /></div>
+                              <div className="p-2 rounded-lg bg-secondary"><Variable className="h-4 w-4 text-muted-foreground" /></div>
                               <div>
-                                <div className="text-2xl font-bold text-[#1a2744]">{stats.totalVariables}</div>
+                                <div className="text-2xl font-bold text-foreground">{stats.totalVariables}</div>
                                 <div className="text-xs text-muted-foreground">Variables</div>
                               </div>
                             </div>
@@ -452,7 +452,7 @@ const Index = () => {
                                 <span className="text-muted-foreground">Learning Progress</span>
                                 <span className="font-medium">{stats.variablesByState.confirmed + stats.variablesByState.published}/{stats.totalVariables}</span>
                               </div>
-                              <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+                              <div className="flex h-2 rounded-full overflow-hidden bg-secondary">
                                 <div className="bg-emerald-500" style={{ width: `${(stats.variablesByState.published / stats.totalVariables) * 100}%` }} />
                                 <div className="bg-blue-500" style={{ width: `${(stats.variablesByState.confirmed / stats.totalVariables) * 100}%` }} />
                                 <div className="bg-amber-400" style={{ width: `${(stats.variablesByState.hypothesis / stats.totalVariables) * 100}%` }} />
@@ -486,11 +486,11 @@ const Index = () => {
 
                       <div className="mt-4 pt-3 border-t space-y-1 pb-4">
                         {!isUnregistered && (
-                          <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-slate-400'}`}>
+                          <div className={`flex items-center gap-1.5 text-xs ${pcap && pcap.fileCount > 0 ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
                             <FileArchive className="h-3 w-3 flex-shrink-0" /><span>{pcapLine}</span>
                           </div>
                         )}
-                        <div className={`flex items-center gap-1.5 text-xs ${stats?.lastActivity ? 'text-muted-foreground' : 'text-slate-400'}`}>
+                        <div className={`flex items-center gap-1.5 text-xs ${stats?.lastActivity ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
                           <Clock className="h-3 w-3 flex-shrink-0" />
                           <span>{stats?.lastActivity ? `Last activity: ${lastActivityLine}` : 'Last activity: not processed yet'}</span>
                         </div>
