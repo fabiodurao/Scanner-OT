@@ -131,6 +131,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
+  // Keep a ref so the style-update effect always sees the latest theme
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
@@ -142,20 +145,20 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Update map style when theme changes
+  // Dedicated effect: update map style whenever theme changes
   useEffect(() => {
-    if (mapInstanceRef.current) {
-      const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-      mapInstanceRef.current.setOptions({ styles });
-    }
+    if (!mapInstanceRef.current) return;
+    const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+    mapInstanceRef.current.setOptions({ styles });
   }, [theme]);
 
+  // Main effect: create map + markers (does NOT depend on theme — style is handled above)
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
 
-    const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+    const currentStyles = themeRef.current === 'dark' ? darkMapStyle : silverMapStyle;
 
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -205,12 +208,10 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
       // Remove default close button styling
       google.maps.event.addListener(infoWindow, 'domready', () => {
-        // Hide the default close button
         const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
         closeButtons.forEach((btn: Element) => {
           (btn as HTMLElement).style.display = 'none';
         });
-        // Remove default padding/border from InfoWindow
         const iwOuter = document.querySelector('.gm-style-iw-d');
         if (iwOuter) {
           (iwOuter as HTMLElement).style.overflow = 'hidden';
