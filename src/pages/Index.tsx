@@ -12,7 +12,7 @@ import { SitesMap } from '@/components/dashboard/SitesMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw, Loader2, Building2 } from 'lucide-react';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const Index = () => {
   const navigate = useNavigate();
