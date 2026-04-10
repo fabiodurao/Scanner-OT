@@ -68,14 +68,14 @@ const dataTypeColumns = [
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500, 1000];
 
 const learningStateConfig = {
-  unknown:   { label: 'Unknown',   icon: HelpCircle,   color: 'bg-slate-100 text-slate-700'  },
-  hypothesis:{ label: 'Hypothesis',icon: Lightbulb,    color: 'bg-amber-100 text-amber-700'  },
-  confirmed: { label: 'Confirmed', icon: CheckCircle,  color: 'bg-emerald-100 text-emerald-700'},
-  published: { label: 'Published', icon: Upload,       color: 'bg-blue-100 text-blue-700'    },
+  unknown:   { label: 'Unknown',   icon: HelpCircle,   color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'  },
+  hypothesis:{ label: 'Hypothesis',icon: Lightbulb,    color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'  },
+  confirmed: { label: 'Confirmed', icon: CheckCircle,  color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'},
+  published: { label: 'Published', icon: Upload,       color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'    },
 };
 
 const getScoreColor = (score: number | null): string => {
-  if (score === null || score === undefined) return 'bg-gray-100 text-gray-400';
+  if (score === null || score === undefined) return 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500';
   const s = Math.min(1, Math.max(0, score));
   if (s >= 0.95) return 'bg-[#00B050] text-white';
   if (s >= 0.90) return 'bg-[#17B169] text-white';
@@ -97,7 +97,7 @@ const getScoreColor = (score: number | null): string => {
   if (s >= 0.10) return 'bg-[#FF0000] text-white';
   if (s >= 0.05) return 'bg-[#E60000] text-white';
   if (s > 0)     return 'bg-[#CC0000] text-white';
-  return 'bg-gray-100 text-gray-400';
+  return 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500';
 };
 
 const formatNumber = (value: number, decimals = 3) =>
@@ -185,7 +185,7 @@ const DualFilterButton = ({
       <PopoverContent className="w-56 p-2" align="start">
         <div className="space-y-3">
           <div className="space-y-1">
-            <div className="text-xs font-semibold text-slate-700">{labelSrc}</div>
+            <div className="text-xs font-semibold text-foreground">{labelSrc}</div>
             <Input placeholder="Filter..." value={valueSrc} onChange={e => onChangeSrc(e.target.value)} className="h-7 text-xs" />
             {optionsSrc && optionsSrc.length > 0 && (
               <div className="max-h-28 overflow-y-auto space-y-0.5">
@@ -202,7 +202,7 @@ const DualFilterButton = ({
           </div>
           <div className="border-t" />
           <div className="space-y-1">
-            <div className="text-xs font-semibold text-slate-400">{labelDst}</div>
+            <div className="text-xs font-semibold text-muted-foreground">{labelDst}</div>
             <Input placeholder="Filter..." value={valueDst} onChange={e => onChangeDst(e.target.value)} className="h-7 text-xs" />
             {optionsDst && optionsDst.length > 0 && (
               <div className="max-h-28 overflow-y-auto space-y-0.5">
@@ -386,7 +386,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
             </div>
           ))}
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-gray-100 border" />
+            <div className="w-3 h-3 rounded bg-gray-100 dark:bg-gray-800 border" />
             <span className="text-muted-foreground">No analysis yet</span>
           </div>
         </div>
@@ -406,9 +406,9 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span>{variables.length} total variables</span>
         <span>•</span>
-        <span className="text-purple-600 font-medium">{variables.filter(hasAnalysis).length} with historical analysis</span>
+        <span className="text-purple-600 dark:text-purple-400 font-medium">{variables.filter(hasAnalysis).length} with historical analysis</span>
         <span>•</span>
-        <span className="text-slate-500">{variables.filter(v => !hasAnalysis(v)).length} awaiting analysis</span>
+        <span>{variables.filter(v => !hasAnalysis(v)).length} awaiting analysis</span>
       </div>
 
       {/* Pagination top */}
@@ -440,14 +440,14 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
       <div className="border rounded-lg overflow-hidden">
         <div className="max-h-[600px] overflow-auto">
           <table className={cn('w-full', isCompactView ? 'min-w-[1600px]' : 'min-w-[2800px]')}>
-            <thead className="sticky top-0 z-10 bg-slate-100 border-b">
+            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b">
               <tr className="text-xs">
 
                 <th className="px-2 py-2 text-left whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
                       <span className="font-medium">Src IP</span>
-                      <span className="font-medium text-slate-400">Dst IP</span>
+                      <span className="font-medium text-muted-foreground">Dst IP</span>
                     </div>
                     <DualFilterButton
                       labelSrc="Source IP" labelDst="Destination IP"
@@ -462,7 +462,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   <div className="flex items-center gap-1">
                     <div className="flex flex-col leading-tight">
                       <span className="font-medium">Src Port</span>
-                      <span className="font-medium text-slate-400">Dst Port</span>
+                      <span className="font-medium text-muted-foreground">Dst Port</span>
                     </div>
                     <DualFilterButton
                       labelSrc="Source Port" labelDst="Destination Port"
@@ -491,7 +491,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   <div className="flex items-center gap-1">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="font-medium cursor-help border-b border-dashed border-slate-400">Unit ID</span>
+                        <span className="font-medium cursor-help border-b border-dashed border-muted-foreground">Unit ID</span>
                       </TooltipTrigger>
                       <TooltipContent>Slave Unit ID (e.g. 1, 2, 3...)</TooltipContent>
                     </Tooltip>
@@ -512,7 +512,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                   <th className="px-2 py-2 text-left whitespace-nowrap">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="font-medium cursor-help border-b border-dashed border-slate-400">Eng. Unit</span>
+                        <span className="font-medium cursor-help border-b border-dashed border-muted-foreground">Eng. Unit</span>
                       </TooltipTrigger>
                       <TooltipContent>Engineering unit (e.g. kW, V, °C)</TooltipContent>
                     </Tooltip>
@@ -594,19 +594,19 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                 const modificationSource = (variable as any).modification_source || null;
 
                 return (
-                  <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-slate-50' : 'hover:bg-slate-50/50 opacity-80')}>
+                  <tr key={variable.id} className={cn('border-b text-xs', varHasAnalysis ? 'hover:bg-muted/50' : 'hover:bg-muted/30 opacity-80')}>
 
                     <td className="px-2 py-1.5 font-mono text-xs">
                       <div className="flex flex-col leading-tight gap-0.5">
-                        <span className="text-slate-800">{variable.source_ip || '—'}</span>
-                        <span className="text-slate-400">{variable.destination_ip || '—'}</span>
+                        <span className="text-foreground">{variable.source_ip || '—'}</span>
+                        <span className="text-muted-foreground">{variable.destination_ip || '—'}</span>
                       </div>
                     </td>
 
                     <td className="px-2 py-1.5 font-mono text-xs">
                       <div className="flex flex-col leading-tight gap-0.5">
-                        <span className="text-slate-800">{variable.source_port ?? '—'}</span>
-                        <span className="text-slate-400">{variable.destination_port ?? '—'}</span>
+                        <span className="text-foreground">{variable.source_port ?? '—'}</span>
+                        <span className="text-muted-foreground">{variable.destination_port ?? '—'}</span>
                       </div>
                     </td>
 
@@ -683,7 +683,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
 
                     {!isCompactView && (
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        <span className="font-mono text-[10px] text-slate-600">
+                        <span className="font-mono text-[10px] text-muted-foreground">
                           {formatTimestamp(lastReadingAt)}
                         </span>
                       </td>
@@ -693,25 +693,25 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                       {suggestedType ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-mono text-[10px] cursor-help hover:bg-purple-200 transition-colors">
+                            <div className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 font-mono text-[10px] cursor-help hover:bg-purple-200 dark:hover:bg-purple-900/70 transition-colors">
                               {suggestedType}
                             </div>
                           </TooltipTrigger>
                           <TooltipContent
-                            className="p-0 bg-white border-2 border-purple-200 shadow-xl max-w-sm"
+                            className="p-0 bg-popover border-2 border-purple-200 dark:border-purple-700 shadow-xl max-w-sm"
                             side="left"
                           >
                             <div className="p-3 space-y-2">
-                              <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+                              <div className="flex items-center gap-2 pb-2 border-b border-purple-100 dark:border-purple-800">
                                 <span className="bg-purple-600 text-white font-mono text-xs px-2 py-0.5 rounded">{suggestedType}</span>
                                 {winnerConfidence !== null && (
-                                  <span className="text-xs text-purple-700 font-medium">
+                                  <span className="text-xs text-purple-700 dark:text-purple-300 font-medium">
                                     {Math.round(winnerConfidence * 100)}% confidence
                                   </span>
                                 )}
                               </div>
                               {explanation ? (
-                                <p className="text-xs leading-relaxed text-slate-700">{explanation}</p>
+                                <p className="text-xs leading-relaxed text-popover-foreground">{explanation}</p>
                               ) : (
                                 <p className="text-xs text-muted-foreground italic">No explanation available.</p>
                               )}
@@ -728,7 +728,7 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         <div className="flex items-center justify-center gap-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleOpenHistory(variable)}>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950" onClick={() => handleOpenHistory(variable)}>
                                 <TrendingUp className="h-3.5 w-3.5" />
                               </Button>
                             </TooltipTrigger>
@@ -740,13 +740,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                           </Button>
 
                           {canConfirm ? (
-                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300" onClick={() => handleConfirm(variable)} disabled={confirmingId === variable.id}>
+                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:hover:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700" onClick={() => handleConfirm(variable)} disabled={confirmingId === variable.id}>
                               {confirmingId === variable.id
                                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
                                 : <><CheckCircle className="h-3 w-3 mr-1" />Confirm</>}
                             </Button>
                           ) : canUndo ? (
-                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => handleUndo(variable)} disabled={undoingId === variable.id}>
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/50" onClick={() => handleUndo(variable)} disabled={undoingId === variable.id}>
                               {undoingId === variable.id
                                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
                                 : <><Undo className="h-3 w-3 mr-1" />Undo</>}
@@ -777,13 +777,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                               <div className={cn(
                                 'px-1 py-1 rounded text-center text-xs font-medium flex flex-col items-center justify-center min-h-[40px] cursor-help transition-all hover:scale-105',
                                 getScoreColor(score),
-                                isWinner && 'ring-2 ring-emerald-500 ring-offset-1'
+                                isWinner && 'ring-2 ring-emerald-500 ring-offset-1 dark:ring-offset-background'
                               )}>
                                 <span className="text-[10px] font-semibold leading-tight truncate max-w-[70px]">{formatValue(value, col.key)}</span>
                                 <span className="text-[9px] mt-0.5 px-1 py-0 rounded bg-black/10">{formatScore(score)}</span>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent className="p-0 bg-white border-2 border-slate-200 shadow-xl max-w-xs">
+                            <TooltipContent className="p-0 bg-popover border-2 border-border shadow-xl max-w-xs">
                               {hasStats ? (
                                 <div className="p-4 space-y-3">
                                   <div className="flex items-center justify-between pb-2 border-b-2">
@@ -791,30 +791,30 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                     <Badge className={cn('font-bold text-sm px-2 py-1', score && score >= 0.8 ? 'bg-emerald-600 text-white' : score && score >= 0.5 ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')}>{formatScore(score)}</Badge>
                                   </div>
                                   {isWinner && (
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-2">
+                                    <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg p-2 flex items-center gap-2">
                                       <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                      <span className="text-xs font-semibold text-emerald-800">AI Winner</span>
+                                      <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">AI Winner</span>
                                     </div>
                                   )}
-                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
-                                    <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                    <div className="font-mono font-bold text-2xl text-blue-900">{formatValue(value, col.key)}</div>
+                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 rounded-lg p-3 border-2 border-blue-200 dark:border-blue-800">
+                                    <div className="text-xs text-blue-700 dark:text-blue-300 mb-1 font-medium">Current Value</div>
+                                    <div className="font-mono font-bold text-2xl text-blue-900 dark:text-blue-100">{formatValue(value, col.key)}</div>
                                   </div>
                                   <div className="space-y-2">
-                                    <div className="text-xs font-semibold text-slate-700 border-b-2 pb-1 flex items-center gap-2">
+                                    <div className="text-xs font-semibold border-b-2 pb-1 flex items-center gap-2">
                                       <span>Historical Statistics</span>
                                       <Badge variant="secondary" className="text-[10px]">{count?.toLocaleString('en-US')} samples</Badge>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                       {[
-                                        { label: 'Avg Score',    value: formatScore(avgScore),                                bg: 'bg-purple-50 border-purple-100', text: 'text-purple-700', val: 'text-purple-900' },
-                                        { label: 'Avg Value',    value: avgValue !== null ? formatNumber(avgValue, 3) : '-', bg: 'bg-blue-50 border-blue-100',     text: 'text-blue-700',   val: 'text-blue-900'   },
-                                        { label: 'Std Dev',      value: std     !== null ? formatNumber(std, 3)     : '-', bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
-                                        { label: 'Avg Jump',     value: avgJump !== null ? formatNumber(avgJump, 3) : '-', bg: 'bg-amber-50 border-amber-100',   text: 'text-amber-700',  val: 'text-amber-900'  },
-                                        { label: 'Max Jump',     value: maxJump !== null ? formatNumber(maxJump, 3) : '-', bg: 'bg-red-50 border-red-100',       text: 'text-red-700',    val: 'text-red-900'    },
-                                        { label: 'Nulls',        value: nulls?.toLocaleString('en-US') ?? '-',             bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
-                                        { label: 'Zeros',        value: zeros?.toLocaleString('en-US') ?? '-',             bg: 'bg-slate-50 border-slate-200',   text: 'text-slate-700',  val: 'text-slate-900'  },
-                                        { label: 'Data Quality', value: count && nulls !== null && zeros !== null ? `${Math.round(((count-nulls-zeros)/count)*100)}%` : '-', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', val: 'text-emerald-900' },
+                                        { label: 'Avg Score',    value: formatScore(avgScore),                                bg: 'bg-purple-50 dark:bg-purple-950/50 border-purple-100 dark:border-purple-800', text: 'text-purple-700 dark:text-purple-300', val: 'text-purple-900 dark:text-purple-100' },
+                                        { label: 'Avg Value',    value: avgValue !== null ? formatNumber(avgValue, 3) : '-', bg: 'bg-blue-50 dark:bg-blue-950/50 border-blue-100 dark:border-blue-800',     text: 'text-blue-700 dark:text-blue-300',   val: 'text-blue-900 dark:text-blue-100'   },
+                                        { label: 'Std Dev',      value: std     !== null ? formatNumber(std, 3)     : '-', bg: 'bg-muted border-border',   text: 'text-muted-foreground',  val: 'text-foreground'  },
+                                        { label: 'Avg Jump',     value: avgJump !== null ? formatNumber(avgJump, 3) : '-', bg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-100 dark:border-amber-800',   text: 'text-amber-700 dark:text-amber-300',  val: 'text-amber-900 dark:text-amber-100'  },
+                                        { label: 'Max Jump',     value: maxJump !== null ? formatNumber(maxJump, 3) : '-', bg: 'bg-red-50 dark:bg-red-950/50 border-red-100 dark:border-red-800',       text: 'text-red-700 dark:text-red-300',    val: 'text-red-900 dark:text-red-100'    },
+                                        { label: 'Nulls',        value: nulls?.toLocaleString('en-US') ?? '-',             bg: 'bg-muted border-border',   text: 'text-muted-foreground',  val: 'text-foreground'  },
+                                        { label: 'Zeros',        value: zeros?.toLocaleString('en-US') ?? '-',             bg: 'bg-muted border-border',   text: 'text-muted-foreground',  val: 'text-foreground'  },
+                                        { label: 'Data Quality', value: count && nulls !== null && zeros !== null ? `${Math.round(((count-nulls-zeros)/count)*100)}%` : '-', bg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', val: 'text-emerald-900 dark:text-emerald-100' },
                                       ].map(item => (
                                         <div key={item.label} className={`rounded-lg p-2 border ${item.bg}`}>
                                           <div className={`text-[10px] mb-0.5 font-medium ${item.text}`}>{item.label}</div>
@@ -828,11 +828,11 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                                 <div className="p-4 space-y-2">
                                   <div className="flex items-center justify-between pb-2 border-b">
                                     <Badge className="bg-blue-600 text-white font-mono">{col.key}</Badge>
-                                    <Badge className="bg-gray-200 text-gray-600">No analysis</Badge>
+                                    <Badge className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">No analysis</Badge>
                                   </div>
-                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-lg p-3 border-2 border-blue-200">
-                                    <div className="text-xs text-blue-700 mb-1 font-medium">Current Value</div>
-                                    <div className="font-mono font-bold text-xl text-blue-900">{formatValue(value, col.key)}</div>
+                                  <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 rounded-lg p-3 border-2 border-blue-200 dark:border-blue-800">
+                                    <div className="text-xs text-blue-700 dark:text-blue-300 mb-1 font-medium">Current Value</div>
+                                    <div className="font-mono font-bold text-xl text-blue-900 dark:text-blue-100">{formatValue(value, col.key)}</div>
                                   </div>
                                   <p className="text-xs text-muted-foreground italic">Run historical analysis to see scores.</p>
                                 </div>
@@ -849,8 +849,8 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
                         const pairs = clean.match(/.{1,2}/g) || [];
                         return (
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-700 whitespace-nowrap">{pairs.slice(0, 4).join(' ')}</span>
-                            {pairs.length > 4 && <span className="text-slate-400 whitespace-nowrap">{pairs.slice(4, 8).join(' ')}</span>}
+                            <span className="text-foreground whitespace-nowrap">{pairs.slice(0, 4).join(' ')}</span>
+                            {pairs.length > 4 && <span className="text-muted-foreground whitespace-nowrap">{pairs.slice(4, 8).join(' ')}</span>}
                           </div>
                         );
                       })() : <span className="text-muted-foreground">—</span>}
@@ -883,13 +883,13 @@ export const HistoricalHeatmapTable = ({ variables, onVariableUpdated }: Histori
           </DialogHeader>
           <div className="space-y-4 py-4">
             {editingVariable && getSuggestedType(editingVariable) && (
-              <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-3">
-                <div className="text-sm font-semibold text-purple-900 mb-2">AI Suggestion</div>
+              <div className="rounded-lg border-2 border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/30 p-3">
+                <div className="text-sm font-semibold text-purple-900 dark:text-purple-200 mb-2">AI Suggestion</div>
                 <div className="flex items-center gap-2">
                   <Badge className="bg-purple-600 text-white font-mono">{getSuggestedType(editingVariable)}</Badge>
                   {(() => {
                     const conf = editingVariable ? getWinnerConfidence(editingVariable) ?? editingVariable.ai_confidence : null;
-                    return conf !== null && <span className="text-xs text-purple-800">{Math.round(conf * 100)}% confidence</span>;
+                    return conf !== null && <span className="text-xs text-purple-800 dark:text-purple-300">{Math.round(conf * 100)}% confidence</span>;
                   })()}
                 </div>
               </div>
