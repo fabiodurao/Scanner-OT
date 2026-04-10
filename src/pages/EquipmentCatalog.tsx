@@ -145,7 +145,7 @@ const EquipmentCatalogPage = () => {
         {/* Page header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1a2744]">Equipment Catalog</h1>
+            <h1 className="text-3xl font-bold text-foreground">Equipment Catalog</h1>
             <p className="text-muted-foreground mt-1">Register maps for industrial equipment</p>
           </div>
           <Button onClick={() => setFormOpen(true)} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
@@ -156,34 +156,34 @@ const EquipmentCatalogPage = () => {
         {/* Summary stats */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 text-sm">
-            <div className="p-1.5 rounded-md bg-blue-100">
+            <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/50">
               <Factory className="h-4 w-4 text-blue-600" />
             </div>
-            <span className="font-semibold text-[#1a2744]">{totalManufacturers}</span>
+            <span className="font-semibold text-foreground">{totalManufacturers}</span>
             <span className="text-muted-foreground">manufacturers</span>
           </div>
-          <div className="w-px h-4 bg-slate-200" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 text-sm">
-            <div className="p-1.5 rounded-md bg-purple-100">
+            <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-900/50">
               <Box className="h-4 w-4 text-purple-600" />
             </div>
-            <span className="font-semibold text-[#1a2744]">{totalModels}</span>
+            <span className="font-semibold text-foreground">{totalModels}</span>
             <span className="text-muted-foreground">models</span>
           </div>
-          <div className="w-px h-4 bg-slate-200" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 text-sm">
-            <div className="p-1.5 rounded-md bg-emerald-100">
+            <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
               <Database className="h-4 w-4 text-emerald-600" />
             </div>
-            <span className="font-semibold text-[#1a2744]">{totalRegisters.toLocaleString()}</span>
+            <span className="font-semibold text-foreground">{totalRegisters.toLocaleString()}</span>
             <span className="text-muted-foreground">registers</span>
           </div>
-          <div className="w-px h-4 bg-slate-200" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 text-sm">
-            <div className="p-1.5 rounded-md bg-amber-100">
+            <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/50">
               <BookOpen className="h-4 w-4 text-amber-600" />
             </div>
-            <span className="font-semibold text-[#1a2744]">{catalogs.length}</span>
+            <span className="font-semibold text-foreground">{catalogs.length}</span>
             <span className="text-muted-foreground">catalogs</span>
           </div>
         </div>
@@ -236,7 +236,7 @@ const EquipmentCatalogPage = () => {
         ) : filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center border rounded-xl border-dashed">
             <BookOpen className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
-            <p className="font-medium text-slate-700">
+            <p className="font-medium text-foreground">
               {hasActiveFilters ? 'No catalogs match your filters' : 'No catalogs yet'}
             </p>
             <p className="text-sm text-muted-foreground mt-1 mb-4">
@@ -249,9 +249,9 @@ const EquipmentCatalogPage = () => {
             )}
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden">
+          <div className="rounded-xl border border-border overflow-hidden bg-card">
             {/* Table header */}
-            <div className="grid grid-cols-[1.2fr_1.2fr_180px_100px_1fr_80px] gap-4 px-5 py-2.5 bg-slate-50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <div className="grid grid-cols-[1.2fr_1.2fr_180px_100px_1fr_80px] gap-4 px-5 py-2.5 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground uppercase tracking-wide">
               <div>Manufacturer</div>
               <div>Model</div>
               <div>Protocol</div>
@@ -261,25 +261,25 @@ const EquipmentCatalogPage = () => {
             </div>
 
             {/* Table rows */}
-            <div className="divide-y">
+            <div className="divide-y divide-border">
               {filteredRows.map((row, idx) => (
                 <div
                   key={`${row.catalogId}-${row.protocolId}-${idx}`}
-                  className="grid grid-cols-[1.2fr_1.2fr_180px_100px_1fr_80px] gap-4 px-5 py-3.5 items-center cursor-pointer hover:bg-slate-50 group transition-colors"
+                  className="grid grid-cols-[1.2fr_1.2fr_180px_100px_1fr_80px] gap-4 px-5 py-3.5 items-center cursor-pointer hover:bg-muted/50 group transition-colors"
                   onClick={() => navigate(`/equipment-catalog/${row.catalogId}`)}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="p-1.5 rounded-md bg-blue-50 flex-shrink-0">
+                    <div className="p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 flex-shrink-0">
                       <Factory className="h-4 w-4 text-blue-600" />
                     </div>
-                    <span className="font-medium text-sm truncate">{row.manufacturer}</span>
+                    <span className="font-medium text-sm text-foreground truncate">{row.manufacturer}</span>
                   </div>
 
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="p-1.5 rounded-md bg-purple-50 flex-shrink-0">
+                    <div className="p-1.5 rounded-md bg-purple-50 dark:bg-purple-900/30 flex-shrink-0">
                       <Box className="h-4 w-4 text-purple-600" />
                     </div>
-                    <span className="text-sm truncate">{row.model}</span>
+                    <span className="text-sm text-foreground truncate">{row.model}</span>
                   </div>
 
                   <div>
@@ -293,7 +293,7 @@ const EquipmentCatalogPage = () => {
                   </div>
 
                   <div className="text-center">
-                    <span className={`text-sm font-semibold ${row.registerCount > 0 ? 'text-[#1a2744]' : 'text-slate-400'}`}>
+                    <span className={`text-sm font-semibold ${row.registerCount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {row.registerCount > 0 ? row.registerCount.toLocaleString() : '—'}
                     </span>
                   </div>
@@ -317,7 +317,7 @@ const EquipmentCatalogPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                           disabled={deletingId === row.catalogId}
                           title="Delete catalog"
                         >
