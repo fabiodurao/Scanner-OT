@@ -46,13 +46,13 @@ const formatFileSize = (bytes: number) => {
 };
 
 const statusConfig: Record<string, { label: string; icon: typeof Loader2; color: string }> = {
-  pending: { label: 'Pending', icon: Clock, color: 'bg-slate-100 text-slate-700' },
-  downloading: { label: 'Downloading', icon: Loader2, color: 'bg-blue-100 text-blue-700' },
-  extracting: { label: 'Extracting', icon: Loader2, color: 'bg-blue-100 text-blue-700' },
-  running: { label: 'Processing', icon: Loader2, color: 'bg-amber-100 text-amber-700' },
-  completed: { label: 'Completed', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
-  error: { label: 'Error', icon: XCircle, color: 'bg-red-100 text-red-700' },
-  cancelled: { label: 'Cancelled', icon: StopCircle, color: 'bg-gray-100 text-gray-700' },
+  pending: { label: 'Pending', icon: Clock, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+  downloading: { label: 'Downloading', icon: Loader2, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' },
+  extracting: { label: 'Extracting', icon: Loader2, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' },
+  running: { label: 'Processing', icon: Loader2, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' },
+  completed: { label: 'Completed', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' },
+  error: { label: 'Error', icon: XCircle, color: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  cancelled: { label: 'Cancelled', icon: StopCircle, color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
 };
 
 const MAX_CONCURRENT_JOBS = 3;
@@ -126,7 +126,6 @@ const PcapProcessing = () => {
 
   const jobGroups = groupJobs(jobs);
   
-  // Calculate agent status metrics
   const runningJobs = jobs.filter(j => isRunningStatus(j.status));
   const pendingJobs = jobs.filter(j => j.status === 'pending');
   const slotsUsed = runningJobs.length;
@@ -161,7 +160,6 @@ const PcapProcessing = () => {
 
   const handleOpenJobDialog = (file: PcapFile) => { setSelectedFile(file); setWebhookUrl(settings.n8n_webhook_url || ''); setIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); setIntervalMin(settings.mbsniffer_interval_min?.toString() || '5'); setDialogOpen(true); };
   const handleOpenBatchDialog = () => { 
-    // Use sessionFiles which is already ordered by display_order
     setBatchFiles(sessionFiles.map(f => ({ id: f.id, original_filename: f.original_filename, size_bytes: f.size_bytes }))); 
     setBatchWebhookUrl(settings.n8n_webhook_url || ''); 
     setBatchIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); 
@@ -193,20 +191,19 @@ const PcapProcessing = () => {
   const toggleGroupExpanded = (groupId: string) => { setExpandedGroups(prev => { const s = new Set(prev); if (s.has(groupId)) s.delete(groupId); else s.add(groupId); return s; }); };
   const formatSessionName = (session: UploadSession) => session.name || format(new Date(session.created_at), "MM/dd/yyyy 'at' HH:mm");
 
-  // Render individual job row - always white background with shadow for contrast
   const renderJobRow = (job: ProcessingJob, showSeq = false) => {
     const status = statusConfig[job.status] || statusConfig.error;
     const StatusIcon = status.icon;
     const isActive = isActiveStatus(job.status);
     const isRunning = isRunningStatus(job.status);
     return (
-      <div key={job.id} className="p-3 rounded-lg border bg-white shadow-sm border-slate-200">
+      <div key={job.id} className="p-3 rounded-lg border bg-card shadow-sm border-border">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <FileArchive className={cn("h-4 w-4", isRunning ? "text-amber-600" : "text-slate-400")} />
+            <FileArchive className={cn("h-4 w-4", isRunning ? "text-amber-600" : "text-muted-foreground")} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className={cn("font-medium truncate text-sm", isRunning && "text-amber-900")}>{job.pcap_filename}</span>
+                <span className={cn("font-medium truncate text-sm", isRunning && "text-amber-600 dark:text-amber-400")}>{job.pcap_filename}</span>
                 {showSeq && job.sequence_order && <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">#{job.sequence_order}</Badge>}
               </div>
               <div className="text-xs text-muted-foreground">{job.pcap_size_bytes && formatFileSize(job.pcap_size_bytes)} • {format(new Date(job.created_at), 'MM/dd HH:mm')}</div>
@@ -215,7 +212,7 @@ const PcapProcessing = () => {
           {isRunning && (
             <div className="flex items-center gap-2 w-32">
               <Progress value={job.progress} className="h-2 flex-1" />
-              <span className="text-xs font-medium text-amber-700 w-8 text-right">{job.progress}%</span>
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-400 w-8 text-right">{job.progress}%</span>
             </div>
           )}
           <div className="flex items-center gap-2">
@@ -257,7 +254,7 @@ const PcapProcessing = () => {
           </div>
         </div>
         {isRunning && (
-          <div className="mt-3 pt-3 border-t border-slate-200">
+          <div className="mt-3 pt-3 border-t border-border">
             <JobStepsIndicator 
               currentStep={job.current_step as 'pending' | 'downloading' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'error' | 'cancelled'} 
               progress={job.progress} 
@@ -267,7 +264,7 @@ const PcapProcessing = () => {
             />
           </div>
         )}
-        {job.error_message && <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded">{job.error_message}</div>}
+        {job.error_message && <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/30 p-2 rounded">{job.error_message}</div>}
       </div>
     );
   };
@@ -285,19 +282,18 @@ const PcapProcessing = () => {
     return (
       <div key={group.id} className={cn(
         "border rounded-lg overflow-hidden",
-        hasActive && "border-amber-300 shadow-md",
-        !hasActive && pending > 0 && "border-blue-200",
-        allDone && !hasErr && "border-emerald-200",
-        hasErr && "border-red-200"
+        hasActive && "border-amber-300 dark:border-amber-700 shadow-md",
+        !hasActive && pending > 0 && "border-blue-200 dark:border-blue-800",
+        allDone && !hasErr && "border-emerald-200 dark:border-emerald-800",
+        hasErr && "border-red-200 dark:border-red-800"
       )}>
-        {/* Group header */}
         <div 
           className={cn(
             "p-3 cursor-pointer",
-            hasActive && "bg-amber-100 hover:bg-amber-150",
-            !hasActive && pending > 0 && "bg-blue-100 hover:bg-blue-150",
-            allDone && !hasErr && "bg-emerald-100 hover:bg-emerald-150",
-            hasErr && "bg-red-100 hover:bg-red-150"
+            hasActive && "bg-amber-100 dark:bg-amber-950/30 hover:bg-amber-150 dark:hover:bg-amber-950/40",
+            !hasActive && pending > 0 && "bg-blue-100 dark:bg-blue-950/30 hover:bg-blue-150 dark:hover:bg-blue-950/40",
+            allDone && !hasErr && "bg-emerald-100 dark:bg-emerald-950/30 hover:bg-emerald-150 dark:hover:bg-emerald-950/40",
+            hasErr && "bg-red-100 dark:bg-red-950/30 hover:bg-red-150 dark:hover:bg-red-950/40"
           )} 
           onClick={() => toggleGroupExpanded(group.id)}
         >
@@ -306,7 +302,7 @@ const PcapProcessing = () => {
               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               <Layers className={cn("h-5 w-5", hasActive ? "text-amber-600" : "text-purple-600")} />
               <div>
-                <div className="font-medium text-sm flex items-center gap-2">
+                <div className="font-medium text-sm flex items-center gap-2 text-foreground">
                   Batch
                   <Badge variant="outline" className="text-xs">{total} files</Badge>
                 </div>
@@ -340,23 +336,21 @@ const PcapProcessing = () => {
           </div>
         </div>
         
-        {/* Active job - shown outside collapsible */}
         {group.activeJob && (
-          <div className="px-3 pb-3 pt-2 bg-amber-50">
-            <div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1">
+          <div className="px-3 pb-3 pt-2 bg-amber-50 dark:bg-amber-950/20">
+            <div className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" />Running
             </div>
             {renderJobRow(group.activeJob, true)}
           </div>
         )}
         
-        {/* Collapsible content for queue and completed */}
         <Collapsible open={isExpanded}>
           <CollapsibleContent>
-            <div className="px-3 pb-3 space-y-3 bg-slate-100">
+            <div className="px-3 pb-3 space-y-3 bg-muted/30">
               {group.pendingJobs.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-xs font-medium text-blue-700 mb-2 flex items-center gap-1">
+                  <div className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-1">
                     <Clock className="h-3 w-3" />Queue ({group.pendingJobs.length})
                   </div>
                   <div className="space-y-2">
@@ -366,7 +360,7 @@ const PcapProcessing = () => {
               )}
               {group.completedJobs.length > 0 && (
                 <div className="pt-2">
-                  <div className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1">
+                  <div className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />Done ({group.completedJobs.length})
                   </div>
                   <div className="space-y-2">
@@ -392,7 +386,7 @@ const PcapProcessing = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2744]">PCAP Processing</h1>
+          <h1 className="text-3xl font-bold text-foreground">PCAP Processing</h1>
           <p className="text-muted-foreground mt-1">Process PCAP files with mbsniffer</p>
         </div>
         
@@ -403,36 +397,27 @@ const PcapProcessing = () => {
           </TabsList>
           
           <TabsContent value="jobs">
-            {/* Agent Status Card */}
             <Card className="mb-6">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
-                    {/* Agent Status */}
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        slotsUsed > 0 ? "bg-amber-100" : "bg-slate-100"
-                      )}>
-                        <Server className={cn(
-                          "h-5 w-5",
-                          slotsUsed > 0 ? "text-amber-600" : "text-slate-400"
-                        )} />
+                      <div className={cn("p-2 rounded-lg", slotsUsed > 0 ? "bg-amber-100 dark:bg-amber-900/50" : "bg-muted")}>
+                        <Server className={cn("h-5 w-5", slotsUsed > 0 ? "text-amber-600" : "text-muted-foreground")} />
                       </div>
                       <div>
-                        <div className="text-sm font-medium">Agent Status</div>
+                        <div className="text-sm font-medium text-foreground">Agent Status</div>
                         <div className="text-xs text-muted-foreground">
                           {slotsUsed > 0 ? (
-                            <span className="text-amber-600 font-medium">{slotsUsed} job{slotsUsed !== 1 ? 's' : ''} running</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">{slotsUsed} job{slotsUsed !== 1 ? 's' : ''} running</span>
                           ) : (
-                            <span className="text-slate-500">Idle</span>
+                            <span>Idle</span>
                           )}
                         </div>
                       </div>
                     </div>
                     
-                    {/* Slots */}
-                    <div className="flex items-center gap-3 pl-6 border-l">
+                    <div className="flex items-center gap-3 pl-6 border-l border-border">
                       <div className="flex items-center gap-1">
                         {Array.from({ length: MAX_CONCURRENT_JOBS }).map((_, i) => (
                           <div
@@ -440,8 +425,8 @@ const PcapProcessing = () => {
                             className={cn(
                               "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium border-2",
                               i < slotsUsed
-                                ? "bg-amber-100 border-amber-300 text-amber-700"
-                                : "bg-slate-50 border-slate-200 text-slate-400"
+                                ? "bg-amber-100 dark:bg-amber-900/50 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                                : "bg-muted border-border text-muted-foreground"
                             )}
                           >
                             {i < slotsUsed ? (
@@ -453,31 +438,24 @@ const PcapProcessing = () => {
                         ))}
                       </div>
                       <div>
-                        <div className="text-sm font-medium">Slots</div>
+                        <div className="text-sm font-medium text-foreground">Slots</div>
                         <div className="text-xs text-muted-foreground">
                           {slotsUsed}/{MAX_CONCURRENT_JOBS} used • {slotsAvailable} available
                         </div>
                       </div>
                     </div>
                     
-                    {/* Queue */}
-                    <div className="flex items-center gap-3 pl-6 border-l">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        queueLength > 0 ? "bg-blue-100" : "bg-slate-100"
-                      )}>
-                        <Clock className={cn(
-                          "h-5 w-5",
-                          queueLength > 0 ? "text-blue-600" : "text-slate-400"
-                        )} />
+                    <div className="flex items-center gap-3 pl-6 border-l border-border">
+                      <div className={cn("p-2 rounded-lg", queueLength > 0 ? "bg-blue-100 dark:bg-blue-900/50" : "bg-muted")}>
+                        <Clock className={cn("h-5 w-5", queueLength > 0 ? "text-blue-600" : "text-muted-foreground")} />
                       </div>
                       <div>
-                        <div className="text-sm font-medium">Queue</div>
+                        <div className="text-sm font-medium text-foreground">Queue</div>
                         <div className="text-xs text-muted-foreground">
                           {queueLength > 0 ? (
-                            <span className="text-blue-600 font-medium">{queueLength} job{queueLength !== 1 ? 's' : ''} waiting</span>
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">{queueLength} job{queueLength !== 1 ? 's' : ''} waiting</span>
                           ) : (
-                            <span className="text-slate-500">Empty</span>
+                            <span>Empty</span>
                           )}
                         </div>
                       </div>
@@ -565,7 +543,7 @@ const PcapProcessing = () => {
                   )}
                   
                   {selectedSessionId && (
-                    <div className="space-y-2 pt-4 border-t">
+                    <div className="space-y-2 pt-4 border-t border-border">
                       <div className="flex items-center justify-between">
                         <Label>Files</Label>
                         {sessionFiles.length > 1 && (
@@ -580,14 +558,14 @@ const PcapProcessing = () => {
                         <ScrollArea className="h-64">
                           <div className="space-y-2">
                             {sessionFiles.map((f, index) => (
-                              <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100">
+                              <div key={f.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted">
                                 <div className="flex items-center gap-3 min-w-0">
                                   <span className="text-muted-foreground w-6 text-center font-medium text-xs flex-shrink-0">
                                     #{index + 1}
                                   </span>
                                   <FileArchive className="h-5 w-5 text-[#2563EB]" />
                                   <div className="min-w-0">
-                                    <div className="font-medium truncate text-sm">{f.original_filename}</div>
+                                    <div className="font-medium truncate text-sm text-foreground">{f.original_filename}</div>
                                     <div className="text-xs text-muted-foreground">{formatFileSize(f.size_bytes)}</div>
                                   </div>
                                 </div>
@@ -613,15 +591,15 @@ const PcapProcessing = () => {
                     <div key={s.n} className="flex items-start gap-3">
                       <div className="w-7 h-7 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-medium">{s.n}</div>
                       <div>
-                        <div className="font-medium text-sm">{s.t}</div>
+                        <div className="font-medium text-sm text-foreground">{s.t}</div>
                         <div className="text-xs text-muted-foreground">{s.d}</div>
                       </div>
                     </div>
                   ))}
-                  <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="mt-6 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                      <div className="text-sm text-amber-800">
+                      <div className="text-sm text-amber-800 dark:text-amber-300">
                         <span className="font-medium">Note:</span> Agent must be running on EC2. Max {MAX_CONCURRENT_JOBS} concurrent jobs.
                       </div>
                     </div>
@@ -632,7 +610,6 @@ const PcapProcessing = () => {
           </TabsContent>
         </Tabs>
         
-        {/* Single file dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -664,7 +641,6 @@ const PcapProcessing = () => {
           </DialogContent>
         </Dialog>
         
-        {/* Batch dialog */}
         <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -674,7 +650,7 @@ const PcapProcessing = () => {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Order</Label>
-                <div className="border rounded-lg p-2 bg-slate-50 max-h-60 overflow-y-auto">
+                <div className="border rounded-lg p-2 bg-muted/30 max-h-60 overflow-y-auto">
                   <SortableFileList files={batchFiles} onReorder={setBatchFiles} />
                 </div>
               </div>
@@ -692,12 +668,12 @@ const PcapProcessing = () => {
                   <Input type="number" value={batchIntervalMin} onChange={e => setBatchIntervalMin(e.target.value)} min="1" />
                 </div>
               </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm">
+              <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 text-sm">
                 <div className="flex items-start gap-2">
                   <Layers className="h-4 w-4 text-purple-600 mt-0.5" />
                   <div>
-                    <div className="font-medium text-purple-900">Sequential</div>
-                    <div className="text-purple-700">One at a time.</div>
+                    <div className="font-medium text-purple-900 dark:text-purple-300">Sequential</div>
+                    <div className="text-purple-700 dark:text-purple-400">One at a time.</div>
                   </div>
                 </div>
               </div>
@@ -712,7 +688,6 @@ const PcapProcessing = () => {
           </DialogContent>
         </Dialog>
         
-        {/* Detail dialog */}
         <Dialog open={!!detailJob} onOpenChange={o => !o && setDetailJob(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh]">
             <DialogHeader>
