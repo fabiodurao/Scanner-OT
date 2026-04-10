@@ -123,9 +123,45 @@
     color-scheme: dark;
   }
 
-  /* Ensure table headers are readable in dark mode */
-  .dark th {
-    color: hsl(210 30% 75%);
+  /* ===== Dark mode table styling ===== */
+  /* Make all tables in dark mode match the dashboard list view style */
+  .dark table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dark thead tr {
+    background-color: hsl(222 15% 19%);
+  }
+
+  .dark thead th {
+    color: hsl(215 20% 65%);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid hsl(220 15% 25%);
+  }
+
+  .dark tbody tr {
+    border-bottom: 1px solid hsl(220 15% 22%);
+    transition: background-color 150ms ease;
+  }
+
+  .dark tbody tr:hover {
+    background-color: hsl(222 15% 20%);
+  }
+
+  .dark tbody td {
+    color: hsl(210 40% 90%);
+    border-bottom: 1px solid hsl(220 15% 22%);
+  }
+
+  /* Make the rounded-md border wrapper blend better in dark mode */
+  .dark .rounded-md.border,
+  .dark .rounded-lg.border {
+    border-color: hsl(220 15% 22%);
+    background-color: hsl(222 20% 15%);
   }
 
   /* Better scrollbar in dark mode */
