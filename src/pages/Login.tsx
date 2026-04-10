@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, CheckCircle, Info } from 'lucide-react';
+import { Loader2, Mail, CheckCircle, Info, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
@@ -65,7 +67,7 @@ const Login = () => {
         console.log('Profile result:', profile, profileError);
 
         if (profileError) {
-          console.error('Error fetching profile:', profileError);
+          console.error('Error fetching profile:', profileError.message, profileError.code);
           
           // Profile doesn't exist - create it
           if (profileError.code === 'PGRST116') {
@@ -195,13 +197,25 @@ const Login = () => {
     }
   };
 
+  const ThemeButton = () => (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-colors"
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+
   if (showEmailConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4 relative">
+        <ThemeButton />
         <Card className="w-full max-w-md border-0 shadow-2xl">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-blue-100 rounded-full">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full">
                 <Mail className="h-8 w-8 text-[#2563EB]" />
               </div>
             </div>
@@ -211,20 +225,20 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 rounded-lg p-4 text-center border border-blue-100">
-              <p className="font-medium text-[#1a2744]">{confirmationEmail}</p>
+            <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 text-center border border-blue-100 dark:border-blue-800">
+              <p className="font-medium text-foreground">{confirmationEmail}</p>
             </div>
             
-            <Alert className="border-blue-200 bg-blue-50">
+            <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
               <CheckCircle className="h-4 w-4 text-[#2563EB]" />
               <AlertDescription>
                 <strong>Step 1:</strong> Click the link sent to your email to confirm your account.
               </AlertDescription>
             </Alert>
 
-            <Alert className="border-amber-200 bg-amber-50">
+            <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
               <Info className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
                 <strong>Step 2:</strong> After confirming your email, an administrator will need to approve your access. 
                 Contact the system administrator to expedite the approval.
               </AlertDescription>
@@ -249,7 +263,8 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4 relative">
+      <ThemeButton />
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-6">
@@ -387,9 +402,9 @@ const Login = () => {
                     className="h-11"
                   />
                 </div>
-                <Alert className="border-blue-200 bg-blue-50">
+                <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                   <Info className="h-4 w-4 text-[#2563EB]" />
-                  <AlertDescription className="text-[#1a2744] text-xs">
+                  <AlertDescription className="text-foreground text-xs">
                     After registration, you will receive a confirmation email. 
                     After confirming, an administrator will need to approve your access to the system.
                   </AlertDescription>
