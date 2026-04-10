@@ -5,6 +5,7 @@ import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { renderSiteMapCardHTML } from './SiteMapCard';
+import { useTheme } from '@/hooks/useTheme';
 
 interface SiteMapData {
   id: string;
@@ -34,6 +35,30 @@ const silverMapStyle = [
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
   { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
+];
+
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#212121" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
+  { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
+  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
+  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] },
 ];
 
 const PIN_W = 40;
@@ -105,6 +130,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapInstanceRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { theme } = useTheme();
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
@@ -116,10 +142,20 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
+  // Update map style when theme changes
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+      mapInstanceRef.current.setOptions({ styles });
+    }
+  }, [theme]);
+
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
+
+    const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
 
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -128,7 +164,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       streetViewControl: false,
       fullscreenControl: true,
       zoomControl: true,
-      styles: silverMapStyle,
+      styles: currentStyles,
     });
 
     if (sitesWithCoords.length === 0) return;
@@ -215,7 +251,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
   if (error) {
     return (
-      <div className="w-full rounded-lg border bg-slate-50 flex items-center justify-center text-center p-6" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
+      <div className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center text-center p-6" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
         <div>
           <p className="text-sm text-muted-foreground">{error}</p>
           <p className="text-xs text-slate-400 mt-1">Configure VITE_GOOGLE_MAPS_API_KEY to enable the map view.</p>
@@ -226,7 +262,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
   if (!isLoaded) {
     return (
-      <div className="w-full rounded-lg border bg-slate-50 flex items-center justify-center gap-2 text-muted-foreground" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
+      <div className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center gap-2 text-muted-foreground" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-sm">Loading map...</span>
       </div>
@@ -237,7 +273,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     <div className="relative w-full rounded-lg border overflow-hidden shadow-sm" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
       <div ref={mapRef} className="w-full h-full" />
       {sitesWithCoords.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-50/80 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-50/80 dark:bg-background/80 pointer-events-none">
           <p className="text-sm text-muted-foreground">No sites with coordinates registered yet.</p>
         </div>
       )}
