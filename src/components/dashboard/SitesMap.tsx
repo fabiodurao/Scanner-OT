@@ -124,11 +124,10 @@ const loadGoogleMaps = (apiKey: string): Promise<void> => {
   return mapsLoadPromise;
 };
 
-// Store map instance globally on window so theme effect always finds it
-const MAP_INSTANCE_KEY = '__sitesMapInstance';
-
 export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapInstanceRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
@@ -146,16 +145,24 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Theme change effect — runs every time theme changes
+  // DEBUG: Log every theme change
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const map = (window as any)[MAP_INSTANCE_KEY];
-    if (!map) return;
-    const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-    try {
-      map.setOptions({ styles });
-    } catch (e) {
-      console.warn('[SitesMap] Failed to update map styles:', e);
+    console.log('[SitesMap] 🎨 Theme changed to:', theme);
+    console.log('[SitesMap] 🗺️ mapInstanceRef.current exists?', !!mapInstanceRef.current);
+    console.log('[SitesMap] 🗺️ mapInstanceRef.current type:', typeof mapInstanceRef.current);
+    
+    if (mapInstanceRef.current) {
+      console.log('[SitesMap] 🗺️ Map instance found, has setOptions?', typeof mapInstanceRef.current.setOptions);
+      const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+      console.log('[SitesMap] 🎨 Applying', theme === 'dark' ? 'DARK' : 'LIGHT', 'styles, count:', styles.length);
+      try {
+        mapInstanceRef.current.setOptions({ styles });
+        console.log('[SitesMap] ✅ setOptions called successfully');
+      } catch (e) {
+        console.error('[SitesMap] ❌ setOptions failed:', e);
+      }
+    } else {
+      console.log('[SitesMap] ⚠️ No map instance available yet');
     }
   }, [theme]);
 
@@ -163,9 +170,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
-    if (!isLoaded || !mapRef.current || !google) return;
+    if (!isLoaded || !mapRef.current || !google) {
+      console.log('[SitesMap] 🏗️ Create map skipped:', { isLoaded, hasMapRef: !!mapRef.current, hasGoogle: !!google });
+      return;
+    }
 
     const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+    console.log('[SitesMap] 🏗️ Creating map with theme:', theme);
 
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -177,11 +188,14 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       styles: currentStyles,
     });
 
-    // Store on window so theme effect can always find it
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any)[MAP_INSTANCE_KEY] = map;
+    // Store in ref
+    mapInstanceRef.current = map;
+    console.log('[SitesMap] 🏗️ Map created and stored in ref. mapInstanceRef.current exists?', !!mapInstanceRef.current);
 
-    if (sitesWithCoords.length === 0) return;
+    if (sitesWithCoords.length === 0) {
+      console.log('[SitesMap] 🏗️ No sites with coords, skipping markers');
+      return;
+    }
 
     const bounds = new google.maps.LatLngBounds();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -258,16 +272,15 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     }
 
-    // Cleanup: remove from window when component unmounts or re-creates
     return () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((window as any)[MAP_INSTANCE_KEY] === map) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (window as any)[MAP_INSTANCE_KEY];
-      }
+      console.log('[SitesMap] 🧹 Cleanup: clearing mapInstanceRef');
+      mapInstanceRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, sitesWithCoords.length]);
+
+  // DEBUG: Log component render
+  console.log('[SitesMap] 🔄 Render. theme:', theme, 'isLoaded:', isLoaded, 'mapExists:', !!mapInstanceRef.current);
 
   if (error) {
     return (
