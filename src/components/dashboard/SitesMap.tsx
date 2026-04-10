@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Loader2 } from 'lucide-react';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
@@ -127,40 +127,38 @@ const loadGoogleMaps = (apiKey: string): Promise<void> => {
 export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapInstanceRef = useRef<any>(null);
+  const [mapInstance, setMapInstance] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
-  // Keep a ref so the style-update effect always sees the latest theme
-  const themeRef = useRef(theme);
-  themeRef.current = theme;
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
          !isNaN(Number(s.latitude)) && !isNaN(Number(s.longitude))
   );
 
+  // Load Google Maps script
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) { setError('Google Maps API key not configured (VITE_GOOGLE_MAPS_API_KEY).'); return; }
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Dedicated effect: update map style whenever theme changes
+  // Update map style whenever theme changes (separate from map creation)
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstance) return;
     const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-    mapInstanceRef.current.setOptions({ styles });
-  }, [theme]);
+    mapInstance.setOptions({ styles });
+  }, [theme, mapInstance]);
 
-  // Main effect: create map + markers (does NOT depend on theme — style is handled above)
+  // Create map + markers
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
 
-    const currentStyles = themeRef.current === 'dark' ? darkMapStyle : silverMapStyle;
+    const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
 
-    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+    const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
       zoom: 4,
       mapTypeControl: false,
@@ -169,6 +167,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       zoomControl: true,
       styles: currentStyles,
     });
+
+    // Store in state so the theme effect can access it
+    setMapInstance(map);
 
     if (sitesWithCoords.length === 0) return;
 
@@ -184,7 +185,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
       const marker = new google.maps.Marker({
         position,
-        map: mapInstanceRef.current,
+        map,
         title: site.name || site.identifier || 'Site',
         icon: {
           url: markerIcon,
@@ -193,7 +194,6 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
         },
       });
 
-      // Rich card HTML for hover tooltip
       const cardHTML = renderSiteMapCardHTML(
         { id: site.id, identifier: site.identifier, name: site.name, site_type: site.site_type, city: site.city, state: site.state },
         site.stats ?? null,
@@ -206,7 +206,6 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
         pixelOffset: new google.maps.Size(0, -PIN_H + 4),
       });
 
-      // Remove default close button styling
       google.maps.event.addListener(infoWindow, 'domready', () => {
         const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
         closeButtons.forEach((btn: Element) => {
@@ -227,7 +226,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
       marker.addListener('mouseover', () => {
         if (currentInfoWindow) currentInfoWindow.close();
-        infoWindow.open(mapInstanceRef.current, marker);
+        infoWindow.open(map, marker);
         currentInfoWindow = infoWindow;
       });
 
@@ -243,11 +242,12 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     });
 
     if (sitesWithCoords.length === 1) {
-      mapInstanceRef.current.setCenter(bounds.getCenter());
-      mapInstanceRef.current.setZoom(10);
+      map.setCenter(bounds.getCenter());
+      map.setZoom(10);
     } else {
-      mapInstanceRef.current.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+      map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, sitesWithCoords.length]);
 
   if (error) {
