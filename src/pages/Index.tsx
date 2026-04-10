@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
+import { useTheme } from '@/hooks/useTheme';
 import React from 'react';
 
 const formatFileSize = (bytes: number): string => {
@@ -47,6 +48,7 @@ interface PcapSummary {
 
 const Index = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const {
     sites,
     sitesLoading,
@@ -366,7 +368,7 @@ const Index = () => {
               </CardContent>
             </Card>
           ) : sitesView === 'map' ? (
-            <SitesMap sites={mapSites} onSiteClick={handleCardClick} />
+            <SitesMap key={`map-${theme}`} sites={mapSites} onSiteClick={handleCardClick} />
           ) : sitesView === 'list' ? (
             <SiteListView
               sites={filteredSiteCards}

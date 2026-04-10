@@ -137,23 +137,18 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
          !isNaN(Number(s.latitude)) && !isNaN(Number(s.longitude))
   );
 
-  // Stable ref for sites data so the map effect doesn't re-run on every sites array change
-  const sitesDataRef = useRef(sitesWithCoords);
-  sitesDataRef.current = sitesWithCoords;
-
   // Load Google Maps script
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) { setError('Google Maps API key not configured (VITE_GOOGLE_MAPS_API_KEY).'); return; }
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Create map + markers — RE-RUNS when theme changes to apply correct styles
+  // Create map + markers — runs once when loaded (component is remounted via key when theme changes)
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
 
-    const currentSites = sitesDataRef.current;
     const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
 
     const map = new google.maps.Map(mapRef.current, {
@@ -166,13 +161,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       styles: currentStyles,
     });
 
-    if (currentSites.length === 0) return;
+    if (sitesWithCoords.length === 0) return;
 
     const bounds = new google.maps.LatLngBounds();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let currentInfoWindow: any = null;
 
-    currentSites.forEach(site => {
+    sitesWithCoords.forEach(site => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
       bounds.extend(position);
 
@@ -236,7 +231,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       });
     });
 
-    if (currentSites.length === 1) {
+    if (sitesWithCoords.length === 1) {
       map.setCenter(bounds.getCenter());
       map.setZoom(10);
     } else {
