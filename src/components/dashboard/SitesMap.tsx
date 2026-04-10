@@ -124,13 +124,16 @@ const loadGoogleMaps = (apiKey: string): Promise<void> => {
   return mapsLoadPromise;
 };
 
+// Store map instance globally on window so theme effect always finds it
+const MAP_INSTANCE_KEY = '__sitesMapInstance';
+
 export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [mapInstance, setMapInstance] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
+  const onSiteClickRef = useRef(onSiteClick);
+  onSiteClickRef.current = onSiteClick;
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
@@ -143,12 +146,18 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Update map style whenever theme changes (separate from map creation)
+  // Theme change effect — runs every time theme changes
   useEffect(() => {
-    if (!mapInstance) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map = (window as any)[MAP_INSTANCE_KEY];
+    if (!map) return;
     const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-    mapInstance.setOptions({ styles });
-  }, [theme, mapInstance]);
+    try {
+      map.setOptions({ styles });
+    } catch (e) {
+      console.warn('[SitesMap] Failed to update map styles:', e);
+    }
+  }, [theme]);
 
   // Create map + markers
   useEffect(() => {
@@ -168,8 +177,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       styles: currentStyles,
     });
 
-    // Store in state so the theme effect can access it
-    setMapInstance(map);
+    // Store on window so theme effect can always find it
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any)[MAP_INSTANCE_KEY] = map;
 
     if (sitesWithCoords.length === 0) return;
 
@@ -237,7 +247,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
 
       marker.addListener('click', () => {
         infoWindow.close();
-        onSiteClick(site.identifier, site.id);
+        onSiteClickRef.current(site.identifier, site.id);
       });
     });
 
@@ -247,6 +257,15 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     } else {
       map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     }
+
+    // Cleanup: remove from window when component unmounts or re-creates
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((window as any)[MAP_INSTANCE_KEY] === map) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (window as any)[MAP_INSTANCE_KEY];
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, sitesWithCoords.length]);
 
