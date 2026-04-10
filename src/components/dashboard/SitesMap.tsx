@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Loader2 } from 'lucide-react';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
@@ -126,8 +126,6 @@ const loadGoogleMaps = (apiKey: string): Promise<void> => {
 
 export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapInstanceRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
@@ -139,44 +137,24 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
          !isNaN(Number(s.latitude)) && !isNaN(Number(s.longitude))
   );
 
+  // Stable ref for sites data so the map effect doesn't re-run on every sites array change
+  const sitesDataRef = useRef(sitesWithCoords);
+  sitesDataRef.current = sitesWithCoords;
+
   // Load Google Maps script
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) { setError('Google Maps API key not configured (VITE_GOOGLE_MAPS_API_KEY).'); return; }
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // DEBUG: Log every theme change
-  useEffect(() => {
-    console.log('[SitesMap] 🎨 Theme changed to:', theme);
-    console.log('[SitesMap] 🗺️ mapInstanceRef.current exists?', !!mapInstanceRef.current);
-    console.log('[SitesMap] 🗺️ mapInstanceRef.current type:', typeof mapInstanceRef.current);
-    
-    if (mapInstanceRef.current) {
-      console.log('[SitesMap] 🗺️ Map instance found, has setOptions?', typeof mapInstanceRef.current.setOptions);
-      const styles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-      console.log('[SitesMap] 🎨 Applying', theme === 'dark' ? 'DARK' : 'LIGHT', 'styles, count:', styles.length);
-      try {
-        mapInstanceRef.current.setOptions({ styles });
-        console.log('[SitesMap] ✅ setOptions called successfully');
-      } catch (e) {
-        console.error('[SitesMap] ❌ setOptions failed:', e);
-      }
-    } else {
-      console.log('[SitesMap] ⚠️ No map instance available yet');
-    }
-  }, [theme]);
-
-  // Create map + markers
+  // Create map + markers — RE-RUNS when theme changes to apply correct styles
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
-    if (!isLoaded || !mapRef.current || !google) {
-      console.log('[SitesMap] 🏗️ Create map skipped:', { isLoaded, hasMapRef: !!mapRef.current, hasGoogle: !!google });
-      return;
-    }
+    if (!isLoaded || !mapRef.current || !google) return;
 
+    const currentSites = sitesDataRef.current;
     const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
-    console.log('[SitesMap] 🏗️ Creating map with theme:', theme);
 
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -188,20 +166,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       styles: currentStyles,
     });
 
-    // Store in ref
-    mapInstanceRef.current = map;
-    console.log('[SitesMap] 🏗️ Map created and stored in ref. mapInstanceRef.current exists?', !!mapInstanceRef.current);
-
-    if (sitesWithCoords.length === 0) {
-      console.log('[SitesMap] 🏗️ No sites with coords, skipping markers');
-      return;
-    }
+    if (currentSites.length === 0) return;
 
     const bounds = new google.maps.LatLngBounds();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let currentInfoWindow: any = null;
 
-    sitesWithCoords.forEach(site => {
+    currentSites.forEach(site => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
       bounds.extend(position);
 
@@ -265,22 +236,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       });
     });
 
-    if (sitesWithCoords.length === 1) {
+    if (currentSites.length === 1) {
       map.setCenter(bounds.getCenter());
       map.setZoom(10);
     } else {
       map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     }
-
-    return () => {
-      console.log('[SitesMap] 🧹 Cleanup: clearing mapInstanceRef');
-      mapInstanceRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, sitesWithCoords.length]);
-
-  // DEBUG: Log component render
-  console.log('[SitesMap] 🔄 Render. theme:', theme, 'isLoaded:', isLoaded, 'mapExists:', !!mapInstanceRef.current);
+  }, [isLoaded, theme, sitesWithCoords.length]);
 
   if (error) {
     return (
