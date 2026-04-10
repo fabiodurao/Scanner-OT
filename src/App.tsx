@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 import VariablesReview from "./pages/VariablesReview";
 import EquipmentCatalog from "./pages/EquipmentCatalog";
 import EquipmentCatalogDetail from "./pages/EquipmentCatalogDetail";
+import ApiDocs from "./pages/ApiDocs";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const AppRoutes = () => {
       <Route path="/discovery/:siteId" element={<ProtectedRoute><Discovery /></ProtectedRoute>} />
       <Route path="/discovery/:siteId/variables" element={<ProtectedRoute><VariablesReview /></ProtectedRoute>} />
       <Route path="/customers" element={<Navigate to="/sites-management" replace />} />
+      <Route path="/api" element={<ProtectedRoute><ApiDocs /></ProtectedRoute>} />
       <Route path="/equipment-catalog" element={<ProtectedRoute><EquipmentCatalog /></ProtectedRoute>} />
       <Route path="/equipment-catalog/:catalogId" element={<ProtectedRoute><EquipmentCatalogDetail /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

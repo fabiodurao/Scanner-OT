@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Cable,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -75,6 +76,7 @@ const Sidebar = () => {
   ];
 
   const bottomNavigation = [
+    { name: 'API', href: '/api', icon: Cable },
     { name: 'Equipment Catalog', href: '/equipment-catalog', icon: BookOpen },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
