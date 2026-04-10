@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { MapPin, Loader2, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AddressData {
   formattedAddress: string;
@@ -46,6 +47,30 @@ const silverMapStyle = [
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
   { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
+];
+
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#212121" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
+  { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
+  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
+  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] },
 ];
 
 const createCustomMarkerIcon = () => {
@@ -101,6 +126,8 @@ export const AddressAutocomplete = ({
   const [isApiLoaded, setIsApiLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
+  const { theme } = useTheme();
+
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -146,6 +173,8 @@ export const AddressAutocomplete = ({
       ? { lat: parseFloat(latitude), lng: parseFloat(longitude) }
       : DEFAULT_CENTER;
 
+    const isDark = theme === 'dark';
+
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center,
       zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
@@ -153,7 +182,7 @@ export const AddressAutocomplete = ({
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: true,
-      styles: silverMapStyle,
+      styles: isDark ? darkMapStyle : silverMapStyle,
     });
 
     if (hasCoordinates) {
@@ -161,6 +190,15 @@ export const AddressAutocomplete = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isApiLoaded]);
+
+  // React to theme changes — update map styles in real-time
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const isDark = theme === 'dark';
+    mapInstanceRef.current.setOptions({
+      styles: isDark ? darkMapStyle : silverMapStyle,
+    });
+  }, [theme]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addMarker = (position: { lat: number; lng: number }) => {
@@ -368,12 +406,12 @@ export const AddressAutocomplete = ({
           {isLoading && <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
 
           {showSuggestions && suggestions.length > 0 && (
-            <div ref={suggestionsRef} className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div ref={suggestionsRef} className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.placeId}
                   type="button"
-                  className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-start gap-3 border-b last:border-b-0"
+                  className="w-full px-4 py-3 text-left hover:bg-accent flex items-start gap-3 border-b last:border-b-0"
                   onClick={() => handleSelectSuggestion(suggestion)}
                 >
                   <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -425,7 +463,7 @@ export const AddressAutocomplete = ({
         <div
           ref={mapRef}
           className={cn(
-            'w-full h-48 rounded-lg border bg-slate-100',
+            'w-full h-48 rounded-lg border bg-muted',
             (mapError || (!isApiLoaded && !mapError)) && 'flex items-center justify-center'
           )}
         >
