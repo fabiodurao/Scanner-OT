@@ -29,6 +29,8 @@ const Login = () => {
   const [fullName, setFullName] = useState('');
   const [roleInCompany, setRoleInCompany] = useState('');
 
+  const logoSrc = theme === 'dark' ? '/logo-white.png' : '/logo-standard.png';
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -259,7 +261,7 @@ const Login = () => {
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-6">
             <img
-              src="/logo-standard.png"
+              src={logoSrc}
               alt="Centrii"
               className="h-12 w-auto object-contain"
             />
