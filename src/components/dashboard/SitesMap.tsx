@@ -5,7 +5,6 @@ import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { renderSiteMapCardHTML } from './SiteMapCard';
-import { useTheme } from '@/hooks/useTheme';
 
 interface SiteMapData {
   id: string;
@@ -70,7 +69,6 @@ const createMarkerSvg = (siteType: string | null): string => {
 
   const bg = config?.bgColor ?? '#f1f5f9';
   const stroke = config?.primaryColor ?? '#475569';
-
   const cx = PIN_W / 2;
   const cy = PIN_W / 2;
 
@@ -80,9 +78,7 @@ const createMarkerSvg = (siteType: string | null): string => {
       IconComponent({ primaryColor: stroke, secondaryColor: stroke, size: 16 })
     );
     const innerMatch = fullSvg.match(/<svg[^>]*>([\s\S]*?)<\/svg>/);
-    if (innerMatch) {
-      iconSvgContent = innerMatch[1];
-    }
+    if (innerMatch) iconSvgContent = innerMatch[1];
   }
 
   const iconSize = 16;
@@ -128,31 +124,32 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { theme } = useTheme();
   const onSiteClickRef = useRef(onSiteClick);
   onSiteClickRef.current = onSiteClick;
-  
-  // Capture theme at mount time so the map is always created with the correct theme
-  const themeAtMount = useRef(theme);
+
+  // Read theme directly from DOM at mount time — guaranteed to be correct
+  // because Index.tsx unmounts this component AFTER applying the new theme class
+  const isDark = document.documentElement.classList.contains('dark');
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
          !isNaN(Number(s.latitude)) && !isNaN(Number(s.longitude))
   );
 
-  // Load Google Maps script
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) { setError('Google Maps API key not configured (VITE_GOOGLE_MAPS_API_KEY).'); return; }
-    loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError('Google Maps API key not configured (VITE_GOOGLE_MAPS_API_KEY).');
+      return;
+    }
+    loadGoogleMaps(GOOGLE_MAPS_API_KEY)
+      .then(() => setIsLoaded(true))
+      .catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Create map + markers once when loaded
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
-
-    const currentStyles = themeAtMount.current === 'dark' ? darkMapStyle : silverMapStyle;
 
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -161,7 +158,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       streetViewControl: false,
       fullscreenControl: true,
       zoomControl: true,
-      styles: currentStyles,
+      styles: isDark ? darkMapStyle : silverMapStyle,
     });
 
     if (sitesWithCoords.length === 0) return;
@@ -174,14 +171,12 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       const position = { lat: Number(site.latitude), lng: Number(site.longitude) };
       bounds.extend(position);
 
-      const markerIcon = createMarkerSvg(site.site_type);
-
       const marker = new google.maps.Marker({
         position,
         map,
         title: site.name || site.identifier || 'Site',
         icon: {
-          url: markerIcon,
+          url: createMarkerSvg(site.site_type),
           scaledSize: new google.maps.Size(PIN_W, PIN_H),
           anchor: new google.maps.Point(PIN_W / 2, PIN_H - 4),
         },
@@ -200,8 +195,7 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       });
 
       google.maps.event.addListener(infoWindow, 'domready', () => {
-        const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
-        closeButtons.forEach((btn: Element) => {
+        document.querySelectorAll('.gm-ui-hover-effect').forEach((btn: Element) => {
           (btn as HTMLElement).style.display = 'none';
         });
         const iwOuter = document.querySelector('.gm-style-iw-d');

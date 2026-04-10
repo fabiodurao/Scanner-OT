@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -30,19 +30,27 @@ const Index = () => {
   const [sitesView, setSitesView] = useState<SitesView>('cards');
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
 
-  // Force map remount when theme changes
-  const [mapMountKey, setMapMountKey] = useState(0);
-  const [mapVisible, setMapVisible] = useState(true);
+  // Controls whether the map component is mounted at all
+  const [mapMounted, setMapMounted] = useState(true);
+  const isFirstRender = useRef(true);
 
+  // When theme changes, fully unmount then remount the map
   useEffect(() => {
-    if (sitesView === 'map') {
-      setMapVisible(false);
-      const raf = requestAnimationFrame(() => {
-        setMapMountKey(prev => prev + 1);
-        setMapVisible(true);
-      });
-      return () => cancelAnimationFrame(raf);
+    // Skip on first render — no need to remount on initial load
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
+
+    // Unmount the map
+    setMapMounted(false);
+
+    // After a short delay, remount it with the new theme
+    const timer = setTimeout(() => {
+      setMapMounted(true);
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [theme]);
 
   // Initialize type filter when data loads
@@ -121,17 +129,23 @@ const Index = () => {
     }
 
     if (sitesView === 'map') {
-      return mapVisible ? (
+      if (!mapMounted) {
+        return (
+          <div
+            className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center gap-2 text-muted-foreground"
+            style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}
+          >
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Reloading map...</span>
+          </div>
+        );
+      }
+
+      return (
         <SitesMap
-          key={`map-${mapMountKey}`}
           sites={mapSites}
           onSiteClick={(identifier, id) => navigate(`/discovery/${identifier || id}`)}
         />
-      ) : (
-        <div className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center gap-2 text-muted-foreground" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">Reloading map...</span>
-        </div>
       );
     }
 
