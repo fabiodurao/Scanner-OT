@@ -30,27 +30,19 @@ const Index = () => {
   const [sitesView, setSitesView] = useState<SitesView>('cards');
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
 
-  // Controls whether the map component is mounted at all
-  const [mapMounted, setMapMounted] = useState(true);
   const isFirstRender = useRef(true);
+  const sitesViewRef = useRef(sitesView);
+  sitesViewRef.current = sitesView;
 
-  // When theme changes, fully unmount then remount the map
+  // If theme changes while on map view, force a full page reload
   useEffect(() => {
-    // Skip on first render — no need to remount on initial load
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-
-    // Unmount the map
-    setMapMounted(false);
-
-    // After a short delay, remount it with the new theme
-    const timer = setTimeout(() => {
-      setMapMounted(true);
-    }, 150);
-
-    return () => clearTimeout(timer);
+    if (sitesViewRef.current === 'map') {
+      window.location.reload();
+    }
   }, [theme]);
 
   // Initialize type filter when data loads
@@ -129,18 +121,6 @@ const Index = () => {
     }
 
     if (sitesView === 'map') {
-      if (!mapMounted) {
-        return (
-          <div
-            className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center gap-2 text-muted-foreground"
-            style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}
-          >
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Reloading map...</span>
-          </div>
-        );
-      }
-
       return (
         <SitesMap
           sites={mapSites}
