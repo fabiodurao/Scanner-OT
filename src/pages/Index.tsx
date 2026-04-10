@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -12,11 +12,9 @@ import { SitesMap } from '@/components/dashboard/SitesMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw, Loader2, Building2 } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const {
     unknownSites,
     allSiteCards,
@@ -29,21 +27,6 @@ const Index = () => {
 
   const [sitesView, setSitesView] = useState<SitesView>('cards');
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
-
-  const isFirstRender = useRef(true);
-  const sitesViewRef = useRef(sitesView);
-  sitesViewRef.current = sitesView;
-
-  // If theme changes while on map view, force a full page reload
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    if (sitesViewRef.current === 'map') {
-      window.location.reload();
-    }
-  }, [theme]);
 
   // Initialize type filter when data loads
   useEffect(() => {

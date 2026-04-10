@@ -5,6 +5,7 @@ import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { renderSiteMapCardHTML } from './SiteMapCard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SiteMapData {
   id: string;
@@ -122,14 +123,14 @@ const loadGoogleMaps = (apiKey: string): Promise<void> => {
 
 export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapInstanceRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onSiteClickRef = useRef(onSiteClick);
   onSiteClickRef.current = onSiteClick;
 
-  // Read theme directly from DOM at mount time — guaranteed to be correct
-  // because Index.tsx unmounts this component AFTER applying the new theme class
-  const isDark = document.documentElement.classList.contains('dark');
+  const { theme } = useTheme();
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
@@ -146,10 +147,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       .catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
+  // Initialize map
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
+
+    const isDark = theme === 'dark';
 
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -160,6 +164,8 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
       zoomControl: true,
       styles: isDark ? darkMapStyle : silverMapStyle,
     });
+
+    mapInstanceRef.current = map;
 
     if (sitesWithCoords.length === 0) return;
 
@@ -236,6 +242,15 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded]);
+
+  // React to theme changes in real-time — just update the map styles
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const isDark = theme === 'dark';
+    mapInstanceRef.current.setOptions({
+      styles: isDark ? darkMapStyle : silverMapStyle,
+    });
+  }, [theme]);
 
   if (error) {
     return (
