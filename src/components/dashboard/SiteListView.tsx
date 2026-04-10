@@ -131,8 +131,8 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
 
   return (
     <div className="rounded-lg border overflow-hidden">
-      {/* Header — 12 cols: site=4, equip=1, vars=1, progress=2, pcapCount=1, pcapSize=1, activity=2 */}
-      <div className="grid grid-cols-12 gap-3 px-4 py-2 bg-slate-50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      {/* Header */}
+      <div className="grid grid-cols-12 gap-3 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wide">
         <div className="col-span-4">
           <ColHeader label="Site" col="name" />
         </div>
@@ -173,8 +173,8 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
               key={site.id}
               onClick={() => handleClick(site.identifier, site.id)}
               className={cn(
-                'grid grid-cols-12 gap-3 px-4 py-3 items-center cursor-pointer transition-colors hover:bg-slate-50 group',
-                isUnregistered && 'bg-amber-50/40 hover:bg-amber-50'
+                'grid grid-cols-12 gap-3 px-4 py-3 items-center cursor-pointer transition-colors hover:bg-muted/50 group',
+                isUnregistered && 'bg-amber-50/40 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30'
               )}
             >
               {/* Site — col-span-4 */}
@@ -184,12 +184,12 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                     <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={16} />
                   </div>
                 ) : (
-                  <div className="p-1.5 rounded-lg bg-amber-100 flex-shrink-0">
+                  <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex-shrink-0">
                     <Activity className="h-4 w-4 text-amber-600" />
                   </div>
                 )}
                 <div className="min-w-0">
-                  <div className="font-medium text-sm text-[#1a2744] truncate">
+                  <div className="font-medium text-sm text-foreground truncate">
                     {isUnregistered
                       ? <code className="font-mono text-xs">{site.identifier?.slice(0, 16)}...</code>
                       : site.name}
@@ -200,7 +200,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                         {typeConfig.label}
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0 h-4">
+                      <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700 text-[10px] px-1.5 py-0 h-4">
                         Unregistered
                       </Badge>
                     )}
@@ -257,7 +257,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                         {Math.round((confirmed / total) * 100)}%
                       </span>
                     </div>
-                    <div className="w-[70%] flex h-1.5 rounded-full overflow-hidden bg-slate-100">
+                    <div className="w-[70%] flex h-1.5 rounded-full overflow-hidden bg-secondary">
                       <div className="bg-emerald-500 transition-all" style={{ width: `${publishedPct}%` }} />
                       <div className="bg-blue-500 transition-all" style={{ width: `${confirmedPct}%` }} />
                       <div className="bg-amber-400 transition-all" style={{ width: `${hypothesisPct}%` }} />
@@ -276,7 +276,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                         {stats.variablesByState.hypothesis}
                       </span>
                       <span className="flex items-center gap-0.5">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                         {stats.variablesByState.unknown}
                       </span>
                     </div>
@@ -304,7 +304,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                     <span className="font-semibold text-sm">{pcap.fileCount}</span>
                   </div>
                 ) : (
-                  <span className="text-slate-400 text-xs">—</span>
+                  <span className="text-muted-foreground/50 text-xs">—</span>
                 )}
               </div>
 
@@ -318,7 +318,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                     <span className="text-xs text-muted-foreground">{formatFileSize(pcap.totalBytes)}</span>
                   </div>
                 ) : (
-                  <span className="text-slate-400 text-xs">—</span>
+                  <span className="text-muted-foreground/50 text-xs">—</span>
                 )}
               </div>
 
@@ -332,7 +332,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                     <span className="truncate">{formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })}</span>
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-400">No data</span>
+                  <span className="text-xs text-muted-foreground/50">No data</span>
                 )}
                 <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
               </div>
