@@ -16,7 +16,7 @@ export const SiteTypeFilter = ({ typeCounts, selectedTypes, onToggleType }: Site
   if (activeTypes.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+    <div className="flex items-center gap-1 bg-secondary/80 dark:bg-muted/60 rounded-lg p-1 border border-border">
       {activeTypes.map(([type, count]) => {
         const config = siteTypeConfig[type];
         const IconComponent = SITE_TYPE_ICONS[type];
@@ -30,20 +30,20 @@ export const SiteTypeFilter = ({ typeCounts, selectedTypes, onToggleType }: Site
               <button
                 onClick={() => onToggleType(type)}
                 className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 select-none',
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 select-none border',
                   isSelected
-                    ? 'shadow-sm'
-                    : 'opacity-40 hover:opacity-70'
+                    ? 'shadow-sm border-border dark:border-white/10'
+                    : 'opacity-40 hover:opacity-70 border-transparent'
                 )}
                 style={
                   isSelected
                     ? { backgroundColor: config.bgColor, color: config.primaryColor }
-                    : { backgroundColor: 'transparent', color: '#64748b' }
+                    : { backgroundColor: 'transparent', color: 'hsl(var(--muted-foreground))' }
                 }
               >
                 <IconComponent
-                  primaryColor={isSelected ? config.primaryColor : '#94a3b8'}
-                  secondaryColor={isSelected ? config.secondaryColor : '#cbd5e1'}
+                  primaryColor={isSelected ? config.primaryColor : 'hsl(var(--muted-foreground))'}
+                  secondaryColor={isSelected ? config.secondaryColor : 'hsl(var(--muted-foreground))'}
                   size={14}
                 />
                 <span>{count}</span>
