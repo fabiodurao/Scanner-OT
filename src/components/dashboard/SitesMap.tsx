@@ -131,6 +131,9 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
   const { theme } = useTheme();
   const onSiteClickRef = useRef(onSiteClick);
   onSiteClickRef.current = onSiteClick;
+  
+  // Capture theme at mount time so the map is always created with the correct theme
+  const themeAtMount = useRef(theme);
 
   const sitesWithCoords = sites.filter(
     s => s.latitude != null && s.longitude != null &&
@@ -143,13 +146,13 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(() => setIsLoaded(true)).catch(() => setError('Failed to load Google Maps.'));
   }, []);
 
-  // Create map + markers — runs once when loaded (component is remounted via key when theme changes)
+  // Create map + markers once when loaded
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const google = (window as any).google;
     if (!isLoaded || !mapRef.current || !google) return;
 
-    const currentStyles = theme === 'dark' ? darkMapStyle : silverMapStyle;
+    const currentStyles = themeAtMount.current === 'dark' ? darkMapStyle : silverMapStyle;
 
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -15, lng: -50 },
@@ -237,7 +240,8 @@ export const SitesMap = ({ sites, onSiteClick }: SitesMapProps) => {
     } else {
       map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     }
-  }, [isLoaded, theme, sitesWithCoords.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
   if (error) {
     return (

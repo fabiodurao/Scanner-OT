@@ -65,6 +65,23 @@ const Index = () => {
   const [sitesView, setSitesView] = useState<'cards' | 'map' | 'list'>('cards');
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
 
+  // Force map remount when theme changes by temporarily hiding it
+  const [mapMountKey, setMapMountKey] = useState(0);
+  const [mapVisible, setMapVisible] = useState(true);
+
+  useEffect(() => {
+    // When theme changes and we're on map view, force a full remount cycle
+    if (sitesView === 'map') {
+      setMapVisible(false);
+      // Use requestAnimationFrame to ensure the DOM unmounts before remounting
+      const raf = requestAnimationFrame(() => {
+        setMapMountKey(prev => prev + 1);
+        setMapVisible(true);
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [theme]);
+
   useEffect(() => {
     const loadStats = async () => {
       if (sites.length === 0 && unknownSites.length === 0) return;
@@ -368,7 +385,14 @@ const Index = () => {
               </CardContent>
             </Card>
           ) : sitesView === 'map' ? (
-            <SitesMap key={`map-${theme}`} sites={mapSites} onSiteClick={handleCardClick} />
+            mapVisible ? (
+              <SitesMap key={`map-${mapMountKey}`} sites={mapSites} onSiteClick={handleCardClick} />
+            ) : (
+              <div className="w-full rounded-lg border bg-slate-50 dark:bg-muted flex items-center justify-center gap-2 text-muted-foreground" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Reloading map...</span>
+              </div>
+            )
           ) : sitesView === 'list' ? (
             <SiteListView
               sites={filteredSiteCards}
