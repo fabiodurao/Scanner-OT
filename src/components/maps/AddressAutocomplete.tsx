@@ -73,8 +73,10 @@ const darkMapStyle = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] },
 ];
 
-const createCustomMarkerIcon = () => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="#0E182E" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/><circle fill="#ffffff" cx="16" cy="16" r="6"/></svg>`;
+const createCustomMarkerIcon = (isDark: boolean) => {
+  const pinColor = isDark ? '#60A5FA' : '#0E182E'; // blue-400 for dark, navy for light
+  const dotColor = isDark ? '#1E293B' : '#ffffff'; // slate-800 for dark, white for light
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="${pinColor}" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/><circle fill="${dotColor}" cx="16" cy="16" r="6"/></svg>`;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 };
 
@@ -160,6 +162,51 @@ export const AddressAutocomplete = ({
       });
   }, []);
 
+  // Helper to add or update marker with theme-aware icon
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addMarker = useCallback((position: { lat: number; lng: number }) => {
+    const google = getGoogle();
+    if (!mapInstanceRef.current || !google) return;
+
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+    }
+
+    const isDark = theme === 'dark';
+
+    markerRef.current = new google.maps.Marker({
+      position,
+      map: mapInstanceRef.current,
+      draggable: true,
+      animation: google.maps.Animation.DROP,
+      icon: {
+        url: createCustomMarkerIcon(isDark),
+        scaledSize: new google.maps.Size(32, 42),
+        anchor: new google.maps.Point(16, 42),
+      },
+    });
+
+    markerRef.current.addListener('dragend', () => {
+      const pos = markerRef.current?.getPosition();
+      if (pos && geocoderRef.current) {
+        const lat = pos.lat();
+        const lng = pos.lng();
+        onAddressChange({ latitude: lat, longitude: lng });
+        geocoderRef.current.geocode(
+          { location: { lat, lng }, language: 'en' },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (results: any, status: string) => {
+            if (status === 'OK' && results?.[0]) {
+              const addressData = parseAddressComponents(results[0]);
+              onAddressChange({ address: results[0].formatted_address, ...addressData });
+              setInputValue(results[0].formatted_address);
+            }
+          }
+        );
+      }
+    });
+  }, [theme, onAddressChange]);
+
   // Initialize map after API is loaded
   useEffect(() => {
     const google = getGoogle();
@@ -191,56 +238,26 @@ export const AddressAutocomplete = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isApiLoaded]);
 
-  // React to theme changes — update map styles in real-time
+  // React to theme changes — update map styles and marker icon in real-time
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const isDark = theme === 'dark';
     mapInstanceRef.current.setOptions({
       styles: isDark ? darkMapStyle : silverMapStyle,
     });
-  }, [theme]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addMarker = (position: { lat: number; lng: number }) => {
-    const google = getGoogle();
-    if (!mapInstanceRef.current || !google) return;
-
+    // Update marker icon if it exists
     if (markerRef.current) {
-      markerRef.current.setMap(null);
-    }
-
-    markerRef.current = new google.maps.Marker({
-      position,
-      map: mapInstanceRef.current,
-      draggable: true,
-      animation: google.maps.Animation.DROP,
-      icon: {
-        url: createCustomMarkerIcon(),
-        scaledSize: new google.maps.Size(32, 42),
-        anchor: new google.maps.Point(16, 42),
-      },
-    });
-
-    markerRef.current.addListener('dragend', () => {
-      const pos = markerRef.current?.getPosition();
-      if (pos && geocoderRef.current) {
-        const lat = pos.lat();
-        const lng = pos.lng();
-        onAddressChange({ latitude: lat, longitude: lng });
-        geocoderRef.current.geocode(
-          { location: { lat, lng }, language: 'en' },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (results: any, status: string) => {
-            if (status === 'OK' && results?.[0]) {
-              const addressData = parseAddressComponents(results[0]);
-              onAddressChange({ address: results[0].formatted_address, ...addressData });
-              setInputValue(results[0].formatted_address);
-            }
-          }
-        );
+      const google = getGoogle();
+      if (google) {
+        markerRef.current.setIcon({
+          url: createCustomMarkerIcon(isDark),
+          scaledSize: new google.maps.Size(32, 42),
+          anchor: new google.maps.Point(16, 42),
+        });
       }
-    });
-  };
+    }
+  }, [theme]);
 
   // Update map when coordinates change externally
   useEffect(() => {
