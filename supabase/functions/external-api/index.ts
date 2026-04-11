@@ -397,11 +397,19 @@ async function handleGetSiteStats(supabase: ReturnType<typeof createClient>, sit
   const site = await verifySiteExists(supabase, siteId)
   if (!site) return errorResponse('Site not found', 404)
 
-  // Equipment count
-  const { count: equipmentCount } = await supabase
+  // Equipment is linked via site_identifier (unique_id) OR site_id
+  // The dashboard uses site_identifier, so we need to check both
+  let equipmentQuery = supabase
     .from('discovered_equipment')
     .select('id', { count: 'exact', head: true })
-    .eq('site_id', siteId)
+
+  if (site.unique_id) {
+    equipmentQuery = equipmentQuery.or(`site_id.eq.${siteId},site_identifier.eq.${site.unique_id}`)
+  } else {
+    equipmentQuery = equipmentQuery.eq('site_id', siteId)
+  }
+
+  const { count: equipmentCount } = await equipmentQuery
 
   // Sessions count
   const { count: sessionsCount } = await supabase
@@ -432,11 +440,18 @@ async function handleGetSiteStats(supabase: ReturnType<typeof createClient>, sit
     }
   }
 
-  // Unique protocols
-  const { data: equipWithProtocols } = await supabase
+  // Unique protocols — also check both site_id and site_identifier
+  let protocolsQuery = supabase
     .from('discovered_equipment')
     .select('protocols')
-    .eq('site_id', siteId)
+
+  if (site.unique_id) {
+    protocolsQuery = protocolsQuery.or(`site_id.eq.${siteId},site_identifier.eq.${site.unique_id}`)
+  } else {
+    protocolsQuery = protocolsQuery.eq('site_id', siteId)
+  }
+
+  const { data: equipWithProtocols } = await protocolsQuery
 
   const protocolSet = new Set<string>()
   if (equipWithProtocols) {
@@ -467,11 +482,17 @@ async function handleListEquipment(supabase: ReturnType<typeof createClient>, si
   const site = await verifySiteExists(supabase, siteId)
   if (!site) return errorResponse('Site not found', 404)
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('discovered_equipment')
     .select('id, ip_address, mac_address, role, manufacturer, model, device_name, device_type, firmware_version, variable_count, sample_count, protocols, first_seen_at, last_seen_at')
-    .eq('site_id', siteId)
-    .order('last_seen_at', { ascending: false })
+
+  if (site.unique_id) {
+    query = query.or(`site_id.eq.${siteId},site_identifier.eq.${site.unique_id}`)
+  } else {
+    query = query.eq('site_id', siteId)
+  }
+
+  const { data, error } = await query.order('last_seen_at', { ascending: false })
 
   if (error) {
     console.error('[external-api] Error listing equipment:', error)
@@ -492,12 +513,17 @@ async function handleGetEquipment(
   const site = await verifySiteExists(supabase, siteId)
   if (!site) return errorResponse('Site not found', 404)
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('discovered_equipment')
     .select('*')
-    .eq('site_id', siteId)
-    .ilike('mac_address', normalizedMac)
-    .single()
+
+  if (site.unique_id) {
+    query = query.or(`site_id.eq.${siteId},site_identifier.eq.${site.unique_id}`)
+  } else {
+    query = query.eq('site_id', siteId)
+  }
+
+  const { data, error } = await query.ilike('mac_address', normalizedMac).single()
 
   if (error || !data) {
     return errorResponse('Equipment not found', 404)
@@ -533,11 +559,25 @@ async function handleUpdateEquipment(
 
   updateData.updated_at = new Date().toISOString()
 
+  // First find the equipment by MAC + site (using both site_id and site_identifier)
+  let findQuery = supabase
+    .from('discovered_equipment')
+    .select('id')
+
+  if (site.unique_id) {
+    findQuery = findQuery.or(`site_id.eq.${siteId},site_identifier.eq.${site.unique_id}`)
+  } else {
+    findQuery = findQuery.eq('site_id', siteId)
+  }
+
+  const { data: found } = await findQuery.ilike('mac_address', normalizedMac).single()
+  if (!found) return errorResponse('Equipment not found', 404)
+
+  // Update by the found ID
   const { data, error } = await supabase
     .from('discovered_equipment')
     .update(updateData)
-    .eq('site_id', siteId)
-    .ilike('mac_address', normalizedMac)
+    .eq('id', found.id)
     .select('id, ip_address, mac_address, role, manufacturer, model, device_name, device_type, firmware_version, variable_count, sample_count, protocols, first_seen_at, last_seen_at, updated_at')
     .single()
 
