@@ -280,37 +280,38 @@ const Sidebar = () => {
         )}
         {(isMobile || !isCollapsed) && <Separator className="bg-[hsl(var(--sidebar-border))] mb-3" />}
         
-        {/* Theme Toggle */}
-        <ThemeToggle isCollapsed={!isMobile && isCollapsed} isMobile={isMobile} />
-        
-        <div className="mt-1" />
-        
         {!isMobile && isCollapsed ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className="w-full justify-center text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))] p-2"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              Sign Out
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex flex-col items-center gap-1">
+            <ThemeToggle isCollapsed />
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={signOut}
+                  className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                Sign Out
+              </TooltipContent>
+            </Tooltip>
+          </div>
         ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className="w-full justify-start text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="flex-1 justify-start text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+            <ThemeToggle />
+          </div>
         )}
         
         {(isMobile || !isCollapsed) && (
