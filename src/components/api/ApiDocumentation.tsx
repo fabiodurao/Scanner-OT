@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 import { EndpointCard } from './EndpointCard';
 import { PostmanExport } from './PostmanExport';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +8,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 const SUPABASE_URL = 'https://jgclhfwigmxmqyhqngcm.supabase.co';
-
-interface ActiveKey {
-  id: string;
-  name: string;
-  key_prefix: string;
-}
 
 const errorCodes = [
   { code: '401', description: 'Unauthorized — Missing or invalid API key', example: '{ "error": "Missing X-API-Key header" }' },
@@ -27,19 +20,6 @@ const errorCodes = [
 export function ApiDocumentation() {
   const { toast } = useToast();
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [activeKeys, setActiveKeys] = useState<ActiveKey[]>([]);
-
-  useEffect(() => {
-    const fetchKeys = async () => {
-      const { data } = await supabase
-        .from('api_keys')
-        .select('id, name, key_prefix')
-        .eq('is_active', true)
-        .is('revoked_at', null);
-      setActiveKeys(data || []);
-    };
-    fetchKeys();
-  }, []);
 
   const baseUrl = SUPABASE_URL;
   const apiBaseUrl = `${baseUrl}/functions/v1/external-api`;
@@ -105,14 +85,14 @@ X-API-Key: otsk_your_api_key_here`}
 
       {/* Endpoints */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Endpoints</h3>
-        <div className="space-y-6">
+        <h3 className="text-lg font-semibold mb-1">Endpoints</h3>
+        <p className="text-sm text-muted-foreground mb-4">Click on an endpoint to expand its documentation.</p>
+        <div className="space-y-3">
           <EndpointCard
             method="GET"
             path="/sites/list"
             description="Returns a list of all sites with their basic information."
             baseUrl={baseUrl}
-            apiKeys={activeKeys}
             responseExample={JSON.stringify({
               sites: [
                 {
@@ -135,7 +115,6 @@ X-API-Key: otsk_your_api_key_here`}
             path="/sites/{siteId}"
             description="Update a site's name and/or slug. At least one field must be provided."
             baseUrl={baseUrl}
-            apiKeys={activeKeys}
             parameters={[
               { name: 'siteId', type: 'uuid', required: true, description: 'The unique identifier of the site', location: 'path' },
               { name: 'name', type: 'string', required: false, description: 'New name for the site', location: 'body' },
