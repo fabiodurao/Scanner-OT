@@ -26,6 +26,13 @@ import { toast } from 'sonner';
 const SUPABASE_PROJECT_ID = 'jgclhfwigmxmqyhqngcm';
 const RECEIVER_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/data-receiver`;
 
+/** Build a single-line cURL command that works on Windows CMD, PowerShell, and bash */
+const buildCurlCommand = (url: string, siteId: string) => {
+  const body = `{"site_identifier":"${siteId}","data":[{"source_ip":"192.168.1.1","dest_ip":"192.168.1.2","address":100,"FC":3,"value":42.5}]}`;
+  // Use double quotes for the URL and header, escaped double quotes inside -d for cross-platform compat
+  return `curl -X POST "${url}" -H "Content-Type: application/json" -d "${body.replace(/"/g, '\\"')}"`;
+};
+
 const DataReceiver = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSite = searchParams.get('site') || '';
@@ -82,24 +89,26 @@ const DataReceiver = () => {
     toast.success('Data cleared');
   };
 
-  const copyUrl = () => {
-    const url = selectedSite
+  const getFullUrl = () =>
+    selectedSite
       ? `${RECEIVER_URL}?site=${encodeURIComponent(selectedSite)}`
       : RECEIVER_URL;
-    navigator.clipboard.writeText(url);
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(getFullUrl());
     toast.success('URL copied to clipboard');
   };
 
   const copyCurl = () => {
-    const url = selectedSite
-      ? `${RECEIVER_URL}?site=${encodeURIComponent(selectedSite)}`
-      : RECEIVER_URL;
-    const cmd = `curl -X POST "${url}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"site_identifier":"${selectedSite || 'test-site'}","data":[{"source_ip":"192.168.1.1","dest_ip":"192.168.1.2","address":100,"FC":3,"value":42.5}]}'`;
+    const cmd = buildCurlCommand(getFullUrl(), selectedSite || 'test-site');
     navigator.clipboard.writeText(cmd);
     toast.success('cURL command copied to clipboard');
   };
 
   const isListening = records.length > 0 || totalCount > 0;
+
+  // Example for the empty state display (readable, multi-line for visual only)
+  const exampleCmd = buildCurlCommand(RECEIVER_URL, 'my-site-id');
 
   return (
     <div className="min-h-screen bg-background">
@@ -146,9 +155,7 @@ const DataReceiver = () => {
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
               <code className="flex-1 text-sm bg-muted px-3 py-2 rounded font-mono break-all">
-                {selectedSite
-                  ? `${RECEIVER_URL}?site=${encodeURIComponent(selectedSite)}`
-                  : RECEIVER_URL}
+                {getFullUrl()}
               </code>
               <Button variant="outline" size="sm" onClick={copyUrl}>
                 <Copy className="h-4 w-4" />
@@ -208,21 +215,10 @@ const DataReceiver = () => {
               <p className="text-muted-foreground text-sm mb-4">
                 Send a POST request to the endpoint above to start receiving data.
               </p>
-              <div className="max-w-lg mx-auto text-left">
-                <p className="text-xs text-muted-foreground mb-2">Example:</p>
-                <pre className="text-xs bg-muted p-3 rounded font-mono overflow-x-auto whitespace-pre-wrap">
-{`curl -X POST "${RECEIVER_URL}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "site_identifier": "my-site-id",
-    "data": [{
-      "source_ip": "192.168.1.1",
-      "dest_ip": "192.168.1.2",
-      "address": 100,
-      "FC": 3,
-      "value": 42.5
-    }]
-  }'`}
+              <div className="max-w-2xl mx-auto text-left">
+                <p className="text-xs text-muted-foreground mb-2">Example (paste in any terminal):</p>
+                <pre className="text-xs bg-muted p-3 rounded font-mono overflow-x-auto whitespace-pre-wrap break-all">
+                  {exampleCmd}
                 </pre>
               </div>
             </CardContent>
