@@ -38,9 +38,9 @@ export const ThemeToggle = ({ isCollapsed = false }: ThemeToggleProps) => {
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {/* Sun icon - left side */}
-          <Sun className={`absolute left-1.5 h-3 w-3 transition-opacity ${isDark ? 'opacity-30' : 'opacity-100 text-amber-400'}`} />
+          <Sun className={`absolute left-1.5 h-3 w-3 transition-opacity ${isDark ? 'opacity-40 text-gray-400' : 'opacity-100 text-amber-400'}`} />
           {/* Moon icon - right side */}
-          <Moon className={`absolute right-1.5 h-3 w-3 transition-opacity ${isDark ? 'opacity-100 text-blue-300' : 'opacity-30'}`} />
+          <Moon className={`absolute right-1.5 h-3 w-3 transition-opacity ${isDark ? 'opacity-100 text-blue-300' : 'opacity-40 text-gray-400'}`} />
           {/* Sliding knob */}
           <span
             className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
