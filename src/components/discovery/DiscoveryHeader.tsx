@@ -58,12 +58,17 @@ export const DiscoveryHeader = ({
               </Badge>
             )}
 
-            {dataFlowStatus?.receiving && (
-              <DataFlowBadge type="receiving" source={dataFlowStatus.source} lastAt={dataFlowStatus.lastSampleAt} />
-            )}
-            {dataFlowStatus?.publishing && (
-              <DataFlowBadge type="publishing" lastAt={dataFlowStatus.lastPublishAt} />
-            )}
+            <DataFlowBadge
+              type="receiving"
+              active={dataFlowStatus?.receiving}
+              source={dataFlowStatus?.source}
+              lastAt={dataFlowStatus?.lastSampleAt}
+            />
+            <DataFlowBadge
+              type="publishing"
+              active={dataFlowStatus?.publishing}
+              lastAt={dataFlowStatus?.lastPublishAt}
+            />
           </div>
 
           {site && (site.city || site.state) && (

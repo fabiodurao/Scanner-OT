@@ -7,6 +7,7 @@ export interface DataFlowStatus {
   publishing: boolean;
   lastSampleAt: string | null;
   lastPublishAt: string | null;
+  lastSampleSource: 'livescan' | 'pcap' | null;
 }
 
 const POLL_INTERVAL = 30_000; // 30 seconds
@@ -32,62 +33,66 @@ export const useDataFlowStatus = (siteIdentifiers: string[]) => {
         publishing: false,
         lastSampleAt: null,
         lastPublishAt: null,
+        lastSampleSource: null,
       });
     }
 
-    // Batch query: get latest sample per site from learning_samples
-    // We query for samples with time > cutoff for each identifier
-    const { data: recentSamples, error: samplesError } = await supabase
+    // Query: get the MOST RECENT sample per site (no time cutoff — we want the timestamp always)
+    const { data: latestSamples, error: samplesError } = await supabase
       .from('learning_samples')
       .select('Identifier, time, data_source')
       .in('Identifier', identifiers)
-      .gte('time', cutoff)
       .order('time', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     if (samplesError) {
       console.error('[useDataFlowStatus] Error fetching learning_samples:', samplesError);
     }
 
-    if (recentSamples) {
-      // Group by identifier, take the most recent
+    if (latestSamples) {
       const seen = new Set<string>();
-      for (const sample of recentSamples) {
+      for (const sample of latestSamples) {
         const id = sample.Identifier;
         if (seen.has(id)) continue;
         seen.add(id);
         const existing = newMap.get(id);
         if (existing) {
-          existing.receiving = true;
-          existing.source = (sample.data_source as 'livescan' | 'pcap') || 'pcap';
           existing.lastSampleAt = sample.time;
+          existing.lastSampleSource = (sample.data_source as 'livescan' | 'pcap') || 'pcap';
+          // Active if within the window
+          if (sample.time && sample.time >= cutoff) {
+            existing.receiving = true;
+            existing.source = existing.lastSampleSource;
+          }
         }
       }
     }
 
-    // Batch query: get recent publishing events
-    const { data: recentPublishing, error: publishError } = await supabase
+    // Query: get the MOST RECENT publishing event per site (no time cutoff)
+    const { data: latestPublishing, error: publishError } = await supabase
       .from('publishing_events')
       .select('site_identifier, status, created_at, completed_at')
       .in('site_identifier', identifiers)
-      .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     if (publishError) {
       console.error('[useDataFlowStatus] Error fetching publishing_events:', publishError);
     }
 
-    if (recentPublishing) {
+    if (latestPublishing) {
       const seen = new Set<string>();
-      for (const event of recentPublishing) {
+      for (const event of latestPublishing) {
         const id = event.site_identifier;
         if (seen.has(id)) continue;
         seen.add(id);
         const existing = newMap.get(id);
         if (existing) {
-          existing.publishing = true;
           existing.lastPublishAt = event.completed_at || event.created_at;
+          // Active if within the window
+          if (event.created_at >= cutoff) {
+            existing.publishing = true;
+          }
         }
       }
     }

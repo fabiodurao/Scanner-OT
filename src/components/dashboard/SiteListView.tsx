@@ -197,11 +197,11 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite, dataFlowStat
                     {isUnregistered
                       ? <code className="font-mono text-xs">{site.identifier?.slice(0, 16)}...</code>
                       : site.name}
-                    {flowStatus?.receiving && (
-                      <DataFlowIndicator type="receiving" source={flowStatus.source} />
-                    )}
-                    {flowStatus?.publishing && (
-                      <DataFlowIndicator type="publishing" />
+                    {flowStatus && (
+                      <>
+                        <DataFlowIndicator type="receiving" active={flowStatus.receiving} source={flowStatus.source} lastAt={flowStatus.lastSampleAt} />
+                        <DataFlowIndicator type="publishing" active={flowStatus.publishing} lastAt={flowStatus.lastPublishAt} />
+                      </>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">

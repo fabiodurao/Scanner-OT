@@ -1,7 +1,7 @@
 import { SiteDiscoveryStats } from '@/types/discovery';
 import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Server, Variable, CheckCircle, Lightbulb, HelpCircle, Clock, Database, Activity } from 'lucide-react';
+import { Server, Variable, CheckCircle, Lightbulb, HelpCircle, Clock, Database, Activity, Download, Upload } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DiscoveryStatsProps {
@@ -75,50 +75,62 @@ export const DiscoveryStats = ({ stats, slaveEquipmentCount, dataFlowStatus }: D
             <Activity className="h-3 w-3 sm:h-4 sm:w-4 text-cyan-500" />
           </CardHeader>
           <CardContent>
-            {dataFlowStatus ? (
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5">
-                  {dataFlowStatus.receiving ? (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                      </span>
-                      <span className="text-xs font-medium text-emerald-600">
-                        Receiving ({dataFlowStatus.source || 'unknown'})
-                      </span>
-                    </>
-                  ) : (
+            <div className="space-y-2">
+              {/* Receiving */}
+              <div className="flex items-center gap-1.5">
+                <Download className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                {dataFlowStatus?.receiving ? (
+                  <>
+                    <span className="relative flex h-2 w-2 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span className="text-xs font-medium text-emerald-600">
+                      Receiving ({dataFlowStatus.source || 'unknown'})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2 flex-shrink-0">
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />
+                    </span>
                     <span className="text-xs text-muted-foreground">Idle</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {dataFlowStatus.publishing ? (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                      </span>
-                      <span className="text-xs font-medium text-blue-600">Publishing</span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Not publishing</span>
-                  )}
-                </div>
-                {dataFlowStatus.lastSampleAt && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Last sample: {formatDistanceToNow(new Date(dataFlowStatus.lastSampleAt), { addSuffix: true })}
-                  </p>
-                )}
-                {dataFlowStatus.lastPublishAt && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Last publish: {formatDistanceToNow(new Date(dataFlowStatus.lastPublishAt), { addSuffix: true })}
-                  </p>
+                  </>
                 )}
               </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">No data</span>
-            )}
+              {dataFlowStatus?.lastSampleAt && (
+                <p className="text-[10px] text-muted-foreground pl-[18px]">
+                  Last: {formatDistanceToNow(new Date(dataFlowStatus.lastSampleAt), { addSuffix: true })}
+                  {dataFlowStatus.lastSampleSource && ` (${dataFlowStatus.lastSampleSource})`}
+                </p>
+              )}
+
+              {/* Publishing */}
+              <div className="flex items-center gap-1.5">
+                <Upload className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                {dataFlowStatus?.publishing ? (
+                  <>
+                    <span className="relative flex h-2 w-2 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                    </span>
+                    <span className="text-xs font-medium text-blue-600">Publishing</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2 flex-shrink-0">
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />
+                    </span>
+                    <span className="text-xs text-muted-foreground">Idle</span>
+                  </>
+                )}
+              </div>
+              {dataFlowStatus?.lastPublishAt && (
+                <p className="text-[10px] text-muted-foreground pl-[18px]">
+                  Last: {formatDistanceToNow(new Date(dataFlowStatus.lastPublishAt), { addSuffix: true })}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

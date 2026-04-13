@@ -9,7 +9,7 @@ import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import {
   Server, Variable, MapPin, Activity, Clock, HelpCircle,
-  FileArchive, Plus, Loader2,
+  FileArchive, Plus, Loader2, Download, Upload,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -73,24 +73,16 @@ export const SiteCardItem = ({ siteCard, loadingStats, onRegisterSite, dataFlowS
               <CardTitle className="text-lg text-foreground truncate">{siteCard.name}</CardTitle>
             )}
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {dataFlowStatus?.receiving && (
-              <DataFlowIndicator type="receiving" source={dataFlowStatus.source} />
-            )}
-            {dataFlowStatus?.publishing && (
-              <DataFlowIndicator type="publishing" />
-            )}
-            {isUnregistered ? (
-              <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
-                Unregistered
-              </Badge>
-            ) : typeConfig && IconComponent ? (
-              <Badge variant="outline" className={`${typeConfig.color} gap-1.5`}>
-                <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
-                {typeConfig.label}
-              </Badge>
-            ) : null}
-          </div>
+          {isUnregistered ? (
+            <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 flex-shrink-0">
+              Unregistered
+            </Badge>
+          ) : typeConfig && IconComponent ? (
+            <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
+              <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
+              {typeConfig.label}
+            </Badge>
+          ) : null}
         </div>
         {!isUnregistered && (siteCard.city || siteCard.state) && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
@@ -185,6 +177,20 @@ export const SiteCardItem = ({ siteCard, loadingStats, onRegisterSite, dataFlowS
             <Clock className="h-3 w-3 flex-shrink-0" />
             <span>{stats?.lastActivity ? `Last activity: ${lastActivityLine}` : 'Last activity: not processed yet'}</span>
           </div>
+          {dataFlowStatus && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground/70 pt-0.5">
+              <span className="flex items-center gap-1">
+                <DataFlowIndicator type="receiving" active={dataFlowStatus.receiving} source={dataFlowStatus.source} lastAt={dataFlowStatus.lastSampleAt} />
+                <Download className="h-2.5 w-2.5" />
+                <span>{dataFlowStatus.receiving ? (dataFlowStatus.source || 'Active') : 'Idle'}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <DataFlowIndicator type="publishing" active={dataFlowStatus.publishing} lastAt={dataFlowStatus.lastPublishAt} />
+                <Upload className="h-2.5 w-2.5" />
+                <span>{dataFlowStatus.publishing ? 'Active' : 'Idle'}</span>
+              </span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
