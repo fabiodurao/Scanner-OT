@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { SiteDiscoveryStats } from '@/types/discovery';
+import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
+import { DataFlowIndicator } from '@/components/dataflow/DataFlowIndicator';
 import {
   MapPin,
   Server,
@@ -42,6 +44,7 @@ interface SiteListViewProps {
   sites: SiteListItem[];
   loadingStats: boolean;
   onRegisterSite: (identifier: string, e: React.MouseEvent) => void;
+  dataFlowStatusMap?: Map<string, DataFlowStatus>;
 }
 
 type SortKey = 'name' | 'equipment' | 'variables' | 'pcapCount' | 'pcapSize' | 'lastActivity';
@@ -61,7 +64,7 @@ const SortIcon = ({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
     : <ArrowDown className="h-3 w-3 text-[#2563EB]" />;
 };
 
-export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListViewProps) => {
+export const SiteListView = ({ sites, loadingStats, onRegisterSite, dataFlowStatusMap }: SiteListViewProps) => {
   const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -167,6 +170,7 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
           const confirmedPct = total > 0 ? (stats!.variablesByState.confirmed / total) * 100 : 0;
           const hypothesisPct = total > 0 ? (stats!.variablesByState.hypothesis / total) * 100 : 0;
           const pcap = site.pcap;
+          const flowStatus = site.identifier ? dataFlowStatusMap?.get(site.identifier) : undefined;
 
           return (
             <div
@@ -189,10 +193,16 @@ export const SiteListView = ({ sites, loadingStats, onRegisterSite }: SiteListVi
                   </div>
                 )}
                 <div className="min-w-0">
-                  <div className="font-medium text-sm text-foreground truncate">
+                  <div className="font-medium text-sm text-foreground truncate flex items-center gap-1.5">
                     {isUnregistered
                       ? <code className="font-mono text-xs">{site.identifier?.slice(0, 16)}...</code>
                       : site.name}
+                    {flowStatus?.receiving && (
+                      <DataFlowIndicator type="receiving" source={flowStatus.source} />
+                    )}
+                    {flowStatus?.publishing && (
+                      <DataFlowIndicator type="publishing" />
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {typeConfig ? (

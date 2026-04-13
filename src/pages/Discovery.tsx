@@ -2,6 +2,7 @@ import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDiscoveryPage } from '@/hooks/useDiscoveryPage';
+import { useDataFlowStatus } from '@/hooks/useDataFlowStatus';
 import { DiscoveryHeader } from '@/components/discovery/DiscoveryHeader';
 import { DiscoveryStats } from '@/components/discovery/DiscoveryStats';
 import { HistoricalTab } from '@/components/discovery/HistoricalTab';
@@ -27,6 +28,10 @@ const Discovery = () => {
     handleTabChange,
     loadData,
   } = useDiscoveryPage();
+
+  const siteIdentifiers = React.useMemo(() => siteId ? [siteId] : [], [siteId]);
+  const { statusMap: dataFlowStatusMap } = useDataFlowStatus(siteIdentifiers);
+  const dataFlowStatus = siteId ? dataFlowStatusMap.get(siteId) : undefined;
 
   const isAdmin = profile?.is_admin === true;
   const slaveEquipment = equipment.filter(e => e.role === 'slave');
@@ -76,12 +81,14 @@ const Discovery = () => {
           syncing={syncing}
           onRefresh={handleRefresh}
           onSyncEquipment={handleSyncEquipment}
+          dataFlowStatus={dataFlowStatus}
         />
 
         {displayStats && (
           <DiscoveryStats
             stats={displayStats}
             slaveEquipmentCount={slaveEquipment.length}
+            dataFlowStatus={dataFlowStatus}
           />
         )}
 

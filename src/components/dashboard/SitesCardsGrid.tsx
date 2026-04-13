@@ -4,14 +4,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SiteCard } from '@/hooks/useDashboardData';
 import { SiteCardItem } from './SiteCardItem';
 import { Building2 } from 'lucide-react';
+import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
 
 interface SitesCardsGridProps {
   siteCards: SiteCard[];
   loadingStats: boolean;
   onRegisterSite: (identifier: string, e: React.MouseEvent) => void;
+  dataFlowStatusMap?: Map<string, DataFlowStatus>;
 }
 
-export const SitesCardsGrid = ({ siteCards, loadingStats, onRegisterSite }: SitesCardsGridProps) => {
+export const SitesCardsGrid = ({ siteCards, loadingStats, onRegisterSite, dataFlowStatusMap }: SitesCardsGridProps) => {
   if (siteCards.length === 0) {
     return (
       <Card className="border-dashed">
@@ -36,6 +38,7 @@ export const SitesCardsGrid = ({ siteCards, loadingStats, onRegisterSite }: Site
           siteCard={siteCard}
           loadingStats={loadingStats}
           onRegisterSite={onRegisterSite}
+          dataFlowStatus={siteCard.identifier ? dataFlowStatusMap?.get(siteCard.identifier) : undefined}
         />
       ))}
     </div>

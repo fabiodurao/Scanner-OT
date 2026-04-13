@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SiteCard } from '@/hooks/useDashboardData';
+import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
+import { DataFlowIndicator } from '@/components/dataflow/DataFlowIndicator';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import {
@@ -22,9 +24,10 @@ interface SiteCardItemProps {
   siteCard: SiteCard;
   loadingStats: boolean;
   onRegisterSite: (identifier: string, e: React.MouseEvent) => void;
+  dataFlowStatus?: DataFlowStatus;
 }
 
-export const SiteCardItem = ({ siteCard, loadingStats, onRegisterSite }: SiteCardItemProps) => {
+export const SiteCardItem = ({ siteCard, loadingStats, onRegisterSite, dataFlowStatus }: SiteCardItemProps) => {
   const navigate = useNavigate();
   const stats = siteCard.stats;
   const typeConfig = siteCard.site_type ? siteTypeConfig[siteCard.site_type] : null;
@@ -70,16 +73,24 @@ export const SiteCardItem = ({ siteCard, loadingStats, onRegisterSite }: SiteCar
               <CardTitle className="text-lg text-foreground truncate">{siteCard.name}</CardTitle>
             )}
           </div>
-          {isUnregistered ? (
-            <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 flex-shrink-0">
-              Unregistered
-            </Badge>
-          ) : typeConfig && IconComponent ? (
-            <Badge variant="outline" className={`${typeConfig.color} flex-shrink-0 gap-1.5`}>
-              <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
-              {typeConfig.label}
-            </Badge>
-          ) : null}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {dataFlowStatus?.receiving && (
+              <DataFlowIndicator type="receiving" source={dataFlowStatus.source} />
+            )}
+            {dataFlowStatus?.publishing && (
+              <DataFlowIndicator type="publishing" />
+            )}
+            {isUnregistered ? (
+              <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                Unregistered
+              </Badge>
+            ) : typeConfig && IconComponent ? (
+              <Badge variant="outline" className={`${typeConfig.color} gap-1.5`}>
+                <IconComponent primaryColor={typeConfig.primaryColor} secondaryColor={typeConfig.secondaryColor} size={12} />
+                {typeConfig.label}
+              </Badge>
+            ) : null}
+          </div>
         </div>
         {!isUnregistered && (siteCard.city || siteCard.state) && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">

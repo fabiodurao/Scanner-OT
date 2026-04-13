@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AlertTriangle, Trash2, Loader2, Database, Server, Variable } from 'lucide-react';
 import { toast } from 'sonner';
+import { SitePublishUrlConfig } from '@/components/dataflow/SitePublishUrlConfig';
 
 interface SiteSettingsTabProps {
   siteIdentifier: string;
@@ -123,6 +124,9 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
 
   return (
     <div className="space-y-6">
+      {/* Publishing Configuration */}
+      <SitePublishUrlConfig siteIdentifier={siteIdentifier} />
+
       {/* Data Overview */}
       <Card>
         <CardHeader>

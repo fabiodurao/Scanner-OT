@@ -2,9 +2,12 @@ import { Link } from 'react-router-dom';
 import { Site } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, MapPin, RefreshCw, RefreshCcw } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChevronLeft, MapPin, RefreshCw, RefreshCcw, ExternalLink } from 'lucide-react';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
+import { DataFlowBadge } from '@/components/dataflow/DataFlowBadge';
+import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
 
 interface DiscoveryHeaderProps {
   site: Site | null;
@@ -13,10 +16,11 @@ interface DiscoveryHeaderProps {
   syncing: boolean;
   onRefresh: () => void;
   onSyncEquipment: () => void;
+  dataFlowStatus?: DataFlowStatus;
 }
 
 export const DiscoveryHeader = ({
-  site, siteId, refreshing, syncing, onRefresh, onSyncEquipment,
+  site, siteId, refreshing, syncing, onRefresh, onSyncEquipment, dataFlowStatus,
 }: DiscoveryHeaderProps) => {
   const typeConfig = site?.site_type ? siteTypeConfig[site.site_type] : null;
   const IconComponent = site?.site_type ? SITE_TYPE_ICONS[site.site_type] : null;
@@ -53,6 +57,13 @@ export const DiscoveryHeader = ({
                 Unregistered
               </Badge>
             )}
+
+            {dataFlowStatus?.receiving && (
+              <DataFlowBadge type="receiving" source={dataFlowStatus.source} lastAt={dataFlowStatus.lastSampleAt} />
+            )}
+            {dataFlowStatus?.publishing && (
+              <DataFlowBadge type="publishing" lastAt={dataFlowStatus.lastPublishAt} />
+            )}
           </div>
 
           {site && (site.city || site.state) && (
@@ -67,6 +78,21 @@ export const DiscoveryHeader = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => window.open(`/receiver?site=${encodeURIComponent(siteId)}`, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Open Receiver</span>
+                <span className="sm:hidden">Receiver</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open test data receiver in new tab</TooltipContent>
+          </Tooltip>
           <Button variant="outline" size="sm" onClick={onSyncEquipment} disabled={syncing} className="flex-1 sm:flex-none">
             <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Sync Equipment</span>

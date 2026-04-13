@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useDataFlowStatus } from '@/hooks/useDataFlowStatus';
 import { DashboardStatsRow } from '@/components/dashboard/DashboardStatsRow';
 import { UnregisteredSitesBanner } from '@/components/dashboard/UnregisteredSitesBanner';
 import { SitesViewToggle, SitesView } from '@/components/dashboard/SitesViewToggle';
@@ -18,12 +19,15 @@ const Index = () => {
   const {
     unknownSites,
     allSiteCards,
+    allSiteIdentifiers,
     globalStats,
     loadingStats,
     isLoading,
     refreshing,
     handleRefresh,
   } = useDashboardData();
+
+  const { statusMap: dataFlowStatusMap, receivingCount, publishingCount } = useDataFlowStatus(allSiteIdentifiers);
 
   const [sitesView, setSitesView] = useState<SitesView>('cards');
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
@@ -118,6 +122,7 @@ const Index = () => {
           sites={filteredSiteCards}
           loadingStats={loadingStats}
           onRegisterSite={handleRegisterSite}
+          dataFlowStatusMap={dataFlowStatusMap}
         />
       );
     }
@@ -127,6 +132,7 @@ const Index = () => {
         siteCards={filteredSiteCards}
         loadingStats={loadingStats}
         onRegisterSite={handleRegisterSite}
+        dataFlowStatusMap={dataFlowStatusMap}
       />
     );
   };
@@ -159,6 +165,8 @@ const Index = () => {
           isLoading={isLoading}
           loadingStats={loadingStats}
           unknownSitesCount={unknownSites.length}
+          receivingCount={receivingCount}
+          publishingCount={publishingCount}
         />
 
         {/* Sites section */}

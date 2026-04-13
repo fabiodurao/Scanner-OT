@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDiscoveryData } from '@/hooks/useDiscoveryData';
 import { SiteDiscoveryStats } from '@/types/discovery';
@@ -119,10 +118,18 @@ export const useDashboardData = () => {
     hypothesisVariables: Object.values(siteStats).reduce((sum, s) => sum + s.variablesByState.hypothesis, 0),
   }), [siteStats, sites.length, unknownSites.length]);
 
+  const allSiteIdentifiers = useMemo(() =>
+    allSiteCards
+      .map(c => c.identifier)
+      .filter((id): id is string => id !== null),
+    [allSiteCards]
+  );
+
   return {
     sites,
     unknownSites,
     allSiteCards,
+    allSiteIdentifiers,
     globalStats,
     loadingStats,
     isLoading: sitesLoading || unknownSitesLoading,

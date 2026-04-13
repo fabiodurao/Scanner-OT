@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataFlowCard } from '@/components/dataflow/DataFlowCard';
 import { Building2, Server, Variable, CheckCircle, Loader2 } from 'lucide-react';
 
 interface DashboardStatsRowProps {
@@ -10,6 +11,8 @@ interface DashboardStatsRowProps {
   isLoading: boolean;
   loadingStats: boolean;
   unknownSitesCount: number;
+  receivingCount: number;
+  publishingCount: number;
 }
 
 export const DashboardStatsRow = ({
@@ -21,9 +24,11 @@ export const DashboardStatsRow = ({
   isLoading,
   loadingStats,
   unknownSitesCount,
+  receivingCount,
+  publishingCount,
 }: DashboardStatsRowProps) => {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total Sites</CardTitle>
@@ -96,6 +101,12 @@ export const DashboardStatsRow = ({
           )}
         </CardContent>
       </Card>
+
+      <DataFlowCard
+        receivingCount={receivingCount}
+        publishingCount={publishingCount}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

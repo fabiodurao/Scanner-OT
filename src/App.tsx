@@ -30,6 +30,7 @@ import VariablesReview from "./pages/VariablesReview";
 import EquipmentCatalog from "./pages/EquipmentCatalog";
 import EquipmentCatalogDetail from "./pages/EquipmentCatalogDetail";
 import ApiDocs from "./pages/ApiDocs";
+import DataReceiver from "./pages/DataReceiver";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const AppRoutes = () => {
       <Route path="/equipment-catalog/:catalogId" element={<ProtectedRoute><EquipmentCatalogDetail /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute requireAdmin><UserManagement /></ProtectedRoute>} />
+      <Route path="/receiver" element={<DataReceiver />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
