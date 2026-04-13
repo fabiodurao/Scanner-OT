@@ -37,12 +37,17 @@ export const useDataFlowStatus = (siteIdentifiers: string[]) => {
 
     // Batch query: get latest sample per site from learning_samples
     // We query for samples with time > cutoff for each identifier
-    const { data: recentSamples } = await supabase
+    const { data: recentSamples, error: samplesError } = await supabase
       .from('learning_samples')
-      .select('"Identifier", time, data_source')
-      .in('"Identifier"', identifiers)
+      .select('Identifier, time, data_source')
+      .in('Identifier', identifiers)
       .gte('time', cutoff)
-      .order('time', { ascending: false });
+      .order('time', { ascending: false })
+      .limit(100);
+
+    if (samplesError) {
+      console.error('[useDataFlowStatus] Error fetching learning_samples:', samplesError);
+    }
 
     if (recentSamples) {
       // Group by identifier, take the most recent
@@ -61,12 +66,17 @@ export const useDataFlowStatus = (siteIdentifiers: string[]) => {
     }
 
     // Batch query: get recent publishing events
-    const { data: recentPublishing } = await supabase
+    const { data: recentPublishing, error: publishError } = await supabase
       .from('publishing_events')
       .select('site_identifier, status, created_at, completed_at')
       .in('site_identifier', identifiers)
       .gte('created_at', cutoff)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (publishError) {
+      console.error('[useDataFlowStatus] Error fetching publishing_events:', publishError);
+    }
 
     if (recentPublishing) {
       const seen = new Set<string>();
