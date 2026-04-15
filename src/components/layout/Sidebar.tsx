@@ -316,7 +316,7 @@ const Sidebar = () => {
         
         {(isMobile || !isCollapsed) && (
           <div className="text-xs text-gray-500 mt-3">
-            OT Scanner v0.4
+            OT Scanner v0.4.1
           </div>
         )}
       </div>
