@@ -30,7 +30,7 @@ const asDataTypeOrNull = (value: string | null): DataType | null => {
 const VariablesReviewGlobal = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { totalCount: globalReviewCount, bySite, refresh: refreshCounts } = useVariablesNeedingReview();
+  const { bySite, refresh: refreshCounts } = useVariablesNeedingReview();
 
   const [variables, setVariables] = useState<DiscoveredVariable[]>([]);
   const [loading, setLoading] = useState(true);

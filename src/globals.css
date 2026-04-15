@@ -2,12 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Space Grotesk font */
-@import '@fontsource/space-grotesk/400.css';
-@import '@fontsource/space-grotesk/500.css';
-@import '@fontsource/space-grotesk/600.css';
-@import '@fontsource/space-grotesk/700.css';
-
 @layer base {
   :root {
     /* CFP Brand Colors */
@@ -60,41 +54,49 @@
   }
 
   .dark {
-    --background: 220 50% 8%;
-    --foreground: 220 20% 95%;
+    /* Main content area - noticeably lighter than sidebar */
+    --background: 222 20% 14%;
+    --foreground: 210 40% 93%;
 
-    --card: 220 50% 12%;
-    --card-foreground: 220 20% 95%;
+    /* Cards - slightly elevated from background */
+    --card: 222 20% 17%;
+    --card-foreground: 210 40% 93%;
 
-    --popover: 220 50% 12%;
-    --popover-foreground: 220 20% 95%;
+    /* Popovers/dropdowns */
+    --popover: 222 20% 17%;
+    --popover-foreground: 210 40% 93%;
 
     --primary: 220 90% 60%;
-    --primary-foreground: 220 50% 10%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 50% 18%;
-    --secondary-foreground: 220 20% 95%;
+    /* Secondary - subtle contrast */
+    --secondary: 222 20% 20%;
+    --secondary-foreground: 210 40% 88%;
 
-    --muted: 220 50% 18%;
-    --muted-foreground: 220 20% 65%;
+    /* Muted */
+    --muted: 222 15% 22%;
+    --muted-foreground: 215 20% 60%;
 
-    --accent: 220 50% 18%;
-    --accent-foreground: 220 20% 95%;
+    /* Accent */
+    --accent: 222 20% 20%;
+    --accent-foreground: 210 40% 93%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 50% 20%;
-    --input: 220 50% 20%;
+    /* Borders - visible but subtle */
+    --border: 220 15% 25%;
+    --input: 220 15% 22%;
     --ring: 220 90% 60%;
 
-    --sidebar-background: 220 50% 8%;
-    --sidebar-foreground: 220 20% 90%;
+    /* Sidebar - MUCH darker than content to create clear separation */
+    --sidebar-background: 225 40% 7%;
+    --sidebar-foreground: 210 30% 85%;
     --sidebar-primary: 220 90% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 50% 15%;
-    --sidebar-accent-foreground: 220 20% 95%;
-    --sidebar-border: 220 50% 15%;
+    --sidebar-accent: 225 35% 12%;
+    --sidebar-accent-foreground: 210 30% 95%;
+    --sidebar-border: 225 30% 14%;
     --sidebar-ring: 220 90% 60%;
   }
 }
@@ -112,5 +114,69 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     font-weight: 600;
+  }
+
+  /* Dark mode specific overrides for better contrast */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    color-scheme: dark;
+  }
+
+  /* ===== Dark mode table styling ===== */
+  /* Make all tables in dark mode match the dashboard list view style */
+  .dark table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dark thead tr {
+    background-color: hsl(222 15% 19%);
+  }
+
+  .dark thead th {
+    color: hsl(215 20% 65%);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid hsl(220 15% 25%);
+  }
+
+  .dark tbody tr {
+    border-bottom: 1px solid hsl(220 15% 22%);
+    transition: background-color 150ms ease;
+  }
+
+  .dark tbody tr:hover {
+    background-color: hsl(222 15% 20%);
+  }
+
+  .dark tbody td {
+    color: hsl(210 40% 90%);
+    border-bottom: 1px solid hsl(220 15% 22%);
+  }
+
+  /* Make the rounded-md border wrapper blend better in dark mode */
+  .dark .rounded-md.border,
+  .dark .rounded-lg.border {
+    border-color: hsl(220 15% 22%);
+    background-color: hsl(222 20% 15%);
+  }
+
+  /* Better scrollbar in dark mode */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(222 20% 14%);
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(220 15% 30%);
+    border-radius: 4px;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(220 15% 38%);
   }
 }

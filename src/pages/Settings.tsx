@@ -355,7 +355,7 @@ const Settings = () => {
     <MainLayout>
       <div className="p-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
           <p className="text-muted-foreground mt-1">
             Manage OT Scanner settings
           </p>
@@ -773,21 +773,21 @@ const Settings = () => {
                   </div>
                 ) : dataCounts && (
                   <div className="grid gap-3 md:grid-cols-3 mb-4">
-                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                    <div className="flex items-center gap-2 p-3 bg-white dark:bg-card rounded-lg border border-red-100 dark:border-red-900">
                       <Database className="h-4 w-4 text-blue-600" />
                       <div>
                         <div className="font-bold">{dataCounts.learning_samples_count.toLocaleString()}</div>
                         <div className="text-xs text-muted-foreground">Learning Samples</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                    <div className="flex items-center gap-2 p-3 bg-white dark:bg-card rounded-lg border border-red-100 dark:border-red-900">
                       <Server className="h-4 w-4 text-purple-600" />
                       <div>
                         <div className="font-bold">{dataCounts.equipment_count.toLocaleString()}</div>
                         <div className="text-xs text-muted-foreground">Equipment Records</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-red-100">
+                    <div className="flex items-center gap-2 p-3 bg-white dark:bg-card rounded-lg border border-red-100 dark:border-red-900">
                       <Variable className="h-4 w-4 text-emerald-600" />
                       <div>
                         <div className="font-bold">{dataCounts.variables_count.toLocaleString()}</div>
@@ -797,16 +797,16 @@ const Settings = () => {
                   </div>
                 )}
 
-                <div className="p-4 border border-red-200 rounded-lg bg-white">
+                <div className="p-4 border border-red-200 rounded-lg bg-white dark:bg-card">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="font-medium text-red-900">Clear All Discovery Data</h4>
-                      <p className="text-sm text-red-700 mt-1">
+                      <h4 className="font-medium text-red-900 dark:text-red-400">Clear All Discovery Data</h4>
+                      <p className="text-sm text-red-700 dark:text-red-400/80 mt-1">
                         Permanently delete all learning samples, discovered equipment, and discovered variables 
                         from <strong>ALL sites</strong>. This action cannot be undone.
                       </p>
                       {totalRecords > 0 && (
-                        <p className="text-sm font-medium text-red-800 mt-2">
+                        <p className="text-sm font-medium text-red-800 dark:text-red-300 mt-2">
                           This will delete {totalRecords.toLocaleString()} records across all sites.
                         </p>
                       )}

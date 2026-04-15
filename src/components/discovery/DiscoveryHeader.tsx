@@ -2,9 +2,12 @@ import { Link } from 'react-router-dom';
 import { Site } from '@/types/upload';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, MapPin, RefreshCw, RefreshCcw } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChevronLeft, MapPin, RefreshCw, RefreshCcw, ExternalLink } from 'lucide-react';
 import { siteTypeConfig } from '@/pages/SitesManagement';
 import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
+import { DataFlowBadge } from '@/components/dataflow/DataFlowBadge';
+import { DataFlowStatus } from '@/hooks/useDataFlowStatus';
 
 interface DiscoveryHeaderProps {
   site: Site | null;
@@ -13,17 +16,18 @@ interface DiscoveryHeaderProps {
   syncing: boolean;
   onRefresh: () => void;
   onSyncEquipment: () => void;
+  dataFlowStatus?: DataFlowStatus;
 }
 
 export const DiscoveryHeader = ({
-  site, siteId, refreshing, syncing, onRefresh, onSyncEquipment,
+  site, siteId, refreshing, syncing, onRefresh, onSyncEquipment, dataFlowStatus,
 }: DiscoveryHeaderProps) => {
   const typeConfig = site?.site_type ? siteTypeConfig[site.site_type] : null;
   const IconComponent = site?.site_type ? SITE_TYPE_ICONS[site.site_type] : null;
 
   return (
     <div className="mb-4 sm:mb-6">
-      <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900 mb-3 sm:mb-4">
+      <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-3 sm:mb-4">
         <ChevronLeft className="h-4 w-4 mr-1" />
         Back to Dashboard
       </Link>
@@ -37,7 +41,7 @@ export const DiscoveryHeader = ({
               </div>
             )}
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#1a2744] truncate">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate">
               {site?.name || `Site ${siteId?.slice(0, 8)}...`}
             </h1>
 
@@ -53,6 +57,18 @@ export const DiscoveryHeader = ({
                 Unregistered
               </Badge>
             )}
+
+            <DataFlowBadge
+              type="receiving"
+              active={dataFlowStatus?.receiving}
+              source={dataFlowStatus?.source}
+              lastAt={dataFlowStatus?.lastSampleAt}
+            />
+            <DataFlowBadge
+              type="publishing"
+              active={dataFlowStatus?.publishing}
+              lastAt={dataFlowStatus?.lastPublishAt}
+            />
           </div>
 
           {site && (site.city || site.state) && (
@@ -62,11 +78,26 @@ export const DiscoveryHeader = ({
             </div>
           )}
           <div className="flex items-center gap-2 mt-2">
-            <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono truncate max-w-full">{siteId}</code>
+            <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate max-w-full">{siteId}</code>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => window.open(`/receiver?site=${encodeURIComponent(siteId)}`, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Open Receiver</span>
+                <span className="sm:hidden">Receiver</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open test data receiver in new tab</TooltipContent>
+          </Tooltip>
           <Button variant="outline" size="sm" onClick={onSyncEquipment} disabled={syncing} className="flex-1 sm:flex-none">
             <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Sync Equipment</span>

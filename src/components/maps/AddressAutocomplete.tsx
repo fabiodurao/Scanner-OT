@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { MapPin, Loader2, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AddressData {
   formattedAddress: string;
@@ -48,8 +49,34 @@ const silverMapStyle = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
 ];
 
-const createCustomMarkerIcon = () => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="#0E182E" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/><circle fill="#ffffff" cx="16" cy="16" r="6"/></svg>`;
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#212121" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
+  { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
+  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
+  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] },
+];
+
+const createCustomMarkerIcon = (isDark: boolean) => {
+  const pinColor = isDark ? '#60A5FA' : '#0E182E'; // blue-400 for dark, navy for light
+  const dotColor = isDark ? '#1E293B' : '#ffffff'; // slate-800 for dark, white for light
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42"><path fill="${pinColor}" d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26c0-8.837-7.163-16-16-16z"/><circle fill="${dotColor}" cx="16" cy="16" r="6"/></svg>`;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 };
 
@@ -101,6 +128,8 @@ export const AddressAutocomplete = ({
   const [isApiLoaded, setIsApiLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
+  const { theme } = useTheme();
+
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -133,37 +162,9 @@ export const AddressAutocomplete = ({
       });
   }, []);
 
-  // Initialize map after API is loaded
-  useEffect(() => {
-    const google = getGoogle();
-    if (!isApiLoaded || !mapRef.current || !google) return;
-
-    const hasCoordinates = latitude && longitude &&
-      parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0 &&
-      !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude));
-
-    const center = hasCoordinates
-      ? { lat: parseFloat(latitude), lng: parseFloat(longitude) }
-      : DEFAULT_CENTER;
-
-    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: true,
-      styles: silverMapStyle,
-    });
-
-    if (hasCoordinates) {
-      addMarker(center);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isApiLoaded]);
-
+  // Helper to add or update marker with theme-aware icon
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addMarker = (position: { lat: number; lng: number }) => {
+  const addMarker = useCallback((position: { lat: number; lng: number }) => {
     const google = getGoogle();
     if (!mapInstanceRef.current || !google) return;
 
@@ -171,13 +172,15 @@ export const AddressAutocomplete = ({
       markerRef.current.setMap(null);
     }
 
+    const isDark = theme === 'dark';
+
     markerRef.current = new google.maps.Marker({
       position,
       map: mapInstanceRef.current,
       draggable: true,
       animation: google.maps.Animation.DROP,
       icon: {
-        url: createCustomMarkerIcon(),
+        url: createCustomMarkerIcon(isDark),
         scaledSize: new google.maps.Size(32, 42),
         anchor: new google.maps.Point(16, 42),
       },
@@ -202,7 +205,59 @@ export const AddressAutocomplete = ({
         );
       }
     });
-  };
+  }, [theme, onAddressChange]);
+
+  // Initialize map after API is loaded
+  useEffect(() => {
+    const google = getGoogle();
+    if (!isApiLoaded || !mapRef.current || !google) return;
+
+    const hasCoordinates = latitude && longitude &&
+      parseFloat(latitude) !== 0 && parseFloat(longitude) !== 0 &&
+      !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude));
+
+    const center = hasCoordinates
+      ? { lat: parseFloat(latitude), lng: parseFloat(longitude) }
+      : DEFAULT_CENTER;
+
+    const isDark = theme === 'dark';
+
+    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+      center,
+      zoom: hasCoordinates ? 15 : DEFAULT_ZOOM,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      zoomControl: true,
+      styles: isDark ? darkMapStyle : silverMapStyle,
+    });
+
+    if (hasCoordinates) {
+      addMarker(center);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isApiLoaded]);
+
+  // React to theme changes — update map styles and marker icon in real-time
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const isDark = theme === 'dark';
+    mapInstanceRef.current.setOptions({
+      styles: isDark ? darkMapStyle : silverMapStyle,
+    });
+
+    // Update marker icon if it exists
+    if (markerRef.current) {
+      const google = getGoogle();
+      if (google) {
+        markerRef.current.setIcon({
+          url: createCustomMarkerIcon(isDark),
+          scaledSize: new google.maps.Size(32, 42),
+          anchor: new google.maps.Point(16, 42),
+        });
+      }
+    }
+  }, [theme]);
 
   // Update map when coordinates change externally
   useEffect(() => {
@@ -368,12 +423,12 @@ export const AddressAutocomplete = ({
           {isLoading && <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
 
           {showSuggestions && suggestions.length > 0 && (
-            <div ref={suggestionsRef} className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div ref={suggestionsRef} className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.placeId}
                   type="button"
-                  className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-start gap-3 border-b last:border-b-0"
+                  className="w-full px-4 py-3 text-left hover:bg-accent flex items-start gap-3 border-b last:border-b-0"
                   onClick={() => handleSelectSuggestion(suggestion)}
                 >
                   <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -425,7 +480,7 @@ export const AddressAutocomplete = ({
         <div
           ref={mapRef}
           className={cn(
-            'w-full h-48 rounded-lg border bg-slate-100',
+            'w-full h-48 rounded-lg border bg-muted',
             (mapError || (!isApiLoaded && !mapError)) && 'flex items-center justify-center'
           )}
         >

@@ -29,20 +29,16 @@ const Upload = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [addingToQueue, setAddingToQueue] = useState(false);
 
-  // Track which site to show in Previous Uploads
   const [displaySiteId, setDisplaySiteId] = useState<string | null>(null);
 
-  // Update display site when selected site changes or when queue has items
   useEffect(() => {
     if (selectedSite) {
       setDisplaySiteId(selectedSite.id);
     } else if (queue.length > 0) {
-      // Show the site of the most recent queue item
       setDisplaySiteId(queue[queue.length - 1].siteId);
     }
   }, [selectedSite, queue]);
 
-  // Auto-refresh when completedCount changes (a file finished uploading)
   useEffect(() => {
     if (completedCount > 0) {
       console.log('[Upload] completedCount changed to:', completedCount, '- triggering refresh');
@@ -74,7 +70,6 @@ const Upload = () => {
       sessionId = selectedSession.id;
       sessionDisplayName = selectedSession.name || format(new Date(selectedSession.created_at), "MM/dd/yyyy 'at' HH:mm");
     } else {
-      // Create new session
       const defaultName = sessionName || format(new Date(), "MM/dd/yyyy 'at' HH:mm");
       
       const { data: session, error } = await supabase
@@ -98,25 +93,20 @@ const Upload = () => {
       sessionId = session.id;
       sessionDisplayName = defaultName;
       
-      // Reset session form for next use
       setSessionName('');
       setSessionDescription('');
       
-      // Refresh to show the new session
       triggerRefresh();
     }
 
-    // Add files to queue - this will auto-start the upload
     addToQueue(files, selectedSite.id, selectedSite.name, sessionId, sessionDisplayName);
     
     toast.success(`Added ${files.length} file${files.length !== 1 ? 's' : ''} to queue`);
     
-    // Clear file selection
     setFiles([]);
     setAddingToQueue(false);
   };
 
-  // Get site name for display
   const getDisplaySiteName = () => {
     if (selectedSite) return selectedSite.name;
     if (queue.length > 0) {
@@ -132,14 +122,13 @@ const Upload = () => {
     <MainLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2744]">PCAP Upload</h1>
+          <h1 className="text-3xl font-bold text-foreground">PCAP Upload</h1>
           <p className="text-muted-foreground mt-1">
             Upload OT traffic capture files
           </p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-5">
-          {/* Left column - Upload form (2/5 width) */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -152,7 +141,6 @@ const Upload = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Site selector */}
                 <SiteSelector
                   selectedSiteId={selectedSite?.id || null}
                   onSelectSite={setSelectedSite}
@@ -162,7 +150,6 @@ const Upload = () => {
                   <>
                     <Separator />
                     
-                    {/* Session selector */}
                     <SessionSelector
                       siteId={selectedSite.id}
                       selectedSessionId={selectedSession?.id || null}
@@ -178,13 +165,11 @@ const Upload = () => {
 
                     <Separator />
 
-                    {/* File dropzone */}
                     <FileDropzone
                       files={files}
                       onFilesChange={setFiles}
                     />
 
-                    {/* Add to queue button */}
                     <Button
                       onClick={handleAddToQueue}
                       disabled={files.length === 0 || (sessionMode === 'existing' && !selectedSession) || addingToQueue}
@@ -212,12 +197,9 @@ const Upload = () => {
             </Card>
           </div>
 
-          {/* Right column - Queue + Previous Uploads (3/5 width) */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Upload Queue (collapsible) */}
             <UploadQueue />
 
-            {/* Previous Uploads */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

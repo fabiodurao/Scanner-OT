@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AlertTriangle, Trash2, Loader2, Database, Server, Variable } from 'lucide-react';
 import { toast } from 'sonner';
+import { SitePublishUrlConfig } from '@/components/dataflow/SitePublishUrlConfig';
 
 interface SiteSettingsTabProps {
   siteIdentifier: string;
@@ -104,7 +105,7 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
 
   if (!isAdmin) {
     return (
-      <Card className="border-slate-200">
+      <Card className="border-border">
         <CardHeader>
           <CardTitle>Settings</CardTitle>
           <CardDescription>
@@ -123,6 +124,9 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
 
   return (
     <div className="space-y-6">
+      {/* Publishing Configuration */}
+      <SitePublishUrlConfig siteIdentifier={siteIdentifier} />
+
       {/* Data Overview */}
       <Card>
         <CardHeader>
@@ -138,30 +142,30 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
             </div>
           ) : dataCounts ? (
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                   <Database className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{dataCounts.learning_samples_count.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-foreground">{dataCounts.learning_samples_count.toLocaleString()}</div>
                   <div className="text-sm text-muted-foreground">Learning Samples</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                <div className="p-2 bg-purple-100 rounded-lg">
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
                   <Server className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{dataCounts.equipment_count.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-foreground">{dataCounts.equipment_count.toLocaleString()}</div>
                   <div className="text-sm text-muted-foreground">Equipment Records</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-                <div className="p-2 bg-emerald-100 rounded-lg">
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg">
                   <Variable className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{dataCounts.variables_count.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-foreground">{dataCounts.variables_count.toLocaleString()}</div>
                   <div className="text-sm text-muted-foreground">Discovered Variables</div>
                 </div>
               </div>
@@ -175,27 +179,27 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
       </Card>
 
       {/* Danger Zone */}
-      <Card className="border-red-200 bg-red-50/30">
+      <Card className="border-red-200 dark:border-red-900 bg-red-50/30 dark:bg-red-950/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-700">
+          <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
             <AlertTriangle className="h-5 w-5" />
             Danger Zone
           </CardTitle>
-          <CardDescription className="text-red-600">
+          <CardDescription className="text-red-600 dark:text-red-400/80">
             Irreversible actions that permanently delete data
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="p-4 border border-red-200 rounded-lg bg-white">
+          <div className="p-4 border border-red-200 dark:border-red-800 rounded-lg bg-card">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="font-medium text-red-900">Clear All Site Data</h4>
-                <p className="text-sm text-red-700 mt-1">
+                <h4 className="font-medium text-red-900 dark:text-red-300">Clear All Site Data</h4>
+                <p className="text-sm text-red-700 dark:text-red-400/80 mt-1">
                   Permanently delete all learning samples, discovered equipment, and discovered variables for this site.
                   This action cannot be undone.
                 </p>
                 {totalRecords > 0 && (
-                  <p className="text-sm font-medium text-red-800 mt-2">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-300 mt-2">
                     This will delete {totalRecords.toLocaleString()} records.
                   </p>
                 )}
@@ -218,7 +222,7 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
       <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
               <AlertTriangle className="h-5 w-5" />
               Clear Site Data
             </AlertDialogTitle>
@@ -228,9 +232,9 @@ export const SiteSettingsTab = ({ siteIdentifier, siteName, onDataCleared }: Sit
                   You are about to permanently delete all discovery data for <strong>{displayName}</strong>.
                 </p>
                 
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-                  <p className="font-medium text-red-800">This will delete:</p>
-                  <ul className="text-sm text-red-700 space-y-1">
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 space-y-2">
+                  <p className="font-medium text-red-800 dark:text-red-300">This will delete:</p>
+                  <ul className="text-sm text-red-700 dark:text-red-400 space-y-1">
                     <li>• {dataCounts?.learning_samples_count.toLocaleString() || 0} learning samples</li>
                     <li>• {dataCounts?.equipment_count.toLocaleString() || 0} equipment records</li>
                     <li>• {dataCounts?.variables_count.toLocaleString() || 0} discovered variables</li>

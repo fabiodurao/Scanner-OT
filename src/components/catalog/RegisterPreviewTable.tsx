@@ -18,21 +18,21 @@ interface RegisterPreviewTableProps {
 }
 
 const DATA_TYPE_COLORS: Record<string, string> = {
-  boolean:   'bg-slate-100 text-slate-700 border-slate-300',
-  uint16:    'bg-blue-100 text-blue-700 border-blue-300',
-  int16:     'bg-sky-100 text-sky-700 border-sky-300',
-  uint32be:  'bg-indigo-100 text-indigo-700 border-indigo-300',
-  uint32le:  'bg-indigo-100 text-indigo-700 border-indigo-300',
-  int32be:   'bg-violet-100 text-violet-700 border-violet-300',
-  int32le:   'bg-violet-100 text-violet-700 border-violet-300',
-  float32be: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  float32le: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  uint64be:  'bg-amber-100 text-amber-700 border-amber-300',
-  uint64le:  'bg-amber-100 text-amber-700 border-amber-300',
-  int64be:   'bg-orange-100 text-orange-700 border-orange-300',
-  int64le:   'bg-orange-100 text-orange-700 border-orange-300',
-  float64be: 'bg-rose-100 text-rose-700 border-rose-300',
-  float64le: 'bg-rose-100 text-rose-700 border-rose-300',
+  boolean:   'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600',
+  uint16:    'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700',
+  int16:     'bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-900/50 dark:text-sky-300 dark:border-sky-700',
+  uint32be:  'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700',
+  uint32le:  'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-700',
+  int32be:   'bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-900/50 dark:text-violet-300 dark:border-violet-700',
+  int32le:   'bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-900/50 dark:text-violet-300 dark:border-violet-700',
+  float32be: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-700',
+  float32le: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-700',
+  uint64be:  'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700',
+  uint64le:  'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700',
+  int64be:   'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700',
+  int64le:   'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700',
+  float64be: 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-700',
+  float64le: 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-700',
 };
 
 const getCategoryLabel = (value: string | undefined): { label: string; emoji: string } | null => {
@@ -162,7 +162,7 @@ export const RegisterPreviewTable = ({ registers, onAICategorize }: RegisterPrev
         <Input placeholder="Search address, name, label..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} className="h-7 text-xs w-56" />
         <div className="flex items-center gap-2">
           {aiLoading && aiProgress && (
-            <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 text-xs animate-pulse">
+            <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950/30 text-xs animate-pulse">
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
               Categorizing {aiProgress.current}/{aiProgress.total}...
             </Badge>
@@ -171,7 +171,7 @@ export const RegisterPreviewTable = ({ registers, onAICategorize }: RegisterPrev
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs text-violet-600 border-violet-200 hover:bg-violet-50"
+              className="h-7 text-xs text-violet-600 border-violet-200 hover:bg-violet-50 dark:hover:bg-violet-950/30"
               onClick={handleAICategorize}
               disabled={aiLoading}
             >
@@ -193,7 +193,7 @@ export const RegisterPreviewTable = ({ registers, onAICategorize }: RegisterPrev
 
       <div className="rounded-md border max-h-[500px] overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-slate-50 z-10">
+          <TableHeader className="sticky top-0 z-10">
             <TableRow>
               <TableHead className="w-24">Address</TableHead>
               <TableHead className="w-12">FC</TableHead>
@@ -229,18 +229,18 @@ export const RegisterPreviewTable = ({ registers, onAICategorize }: RegisterPrev
                 </TableCell>
               </TableRow>
             ) : filtered.map((reg, index) => {
-              const dtColor = DATA_TYPE_COLORS[reg.data_type?.toLowerCase()] || 'bg-gray-100 text-gray-700 border-gray-300';
+              const dtColor = DATA_TYPE_COLORS[reg.data_type?.toLowerCase()] || 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
               const catInfo = getCategoryLabel(reg.category);
               const isAiChanged = aiChangedAddresses.has(reg.address);
               return (
-                <TableRow key={`${reg.address}-${reg.function_code}-${index}`} className={isAiChanged ? 'bg-violet-50/50' : undefined}>
+                <TableRow key={`${reg.address}-${reg.function_code}-${index}`} className={isAiChanged ? 'bg-violet-50/50 dark:bg-violet-950/20' : undefined}>
                   <TableCell className="font-mono font-medium">{reg.address}</TableCell>
                   <TableCell className="font-mono">{reg.function_code}</TableCell>
                   <TableCell className="font-mono text-xs">{reg.name}</TableCell>
                   <TableCell className="text-sm">{reg.label || '—'}</TableCell>
                   <TableCell>
                     {catInfo ? (
-                      <Badge variant="outline" className={cn("text-[10px] gap-1", isAiChanged && "border-violet-300 bg-violet-50 text-violet-700")}>
+                      <Badge variant="outline" className={cn("text-[10px] gap-1", isAiChanged && "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-700 dark:bg-violet-950/30 dark:text-violet-300")}>
                         <span>{catInfo.emoji}</span>
                         <span className="truncate max-w-[100px]">{catInfo.label}</span>
                       </Badge>

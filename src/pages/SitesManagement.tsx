@@ -235,7 +235,7 @@ const SitesManagement = () => {
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1a2744]">Sites Management</h1>
+            <h1 className="text-3xl font-bold text-foreground">Sites Management</h1>
             <p className="text-muted-foreground mt-1">Manage site information and locations worldwide</p>
           </div>
           <Button onClick={handleOpenCreate} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
@@ -244,15 +244,15 @@ const SitesManagement = () => {
         </div>
 
         {!unknownSitesLoading && unknownSites.length > 0 && (
-          <Card className="mb-6 border-amber-300 bg-amber-50">
+          <Card className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
             <CardHeader>
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-amber-100 rounded-lg">
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
                   <AlertTriangle className="h-6 w-6 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-amber-900">{unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected</CardTitle>
-                  <CardDescription className="text-amber-700 mt-1">Data is being received from site identifiers that are not registered. Register them to enable full monitoring.</CardDescription>
+                  <CardTitle className="text-amber-900 dark:text-amber-200">{unknownSites.length} Unregistered Site{unknownSites.length !== 1 ? 's' : ''} Detected</CardTitle>
+                  <CardDescription className="text-amber-700 dark:text-amber-400 mt-1">Data is being received from site identifiers that are not registered. Register them to enable full monitoring.</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -261,7 +261,7 @@ const SitesManagement = () => {
                 {unknownSites.map((unknown) => {
                   const stats = unknownSiteStats[unknown.identifier];
                   return (
-                    <div key={unknown.identifier} className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-200">
+                    <div key={unknown.identifier} className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border border-amber-200 dark:border-amber-700">
                       <div className="flex items-center gap-4">
                         <Activity className="h-5 w-5 text-amber-500" />
                         <div>
@@ -355,7 +355,7 @@ const SitesManagement = () => {
                           </TableCell>
                           <TableCell>
                             {site.unique_id ? (
-                              <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">{site.unique_id.slice(0, 8)}...</code>
+                              <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{site.unique_id.slice(0, 8)}...</code>
                             ) : <span className="text-muted-foreground">-</span>}
                           </TableCell>
                           <TableCell className="text-right">

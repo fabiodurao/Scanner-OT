@@ -113,7 +113,7 @@ export const SiteSelector = ({ selectedSiteId, onSelectSite }: SiteSelectorProps
 
       {/* Show selected site details */}
       {selectedSite && (
-        <div className="mt-3 p-3 bg-slate-50 rounded-lg border text-sm">
+        <div className="mt-3 p-3 bg-muted/50 rounded-lg border text-sm">
           <div className="font-medium">{selectedSite.name}</div>
           {(selectedSite.city || selectedSite.state) && (
             <div className="flex items-center gap-1 text-muted-foreground mt-1">
@@ -123,7 +123,7 @@ export const SiteSelector = ({ selectedSiteId, onSelectSite }: SiteSelectorProps
           )}
           {selectedSite.unique_id && (
             <div className="mt-2 flex items-center gap-2">
-              <code className="text-xs bg-white px-2 py-1 rounded border font-mono flex-1 truncate">
+              <code className="text-xs bg-secondary px-2 py-1 rounded border font-mono flex-1 truncate">
                 {selectedSite.unique_id}
               </code>
               <Button

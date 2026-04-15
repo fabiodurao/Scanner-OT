@@ -106,7 +106,7 @@ export const useCatalogEntities = () => {
         if (error) continue;
         mfg = data;
       }
-      const { error } = await supabase.from('equipment_models').insert({ manufacturer_id: mfg.id, name: item.model.trim(), description: item.description?.trim() || null, created_by: user?.id });
+      const { error } = await supabase.from('equipment_models').insert({ manufacturer_id: mfg!.id, name: item.model.trim(), description: item.description?.trim() || null, created_by: user?.id });
       if (!error) count++;
     }
     await fetchAll();

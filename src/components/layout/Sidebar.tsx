@@ -6,6 +6,7 @@ import { ActiveJobsIndicator } from './ActiveJobsIndicator';
 import { ActiveUploadsIndicator } from './ActiveUploadsIndicator';
 import { ActiveAnalysisIndicator } from './ActiveAnalysisIndicator';
 import { ActivePhotoJobsIndicator } from './ActivePhotoJobsIndicator';
+import { ThemeToggle } from './ThemeToggle';
 import {
   LayoutDashboard,
   Upload,
@@ -22,6 +23,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Braces,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -74,6 +76,7 @@ const Sidebar = () => {
   ];
 
   const bottomNavigation = [
+    { name: 'API', href: '/api', icon: Braces },
     { name: 'Equipment Catalog', href: '/equipment-catalog', icon: BookOpen },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
@@ -278,36 +281,42 @@ const Sidebar = () => {
         {(isMobile || !isCollapsed) && <Separator className="bg-[hsl(var(--sidebar-border))] mb-3" />}
         
         {!isMobile && isCollapsed ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className="w-full justify-center text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))] p-2"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              Sign Out
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex flex-col items-center gap-1">
+            <ThemeToggle isCollapsed />
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={signOut}
+                  className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                Sign Out
+              </TooltipContent>
+            </Tooltip>
+          </div>
         ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className="w-full justify-start text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="flex-1 justify-start text-gray-400 hover:text-white hover:bg-[hsl(var(--sidebar-accent))]"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+            <ThemeToggle />
+          </div>
         )}
         
         {(isMobile || !isCollapsed) && (
           <div className="text-xs text-gray-500 mt-3">
-            OT Scanner v0.4
+            OT Scanner v0.4.1
           </div>
         )}
       </div>
@@ -323,7 +332,7 @@ const Sidebar = () => {
             <Button
               variant="outline"
               size="sm"
-              className="h-10 w-10 p-0 bg-white shadow-lg"
+              className="h-10 w-10 p-0 bg-white dark:bg-slate-800 shadow-lg"
             >
               {mobileOpen ? (
                 <X className="h-5 w-5" />

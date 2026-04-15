@@ -101,7 +101,6 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       );
       
       console.log('[fetchUnknownSites] Unique identifiers found:', uniqueIdentifiers.size);
-      console.log('[fetchUnknownSites] Unique identifiers list:', Array.from(uniqueIdentifiers));
 
       // Get all registered site unique_ids
       const { data: registeredSites, error: sitesError } = await supabase
@@ -118,23 +117,17 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           .filter((id): id is string => typeof id === 'string' && id.length > 0)
       );
       
-      console.log('[fetchUnknownSites] Registered site unique_ids:', Array.from(registeredIds));
-      console.log('[fetchUnknownSites] Number of registered IDs:', registeredIds.size);
-      
       // Filter out registered identifiers
       const unregisteredIdentifiers = Array.from(uniqueIdentifiers).filter(
         (id: string) => !registeredIds.has(id)
       );
       
-      console.log('[fetchUnknownSites] Unregistered identifiers:', unregisteredIdentifiers);
-      console.log('[fetchUnknownSites] Number of unregistered identifiers:', unregisteredIdentifiers.length);
+      console.log('[fetchUnknownSites] Unregistered identifiers:', unregisteredIdentifiers.length);
       
       // Now fetch detailed data for each unregistered identifier
       const unknown: UnknownSite[] = [];
       
       for (const identifier of unregisteredIdentifiers) {
-        console.log(`[fetchUnknownSites] Fetching details for unregistered identifier: ${identifier}`);
-        
         // Get samples for this identifier
         const { data: identifierSamples, error: samplesError } = await supabase
           .from('learning_samples')
@@ -148,7 +141,6 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
         }
         
         if (!identifierSamples || identifierSamples.length === 0) {
-          console.log(`[fetchUnknownSites] No samples found for ${identifier}`);
           continue;
         }
         
@@ -172,15 +164,10 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
           lastSeen: times[times.length - 1] || new Date().toISOString(),
           sourceIps: Array.from(sourceIps),
         });
-        
-        console.log(`[fetchUnknownSites] Added unknown site: ${identifier} with ${identifierSamples.length} samples`);
       }
       
       // Sort by last seen (most recent first)
       unknown.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
-      
-      console.log('[fetchUnknownSites] Unknown sites to display:', unknown.length);
-      console.log('[fetchUnknownSites] Unknown sites details:', unknown);
       
       setUnknownSites(unknown);
     } catch (error) {
@@ -190,9 +177,9 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     setUnknownSitesLoading(false);
   }, []);
 
-  // Get stats for a specific site - uses discovered_equipment for equipment count
+  // Get stats for a specific site - uses discovered_variables for accurate variable count
   const getSiteStats = useCallback(async (siteIdentifier: string): Promise<SiteDiscoveryStats> => {
-    // Get equipment count from discovered_equipment table (fast!)
+    // Fetch equipment count from discovered_equipment table
     const { data: equipmentData, error: eqError } = await supabase
       .from('discovered_equipment')
       .select('ip_address, role, variable_count, sample_count, last_seen_at')
@@ -231,14 +218,12 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
   }, []);
 
   // Helper to calculate stats from equipment data
+  // Now uses discovered_variables for accurate variable count
   const calculateStatsFromEquipment = async (
     equipmentData: Array<{ ip_address: string; role: string; variable_count: number; sample_count: number; last_seen_at: string }>,
     siteIdentifier: string
   ): Promise<SiteDiscoveryStats> => {
-    // Count slaves (equipment with registers)
-    const slaves = equipmentData.filter(e => e.role === 'slave');
     const totalEquipment = equipmentData.length;
-    const totalVariables = slaves.reduce((sum, e) => sum + (e.variable_count || 0), 0);
     const totalSamples = equipmentData.reduce((sum, e) => sum + (e.sample_count || 0), 0);
     
     // Get last activity
@@ -248,22 +233,25 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
       .sort();
     const lastActivity = lastSeenDates.length > 0 ? lastSeenDates[lastSeenDates.length - 1] : null;
     
-    // Get discovered variables for state counts
-    const { data: discoveredVars } = await supabase
+    // Get discovered variables for ACCURATE count and state counts
+    const { data: discoveredVars, error: varsError } = await supabase
       .from('discovered_variables')
       .select('learning_state')
       .eq('site_identifier', siteIdentifier);
     
-    // Count by state
+    if (varsError) {
+      console.error('Error fetching discovered variables for stats:', varsError);
+    }
+    
+    // Count by state from discovered_variables (the source of truth)
     const stateCount = { unknown: 0, hypothesis: 0, confirmed: 0, published: 0 };
+    const totalVariables = discoveredVars?.length || 0;
+    
     if (discoveredVars && discoveredVars.length > 0) {
       discoveredVars.forEach(v => {
-        const state = v.learning_state as keyof typeof stateCount;
+        const state = (v.learning_state || 'unknown') as keyof typeof stateCount;
         if (state in stateCount) stateCount[state]++;
       });
-    } else {
-      // If no discovered_variables yet, all are unknown
-      stateCount.unknown = totalVariables;
     }
     
     return {
@@ -389,7 +377,7 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     
     const { data, error } = await supabase
       .from('discovered_variables')
-      .select('*') // Busca TODAS as colunas
+      .select('*')
       .eq('site_identifier', siteIdentifier)
       .order('address', { ascending: true });
     
@@ -399,12 +387,6 @@ export const useDiscoveryData = (): UseDiscoveryDataReturn => {
     }
     
     console.log(`[getDiscoveredVariables] Fetched ${data?.length || 0} variables`);
-    if (data && data.length > 0) {
-      console.log('[getDiscoveredVariables] Sample variable:', data[0]);
-      console.log('[getDiscoveredVariables] Has UINT16?', 'UINT16' in data[0], data[0].UINT16);
-      console.log('[getDiscoveredVariables] Has winner?', data[0].winner);
-      console.log('[getDiscoveredVariables] Has scale?', data[0].scale);
-    }
     
     return (data || []) as DiscoveredVariable[];
   }, []);

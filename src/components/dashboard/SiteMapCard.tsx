@@ -1,17 +1,5 @@
-import { Badge } from '@/components/ui/badge';
 import { siteTypeConfig } from '@/pages/SitesManagement';
-import { SITE_TYPE_ICONS } from '@/components/icons/SiteTypeIcon';
 import { SiteDiscoveryStats } from '@/types/discovery';
-import {
-  MapPin,
-  Server,
-  Variable,
-  CheckCircle,
-  Clock,
-  FileArchive,
-  HelpCircle,
-  Activity,
-} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface SiteMapCardProps {
@@ -43,7 +31,6 @@ export const renderSiteMapCardHTML = (
   const typeConfig = site.site_type ? siteTypeConfig[site.site_type] : null;
   const confirmed = stats ? stats.variablesByState.confirmed + stats.variablesByState.published : 0;
   const total = stats?.totalVariables || 0;
-  const pct = total > 0 ? Math.round((confirmed / total) * 100) : 0;
   const lastActivity = stats?.lastActivity
     ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })
     : null;
@@ -190,8 +177,24 @@ export const renderSiteMapCardHTML = (
             <span>🕐</span><span>Last activity: ${lastActivity}</span>
           </div>
         ` : ''}
-        <div style="font-size: 10px; color: #2563eb; font-weight: 500; margin-top: 2px;">
-          Click to open →
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <div data-action="open" style="font-size: 11px; color: #2563eb; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Open
+          </div>
+          <div style="width: 1px; height: 12px; background: #e2e8f0;"></div>
+          <div data-action="streetview" style="font-size: 11px; color: #64748b; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 3px;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#64748b'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="3"/>
+              <path d="M12 8v8"/>
+              <path d="M5 21c0-4 3-7 7-7s7 3 7 7"/>
+            </svg>
+            Street View
+          </div>
         </div>
       </div>
     </div>

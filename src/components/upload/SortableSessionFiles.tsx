@@ -69,23 +69,23 @@ const SortableFileItem = ({ file, index, onDownload, onDelete, isDownloading, is
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-3",
-        isDragging && "shadow-lg border-2 border-purple-300 bg-purple-50 z-50"
+        "flex items-center justify-between p-3 bg-muted/50 rounded-lg gap-3",
+        isDragging && "shadow-lg border-2 border-purple-300 bg-purple-50 dark:bg-purple-950/30 z-50"
       )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200 rounded touch-none flex-shrink-0"
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-secondary rounded touch-none flex-shrink-0"
           title="Drag to reorder"
         >
-          <GripVertical className="h-4 w-4 text-slate-400" />
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>
         <span className="text-muted-foreground w-6 text-center font-medium text-xs flex-shrink-0">
           #{index + 1}
         </span>
-        <FileArchive className="h-4 w-4 text-slate-400 flex-shrink-0" />
+        <FileArchive className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-sm truncate" title={file.original_filename}>
             {file.original_filename}
@@ -96,10 +96,10 @@ const SortableFileItem = ({ file, index, onDownload, onDelete, isDownloading, is
               variant="secondary"
               className={
                 file.upload_status === 'completed' 
-                  ? 'bg-emerald-100 text-emerald-700' 
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' 
                   : file.upload_status === 'uploading'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-red-100 text-red-700'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
               }
             >
               {file.upload_status === 'completed' ? 'Completed' : 
@@ -134,7 +134,7 @@ const SortableFileItem = ({ file, index, onDownload, onDelete, isDownloading, is
               variant="ghost"
               size="sm"
               disabled={isDeleting}
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
               title="Delete file"
             >
               {isDeleting ? (

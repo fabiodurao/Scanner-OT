@@ -2,32 +2,34 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, CheckCircle, Info } from 'lucide-react';
+import { Loader2, Mail, CheckCircle, Info, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
   
-  // Login state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   
-  // Signup state
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [roleInCompany, setRoleInCompany] = useState('');
+
+  const logoSrc = theme === 'dark' ? '/logo-white.png' : '/logo-standard.png';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,21 +55,13 @@ const Login = () => {
       }
 
       if (data.user) {
-        console.log('Login successful, checking profile...');
-        
-        // Fetch profile directly
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('is_approved, is_admin')
           .eq('id', data.user.id)
           .single();
 
-        console.log('Profile result:', profile, profileError);
-
         if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          
-          // Profile doesn't exist - create it
           if (profileError.code === 'PGRST116') {
             const isAdmin = data.user.email === 'f.durao@cyberenergia.com';
             
@@ -81,14 +75,12 @@ const Login = () => {
             });
             
             if (createError) {
-              console.error('Error creating profile:', createError);
               toast.error('Error creating profile. Please try again.');
               await supabase.auth.signOut();
               setLoading(false);
               return;
             }
             
-            // Refresh the auth context
             await refreshProfile();
             
             if (isAdmin) {
@@ -108,7 +100,6 @@ const Login = () => {
           return;
         }
 
-        // Refresh the auth context
         await refreshProfile();
 
         if (!profile.is_approved) {
@@ -162,7 +153,6 @@ const Login = () => {
       });
 
       if (error) {
-        console.error('Signup error:', error);
         if (error.message.includes('already registered')) {
           toast.error('This email is already registered. Try logging in.');
         } else {
@@ -195,36 +185,50 @@ const Login = () => {
     }
   };
 
+  const ThemeToggleInline = () => (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+
   if (showEmailConfirmation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
+        <Card className="w-full max-w-md border-0 shadow-2xl relative">
+          <div className="absolute top-3 right-3">
+            <ThemeToggleInline />
+          </div>
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-blue-100 rounded-full">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full">
                 <Mail className="h-8 w-8 text-[#2563EB]" />
               </div>
             </div>
-            <CardTitle className="text-2xl">Confirm your email</CardTitle>
+            <h2 className="text-2xl font-semibold">Confirm your email</h2>
             <CardDescription>
               We sent a confirmation link to:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 rounded-lg p-4 text-center border border-blue-100">
-              <p className="font-medium text-[#1a2744]">{confirmationEmail}</p>
+            <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 text-center border border-blue-100 dark:border-blue-800">
+              <p className="font-medium text-foreground">{confirmationEmail}</p>
             </div>
             
-            <Alert className="border-blue-200 bg-blue-50">
+            <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
               <CheckCircle className="h-4 w-4 text-[#2563EB]" />
               <AlertDescription>
                 <strong>Step 1:</strong> Click the link sent to your email to confirm your account.
               </AlertDescription>
             </Alert>
 
-            <Alert className="border-amber-200 bg-amber-50">
+            <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
               <Info className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
                 <strong>Step 2:</strong> After confirming your email, an administrator will need to approve your access. 
                 Contact the system administrator to expedite the approval.
               </AlertDescription>
@@ -250,11 +254,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#0f172a] p-4">
-      <Card className="w-full max-w-md border-0 shadow-2xl">
+      <Card className="w-full max-w-md border-0 shadow-2xl relative">
+        <div className="absolute top-3 right-3 z-10">
+          <ThemeToggleInline />
+        </div>
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-6">
             <img
-              src="/logo-standard.png"
+              src={logoSrc}
               alt="Centrii"
               className="h-12 w-auto object-contain"
             />
@@ -387,9 +394,9 @@ const Login = () => {
                     className="h-11"
                   />
                 </div>
-                <Alert className="border-blue-200 bg-blue-50">
+                <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                   <Info className="h-4 w-4 text-[#2563EB]" />
-                  <AlertDescription className="text-[#1a2744] text-xs">
+                  <AlertDescription className="text-foreground text-xs">
                     After registration, you will receive a confirmation email. 
                     After confirming, an administrator will need to approve your access to the system.
                   </AlertDescription>

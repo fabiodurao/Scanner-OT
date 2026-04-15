@@ -28,7 +28,7 @@ interface SiteIconProps {
 export type SiteIconComponent = React.FC<SiteIconProps>;
 
 // Each wrapper just renders the Tabler icon with the primary color
-const makeIcon = (Icon: React.FC<{ size?: number; color?: string; className?: string }>): SiteIconComponent =>
+const makeIcon = (Icon: React.ComponentType<{ size?: number | string; color?: string; className?: string }>): SiteIconComponent =>
   ({ size = 16, primaryColor, className = '' }) => (
     <Icon size={size} color={primaryColor} className={className} />
   );

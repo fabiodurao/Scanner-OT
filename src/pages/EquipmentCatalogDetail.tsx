@@ -137,18 +137,18 @@ const EquipmentCatalogDetail = () => {
   return (
     <MainLayout>
       <div className="p-8 space-y-6">
-        <Link to="/equipment-catalog" className="inline-flex items-center text-sm text-muted-foreground hover:text-slate-900">
+        <Link to="/equipment-catalog" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4 mr-1" />Back to Equipment Catalog
         </Link>
 
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-blue-100">
+            <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/50">
               <BookOpen className="h-8 w-8 text-[#2563EB]" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-[#1a2744]">{catalog.manufacturer} / {catalog.model}</h1>
+              <h1 className="text-3xl font-bold text-foreground">{catalog.manufacturer} / {catalog.model}</h1>
               <div className="flex items-center gap-2 mt-1">
                 {protocol && (
                   <Badge variant="secondary" className="font-mono">
@@ -163,7 +163,7 @@ const EquipmentCatalogDetail = () => {
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="h-4 w-4 mr-2" />Edit Info
             </Button>
-            <Button variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteDialogOpen(true)}>
+            <Button variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => setDeleteDialogOpen(true)}>
               <Trash2 className="h-4 w-4 mr-2" />Delete
             </Button>
           </div>
