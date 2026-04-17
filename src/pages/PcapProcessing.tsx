@@ -351,7 +351,12 @@ const PcapProcessing = () => {
     const hasActive = !!group.activeJob;
     const allDone = completed === total;
     const hasErr = group.jobs.some(j => j.status === 'error');
-    
+
+    // All jobs in a batch share the same site/session - use the first one
+    const first = group.jobs[0];
+    const groupSessionLabel = first.session_name
+      || (first.session_created_at ? format(new Date(first.session_created_at), "MM/dd/yyyy 'at' HH:mm") : null);
+
     return (
       <div key={group.id} className={cn(
         "border rounded-lg overflow-hidden",
@@ -360,21 +365,33 @@ const PcapProcessing = () => {
         allDone && !hasErr && "border-emerald-200 dark:border-emerald-800",
         hasErr && "border-red-200 dark:border-red-800"
       )}>
-        <div 
+        <div
           className={cn(
             "p-3 cursor-pointer",
             hasActive && "bg-amber-100 dark:bg-amber-950/30 hover:bg-amber-150 dark:hover:bg-amber-950/40",
             !hasActive && pending > 0 && "bg-blue-100 dark:bg-blue-950/30 hover:bg-blue-150 dark:hover:bg-blue-950/40",
             allDone && !hasErr && "bg-emerald-100 dark:bg-emerald-950/30 hover:bg-emerald-150 dark:hover:bg-emerald-950/40",
             hasErr && "bg-red-100 dark:bg-red-950/30 hover:bg-red-150 dark:hover:bg-red-950/40"
-          )} 
+          )}
           onClick={() => toggleGroupExpanded(group.id)}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              <Layers className={cn("h-5 w-5", hasActive ? "text-amber-600" : "text-purple-600")} />
-              <div>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+              <Layers className={cn("h-5 w-5 flex-shrink-0", hasActive ? "text-amber-600" : "text-purple-600")} />
+              <div className="min-w-0 flex-1">
+                {(first.site_name || groupSessionLabel) && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5 min-w-0">
+                    {first.site_name && (
+                      <>
+                        <Building2 className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{first.site_name}</span>
+                      </>
+                    )}
+                    {first.site_name && groupSessionLabel && <ChevronRight className="h-3 w-3 flex-shrink-0 opacity-50" />}
+                    {groupSessionLabel && <span className="truncate">{groupSessionLabel}</span>}
+                  </div>
+                )}
                 <div className="font-medium text-sm flex items-center gap-2 text-foreground">
                   Batch
                   <Badge variant="outline" className="text-xs">{total} files</Badge>
