@@ -35,6 +35,10 @@ interface ProcessingJob {
   pcap_duration: number | null; pcap_packets: number | null; pcap_start_time: string | null; pcap_end_time: string | null;
   elapsed_seconds: number | null; total_duration: number | null; processing_time: number | null;
   sequence_group: string | null; sequence_order: number | null;
+  // Resolved joins (populated client-side)
+  site_name?: string | null;
+  session_name?: string | null;
+  session_created_at?: string | null;
 }
 interface JobGroup { id: string; isSequence: boolean; jobs: ProcessingJob[]; activeJob: ProcessingJob | null; pendingJobs: ProcessingJob[]; completedJobs: ProcessingJob[]; }
 
@@ -143,20 +147,75 @@ const PcapProcessing = () => {
       .order('display_order', { ascending: true }); 
     if (data) setSessionFiles(data); 
   };
-  const fetchJobs = useCallback(async () => { const { data } = await supabase.from('processing_jobs').select('*').order('created_at', { ascending: false }).limit(100); if (data) setJobs(data as ProcessingJob[]); setLoading(false); }, []);
+  const enrichJobsWithPaths = useCallback(async (rawJobs: ProcessingJob[]): Promise<ProcessingJob[]> => {
+    if (rawJobs.length === 0) return rawJobs;
+
+    const siteIds = [...new Set(rawJobs.map(j => j.site_id).filter(Boolean))];
+    const pcapFileIds = [...new Set(rawJobs.map(j => j.pcap_file_id).filter(Boolean))];
+
+    const [sitesRes, filesRes] = await Promise.all([
+      siteIds.length > 0
+        ? supabase.from('sites').select('id, name').in('id', siteIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      pcapFileIds.length > 0
+        ? supabase.from('pcap_files').select('id, session_id').in('id', pcapFileIds)
+        : Promise.resolve({ data: [] as { id: string; session_id: string }[] }),
+    ]);
+
+    const siteMap = new Map((sitesRes.data || []).map(s => [s.id, s.name]));
+    const fileToSession = new Map((filesRes.data || []).map(f => [f.id, f.session_id]));
+
+    const sessionIds = [...new Set([...fileToSession.values()].filter(Boolean))];
+    const sessionsRes = sessionIds.length > 0
+      ? await supabase.from('upload_sessions').select('id, name, created_at').in('id', sessionIds)
+      : { data: [] as { id: string; name: string | null; created_at: string }[] };
+
+    const sessionMap = new Map((sessionsRes.data || []).map(s => [s.id, s]));
+
+    return rawJobs.map(job => {
+      const sessionId = fileToSession.get(job.pcap_file_id);
+      const session = sessionId ? sessionMap.get(sessionId) : undefined;
+      return {
+        ...job,
+        site_name: siteMap.get(job.site_id) ?? null,
+        session_name: session?.name ?? null,
+        session_created_at: session?.created_at ?? null,
+      };
+    });
+  }, []);
+
+  const fetchJobs = useCallback(async () => {
+    const { data } = await supabase.from('processing_jobs').select('*').order('created_at', { ascending: false }).limit(100);
+    if (data) {
+      const enriched = await enrichJobsWithPaths(data as ProcessingJob[]);
+      setJobs(enriched);
+    }
+    setLoading(false);
+  }, [enrichJobsWithPaths]);
 
   useEffect(() => { fetchSites(); fetchJobs(); }, [fetchJobs]);
   useEffect(() => { if (selectedSiteId) { fetchSessions(selectedSiteId); setSelectedSessionId(null); setSessionFiles([]); } }, [selectedSiteId]);
   useEffect(() => { if (selectedSessionId) fetchSessionFiles(selectedSessionId); }, [selectedSessionId]);
 
   useEffect(() => {
-    const channel = supabase.channel('processing_jobs_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'processing_jobs' }, (payload) => {
-      if (payload.eventType === 'INSERT') setJobs(prev => [payload.new as ProcessingJob, ...prev]);
-      else if (payload.eventType === 'UPDATE') { setJobs(prev => prev.map(job => job.id === payload.new.id ? payload.new as ProcessingJob : job)); if (detailJob?.id === payload.new.id) setDetailJob(payload.new as ProcessingJob); }
-      else if (payload.eventType === 'DELETE') setJobs(prev => prev.filter(job => job.id !== payload.old.id));
+    const channel = supabase.channel('processing_jobs_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'processing_jobs' }, async (payload) => {
+      if (payload.eventType === 'INSERT') {
+        const [enriched] = await enrichJobsWithPaths([payload.new as ProcessingJob]);
+        setJobs(prev => [enriched, ...prev]);
+      } else if (payload.eventType === 'UPDATE') {
+        setJobs(prev => prev.map(job => job.id === payload.new.id
+          ? { ...(payload.new as ProcessingJob), site_name: job.site_name, session_name: job.session_name, session_created_at: job.session_created_at }
+          : job
+        ));
+        if (detailJob?.id === payload.new.id) {
+          setDetailJob(prev => prev ? { ...(payload.new as ProcessingJob), site_name: prev.site_name, session_name: prev.session_name, session_created_at: prev.session_created_at } : null);
+        }
+      } else if (payload.eventType === 'DELETE') {
+        setJobs(prev => prev.filter(job => job.id !== payload.old.id));
+      }
     }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [detailJob?.id]);
+  }, [detailJob?.id, enrichJobsWithPaths]);
 
   const handleOpenJobDialog = (file: PcapFile) => { setSelectedFile(file); setWebhookUrl(settings.n8n_webhook_url || ''); setIntervalBatch(settings.mbsniffer_interval_batch?.toString() || '60'); setIntervalMin(settings.mbsniffer_interval_min?.toString() || '5'); setDialogOpen(true); };
   const handleOpenBatchDialog = () => { 
@@ -196,12 +255,26 @@ const PcapProcessing = () => {
     const StatusIcon = status.icon;
     const isActive = isActiveStatus(job.status);
     const isRunning = isRunningStatus(job.status);
+    const sessionLabel = job.session_name
+      || (job.session_created_at ? format(new Date(job.session_created_at), "MM/dd/yyyy 'at' HH:mm") : null);
     return (
       <div key={job.id} className="p-3 rounded-lg border bg-card shadow-sm border-border">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <FileArchive className={cn("h-4 w-4", isRunning ? "text-amber-600" : "text-muted-foreground")} />
+            <FileArchive className={cn("h-4 w-4 flex-shrink-0", isRunning ? "text-amber-600" : "text-muted-foreground")} />
             <div className="min-w-0 flex-1">
+              {(job.site_name || sessionLabel) && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5 min-w-0">
+                  {job.site_name && (
+                    <>
+                      <Building2 className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{job.site_name}</span>
+                    </>
+                  )}
+                  {job.site_name && sessionLabel && <ChevronRight className="h-3 w-3 flex-shrink-0 opacity-50" />}
+                  {sessionLabel && <span className="truncate">{sessionLabel}</span>}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <span className={cn("font-medium truncate text-sm", isRunning && "text-amber-600 dark:text-amber-400")}>{job.pcap_filename}</span>
                 {showSeq && job.sequence_order && <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">#{job.sequence_order}</Badge>}
@@ -692,7 +765,26 @@ const PcapProcessing = () => {
           <DialogContent className="max-w-3xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Details</DialogTitle>
-              <DialogDescription>{detailJob?.pcap_filename}</DialogDescription>
+              <DialogDescription>
+                {detailJob && (
+                  <span className="flex items-center gap-1 flex-wrap text-xs">
+                    {detailJob.site_name && (
+                      <>
+                        <Building2 className="h-3 w-3" />
+                        <span>{detailJob.site_name}</span>
+                        <ChevronRight className="h-3 w-3 opacity-50" />
+                      </>
+                    )}
+                    {(detailJob.session_name || detailJob.session_created_at) && (
+                      <>
+                        <span>{detailJob.session_name || format(new Date(detailJob.session_created_at!), "MM/dd/yyyy 'at' HH:mm")}</span>
+                        <ChevronRight className="h-3 w-3 opacity-50" />
+                      </>
+                    )}
+                    <span className="font-medium text-foreground">{detailJob.pcap_filename}</span>
+                  </span>
+                )}
+              </DialogDescription>
             </DialogHeader>
             {detailJob && (
               <div className="space-y-4">
